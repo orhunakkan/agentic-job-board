@@ -86,12 +86,12 @@ The pyramid runs from many fast, isolated tests at the bottom to a few slow, bro
 
 ## 6. Environments
 
-| Environment                                                    | Used for                                                      | Notes                                                   |
-| -------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------- |
-| Owner's machine (Windows 11, Node 24, Git Bash and PowerShell) | All levels                                                    | The reference environment (NFR-10)                      |
-| GitHub Actions (`.github/workflows/ci.yml`)                    | Static + unit → all Vitest projects with coverage → E2E/smoke | Perf runs on manual dispatch only                       |
-| Browsers                                                       | Chromium, Firefox, WebKit, Pixel 7 emulation                  | Installed with `npx playwright install`                 |
-| k6                                                             | Load tests                                                    | Installed with `winget install k6` (not an npm package) |
+| Environment                                                    | Used for                                                             | Notes                                                                                   |
+| -------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Owner's machine (Windows 11, Node 24, Git Bash and PowerShell) | All levels                                                           | The reference environment (NFR-10)                                                      |
+| GitHub Actions (`.github/workflows/ci.yml`)                    | Static + unit → all Vitest projects with coverage → E2E/smoke → perf | On the owner's Linux Mint laptop (self-hosted runner) when `CI_RUNNER` is set (DEC-039) |
+| Browsers                                                       | Chromium, Firefox, WebKit, Pixel 7 emulation                         | Installed with `npx playwright install`                                                 |
+| k6                                                             | Load tests                                                           | Installed with `winget install k6` (not an npm package)                                 |
 
 ## 7. Entry and exit criteria
 

@@ -1,7 +1,7 @@
 # CI for the Agentic Job Board (PLAN.md Phase 7 task 4), staged fast to slow:
 #   static (typecheck, lint, format, audit, unit) → vitest (every Vitest project with coverage thresholds:
-#   integration, API, contract, security, DEC-021) → browsers (Playwright E2E on 4 projects, then smoke).
-# The k6 load test runs only when started by hand (Actions → CI → Run workflow → perf).
+#   integration, API, contract, security, DEC-021) → browsers (Playwright E2E on 4 projects, then smoke)
+#   → perf (k6 load test against 5,000 seeded jobs, DEC-040).
 # Jobs run on the owner's self-hosted runner when the repository variable CI_RUNNER names its label (DEC-039),
 # otherwise on GitHub's ubuntu-26.04, pinned rather than ubuntu-latest so an image migration never changes CI unannounced.
 # Pull requests from forks always go to GitHub's runners, so code from outside never runs on the owner's laptop.
@@ -12,11 +12,6 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-    inputs:
-      perf:
-        description: Run the k6 load test against 5,000 seeded jobs
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -98,9 +93,9 @@ jobs:
           retention-days: 14
 
   perf:
-    name: Load test (k6, manual only)
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.perf }}
-    needs: static
+    name: Load test (k6)
+    # Last, so a functional failure is reported before the two minutes the load test takes.
+    needs: browsers
     runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
     timeout-minutes: 15
     env:
