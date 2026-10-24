@@ -2,6 +2,7 @@
 #   static (typecheck, lint, format, audit, unit) → vitest (every Vitest project with coverage thresholds:
 #   integration, API, contract, security, DEC-021) → browsers (Playwright E2E on 4 projects, then smoke).
 # The k6 load test runs only when started by hand (Actions → CI → Run workflow → perf).
+# Runners are pinned to ubuntu-26.04 rather than ubuntu-latest, so an image migration never changes CI unannounced.
 name: CI
 
 on:
@@ -28,11 +29,11 @@ env:
 jobs:
   static:
     name: Static checks and unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -46,11 +47,11 @@ jobs:
   vitest:
     name: Integration, API, contract and security tests (with coverage)
     needs: static
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -59,7 +60,7 @@ jobs:
       - run: npm run test:coverage
       - name: Upload the coverage report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage/
@@ -68,7 +69,7 @@ jobs:
   browsers:
     name: E2E, accessibility and smoke (Playwright)
     needs: vitest
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     # Browsers and their system libraries come preinstalled, so no slow apt mirror can stall the job (DEF-014).
     # The tag must equal the installed @playwright/test version (tests/unit/toolchain.test.ts checks it).
@@ -77,8 +78,8 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --user 1001
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -87,7 +88,7 @@ jobs:
       - run: npm run test:smoke
       - name: Upload the Playwright report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
@@ -97,15 +98,15 @@ jobs:
     name: Load test (k6, manual only)
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.perf }}
     needs: static
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     env:
       PORT: '3000'
       DB_PATH: perf/perf.db
       LOG_LEVEL: warn
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
