@@ -38,7 +38,7 @@ Errors always look like this:
 | `not_found`              | 404    | No such path, job or run                                                       |
 | `method_not_allowed`     | 405    | See the `Allow` header                                                         |
 | `invalid_transition`     | 409    | Not allowed by PLAN.md §5.4; `details` is `{ from, to }`                       |
-| `run_finished`           | 409    | Emails, scores or finish sent to a run that is already finished                |
+| `run_finished`           | 409    | Emails, listings, scores or finish sent to a run that is already finished      |
 | `payload_too_large`      | 413    | Body over 1 MB                                                                 |
 | `unsupported_media_type` | 415    | Missing or wrong `Content-Type`                                                |
 | `misdirected_request`    | 421    | Wrong `Host` header (DNS-rebinding guard)                                      |
@@ -51,11 +51,11 @@ Timestamps are ISO-8601 in UTC, for example `2026-10-23T12:00:00.000Z`.
 
 ### Shared shapes
 
-**JobSummary**: `id`, `linkedinJobId`, `title`, `company`, `location` (`""` if the email had none), `url` (always `https://www.linkedin.com/jobs/view/<id>/`, never with tracking parameters), `activelyHiring`, `easyApply`, `status`, `statusChangedAt`, `score` (0–100 or `null`), `scoreLabel` (`strong` / `possible` / `weak` or `null`), `scoreReason`, `firstSeenAt`, `lastSeenAt`, `seenCount`.
+**JobSummary**: `id`, `source` (`linkedin`, or the feed: `greenhouse`, `lever`, `ashby`, `smartrecruiters`, `workable`, `remoteok`, `himalayas`, `jobicy`, `hackernews`, `adzuna`), `sourceJobId` (unique within its source, DEC-037), `title`, `company`, `location` (`""` if the source had none), `url` (for LinkedIn always `https://www.linkedin.com/jobs/view/<id>/`, never with tracking parameters; for a feed its own https link), `activelyHiring`, `easyApply`, `postedAt` and `salary` (`null` unless a feed gives them), `status`, `statusChangedAt`, `score` (0–100 or `null`), `scoreLabel` (`strong` / `possible` / `weak` or `null`), `scoreReason`, `firstSeenAt`, `lastSeenAt`, `seenCount`.
 
-**JobDetail**: a JobSummary plus `notes`, `rubricVersion`, `scoredAt`, `sightings` (`[{ gmailMessageId, savedSearch, receivedAt }]`, oldest first) and `history` (`[{ fromStatus, toStatus, changedAt }]`, oldest first; the first entry is `null → new`).
+**JobDetail**: a JobSummary plus `notes`, `description` (plain text from a feed, or `null`), `rubricVersion`, `scoredAt`, `sightings` (`[{ gmailMessageId, savedSearch, receivedAt }]`, oldest first), `listingSightings` (`[{ runId, seenAt }]`, one per run a feed listed the job in) and `history` (`[{ fromStatus, toStatus, changedAt }]`, oldest first; the first entry is `null → new`).
 
-**RunSummary**: `id`, `startedAt`, `finishedAt`, the counters `emailsSeen`, `emailsNew`, `emailsDuplicate`, `emailsUnrecognized`, `jobsNew`, `jobsSeenAgain`, `jobsScored`, and `topNewJobs`: up to 5 JobSummaries first found in this run, best score first.
+**RunSummary**: `id`, `startedAt`, `finishedAt`, the counters `emailsSeen`, `emailsNew`, `emailsDuplicate`, `emailsUnrecognized`, `listingsSeen`, `jobsNew`, `jobsSeenAgain`, `jobsScored`, and `topNewJobs`: up to 5 JobSummaries first found in this run, best score first.
 
 ## Health and profile
 
@@ -139,6 +139,29 @@ curl -s -X POST http://127.0.0.1:3000/api/runs/1/emails \
 # 404 for an unknown run, 409 run_finished for a finished one
 ```
 
+### `POST /api/runs/:id/listings`
+
+Jobs from the free public feeds (FR-15, DEC-035), sent by `scripts/fetch-sources.ts`; the app itself never reads a feed (NFR-03). Up to 25 listings per call. Each is stored in its own transaction: a new `source` + `sourceJobId` is a new job, one stored by an earlier run is `seenAgain` and refreshes its details, and one this run already received is `repeated` and changes nothing (FR-16).
+
+| Field         | Rules                                                                   |
+| ------------- | ----------------------------------------------------------------------- |
+| `source`      | One of the feeds above; never `linkedin`                                |
+| `sourceJobId` | 1–200 characters, one line                                              |
+| `title`       | 1–300 characters, one line                                              |
+| `company`     | 1–200 characters, one line                                              |
+| `location`    | Up to 300 characters, one line; `""` when the feed has none             |
+| `url`         | An absolute `https` link without a user name or password, ≤ 2,000 chars |
+| `postedAt`    | ISO-8601 or `null`                                                      |
+| `salary`      | 1–200 characters, one line, or `null`                                   |
+| `description` | Plain text, 1–10,000 characters, or `null`                              |
+
+```bash
+curl -s -X POST http://127.0.0.1:3000/api/runs/1/listings -H "Content-Type: application/json" \
+  -d '{"listings":[{"source":"greenhouse","sourceJobId":"5550001","title":"Senior SDET","company":"Example Labs","location":"Remote, United States","url":"https://job-boards.greenhouse.io/examplelabs/jobs/5550001","postedAt":"2026-10-20T13:00:00Z","salary":"$150K – $180K","description":"Own the test platform."}]}'
+# 200 {"received":1,"new":1,"seenAgain":0,"repeated":0,"newJobs":[JobSummary]}
+# 400 validation_failed, 404 for an unknown run, 409 run_finished for a finished one
+```
+
 ### `POST /api/runs/:id/scores`
 
 Up to 50 scores per call, each job at most once. The label must match the score band (`strong` ≥ 75, `possible` 50–74, `weak` < 50) and the reason is 1–200 characters. All or nothing: one unknown job ID and no score is stored.
@@ -171,6 +194,7 @@ curl -s "http://127.0.0.1:3000/api/runs?limit=5"
 
 | Query      | Values                                                               | Default                             |
 | ---------- | -------------------------------------------------------------------- | ----------------------------------- |
+| `origin`   | `linkedin` (alert emails) or `other` (the public feeds) (FR-17)      | every source                        |
 | `tab`      | `new`, `saved`, `in-progress`, `closed`, `dismissed` (§5.5)          | every status                        |
 | `minScore` | 0–100; unscored jobs are left out                                    | none                                |
 | `q`        | text in the title or company, ignoring case; `%` and `_` are literal | none                                |
@@ -210,12 +234,12 @@ curl -s -X PATCH http://127.0.0.1:3000/api/jobs/1 -H "Content-Type: application/
 
 The board is server-rendered HTML with no client-side JavaScript (PLAN.md §6.2, DEC-006). The same Host, cross-site and size rules apply. Page forms post `application/x-www-form-urlencoded` (anything else is a 415), then redirect with `303 See Other`. Errors outside `/api/` are HTML pages with the same status codes, never JSON.
 
-| Route                   | What it does                                                                                                                                                                                                                                                |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /`                 | The board. Query: `tab` (`new` default, `saved`, `in-progress`, `closed`, `dismissed`), `minScore` (0–100), `q` (title or company), `sort` (`score`, `recent`, `changed`), `page` (50 jobs per page). Empty values mean "not set"; unknown keys are ignored |
-| `GET /jobs/:id`         | Job detail: score and reason, status form (only allowed next statuses), notes, history, sightings, the LinkedIn link                                                                                                                                        |
-| `POST /jobs/:id/status` | Form fields `status` and optional `return` (a path on this site; anything else falls back to the job page). 303 back with `changed=<id>`, which shows a notice. 409 page for a transition §5.4 doesn't allow                                                |
-| `POST /jobs/:id/notes`  | Form field `notes` (up to 5,000 characters; CRLF is stored as LF). 303 to `/jobs/:id?notes=saved`                                                                                                                                                           |
-| `GET /runs`             | Every run with its counters, and the unrecognized emails with the parser's reason (FR-11, FR-12)                                                                                                                                                            |
-| `GET /profile`          | The profile, read-only (FR-01)                                                                                                                                                                                                                              |
-| `GET /static/<file>`    | `app.css` and `favicon.svg` only; every other name is a 404                                                                                                                                                                                                 |
+| Route                   | What it does                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /`                 | The board. Query: `origin` (`linkedin` default, or `other` for the public feeds; each has its own tab counts), `tab` (`new` default, `saved`, `in-progress`, `closed`, `dismissed`), `minScore` (0–100), `q` (title or company), `sort` (`score`, `recent`, `changed`), `page` (50 jobs per page). Empty values mean "not set"; unknown keys are ignored |
+| `GET /jobs/:id`         | Job detail: score and reason, status form (only allowed next statuses), notes, history, sightings, the link to the job on its source; for a feed's job also its description, salary and posted date                                                                                                                                                      |
+| `POST /jobs/:id/status` | Form fields `status` and optional `return` (a path on this site; anything else falls back to the job page). 303 back with `changed=<id>`, which shows a notice. 409 page for a transition §5.4 doesn't allow                                                                                                                                             |
+| `POST /jobs/:id/notes`  | Form field `notes` (up to 5,000 characters; CRLF is stored as LF). 303 to `/jobs/:id?notes=saved`                                                                                                                                                                                                                                                        |
+| `GET /runs`             | Every run with its counters, and the unrecognized emails with the parser's reason (FR-11, FR-12)                                                                                                                                                                                                                                                         |
+| `GET /profile`          | The profile, read-only (FR-01)                                                                                                                                                                                                                                                                                                                           |
+| `GET /static/<file>`    | `app.css` and `favicon.svg` only; every other name is a 404                                                                                                                                                                                                                                                                                              |

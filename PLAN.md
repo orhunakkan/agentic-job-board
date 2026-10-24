@@ -371,10 +371,11 @@ Request bodies must be `Content-Type: application/json` (otherwise 415) and ≤ 
 | `GET /api/ingest/state` | Where to resume | — | `200 { lastEmailReceivedAt: string \| null }` |
 | `POST /api/runs` | Start a run | `{}` | `201 { runId }` |
 | `POST /api/runs/:id/emails` | Ingest emails | `{ emails: [{ gmailMessageId, receivedAt, sender, subject, plainText }] }` (≤ 50 per call) | `200 { results: [{ gmailMessageId, outcome: "new"\|"duplicate"\|"unrecognized", jobsFound }], newJobs: JobSummary[] }` |
+| `POST /api/runs/:id/listings` | Ingest listings from the public feeds (Phase 10) | `{ listings: [{ source, sourceJobId, title, company, location, url, postedAt, salary, description }] }` (≤ 25 per call) | `200 { received, new, seenAgain, repeated, newJobs: JobSummary[] }` |
 | `POST /api/runs/:id/scores` | Store scores | `{ rubricVersion, scores: [{ jobId, score, label, reason }] }` | `200 { stored }` |
 | `POST /api/runs/:id/finish` | Close the run | `{}` | `200 RunSummary` (incl. top 5 new jobs by score) |
 | `GET /api/runs?limit=20` | Run history | — | `200 RunSummary[]` |
-| `GET /api/jobs` | List | query: `tab`, `minScore`, `q`, `sort=score\|recent`, `unscored=true`, `limit≤100`, `offset` | `200 { items: JobSummary[], total }` |
+| `GET /api/jobs` | List | query: `origin=linkedin\|other` (Phase 10), `tab`, `minScore`, `q`, `sort=score\|recent`, `unscored=true`, `limit≤100`, `offset` | `200 { items: JobSummary[], total }` |
 | `GET /api/jobs/:id` | Detail | — | `200 JobDetail` (with sightings + history) / `404` |
 | `PATCH /api/jobs/:id` | Update | `{ status?, notes? }` | `200 JobDetail` / `409 invalid_transition` |
 
@@ -442,6 +443,7 @@ Score badge colors carry meaning only together with the label text (accessibilit
   2. `GET /api/ingest/state` → build the Gmail query: `from:(jobalerts-noreply@linkedin.com OR jobs-noreply@linkedin.com) after:YYYY/MM/DD` (on the first run: `newer_than:14d`). Gmail dates have day resolution; overlap is fine because ingest is idempotent.
   3. Page through `search_threads` (pageSize 50). For each thread: `get_thread` with `messageFormat: PLAIN_TEXT`.
   4. `POST /api/runs`, then send emails in batches of ≤ 50 to `/api/runs/:id/emails`. Write each payload to a temp file and use `curl --data-binary @file`; never paste JSON inline.
+  5b. `node scripts/fetch-sources.ts --run <id>` sends the matching jobs from the free feeds to the same run (Phase 10, DEC-038).
   5. `GET /api/profile`, then score every job in `newJobs` (plus `GET /api/jobs?unscored=true` as a backlog) using `agent/scoring-rubric.md`. `POST` the scores in batches of ≤ 50.
   6. `POST /api/runs/:id/finish` → print the summary (FR-13).
 - **Safety rules inside the prompt:**
@@ -515,7 +517,7 @@ Score badge colors carry meaning only together with the label text (accessibilit
 
 | Area | Line coverage |
 |---|---|
-| `src/domain`, `src/ingest` | ≥ 95 % |
+| `src/domain`, `src/ingest`, `src/sources` (Phase 10) | ≥ 95 % |
 | Whole `src` | ≥ 85 % |
 
 Thresholds are enforced in `vitest.config.ts`. They may only go up.
@@ -864,7 +866,7 @@ Tasks:
 6. `scripts/fetch-sources.ts` (FR-15): plans the requests, fetches them one at a time with a timeout, parses, filters and removes duplicates, then sends the listings to the app. `--run <id>` adds them to an open run (used by `/find-jobs`); without it the script starts and finishes its own run. `--dry-run` sends nothing. `sources.example.json` is the committed starting point.
 7. Board (FR-17, DEC-036): a **LinkedIn | Other sources** switch above the status tabs (`?origin=linkedin|other`, LinkedIn by default), counts per view, the source on each card, "Open on <source>" links. The detail page shows the source, its job ID, salary, posted date, the description and listing sightings. `/runs` gets a Listings column. `GET /api/jobs` takes `origin`.
 8. `/find-jobs` (DEC-038): after the emails, it runs `node scripts/fetch-sources.ts --run <id>`. Scoring is unchanged: every unscored job, from any source, is scored with rubric `triage-v1` on its title, company, location and salary. The agent never reads descriptions.
-9. Tests at every level: unit tests for the domain, filter, HTML-to-text and each parser (fixtures trimmed from real public responses), integration tests for the migration, repositories, listing ingest and the script (with a fake fetch against a real app), API and contract tests for the new endpoint and fields, security tests (links, escaping, no network in `src/`, the command's allowed tools), E2E and axe on both views and an other-source detail page. Existing tests updated to the new fields.
+9. Tests at every level: unit tests for the domain, filter, HTML-to-text and each parser (answers shaped like the live ones, checked 2026-10-24, with made-up companies), integration tests for the migration, repositories, listing ingest and the script (with a fake fetch against a real app), API and contract tests for the new endpoint and fields, security tests (links, escaping, no network in `src/`, the command's allowed tools), E2E and axe on both views and an other-source detail page. Existing tests updated to the new fields.
 
 **🛑 CP-10. The owner checks:**
 - [ ] `node scripts/fetch-sources.ts --dry-run` lists matching jobs from the free feeds without writing anything

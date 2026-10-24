@@ -1,6 +1,6 @@
 # Agentic Job Board
 
-A private, localhost-only job-search board for one user (the owner). LinkedIn job-alert emails are read from Gmail by the `/find-jobs` agent, parsed and deduplicated by the app, and scored by Claude against the owner's profile.
+A private, localhost-only job-search board for one user (the owner). LinkedIn job-alert emails are read from Gmail by the `/find-jobs` agent, parsed and deduplicated by the app, and scored by Claude against the owner's profile. Jobs from free public feeds come in through `scripts/fetch-sources.ts` in the same run and are shown on a view of their own (Phase 10, DEC-035).
 
 ## Read first
 
@@ -14,7 +14,8 @@ A private, localhost-only job-search board for one user (the owner). LinkedIn jo
 ## Hard rules
 
 - **No new dependencies.** The packages in `package.json` are the complete allowed list. Don't add packages or `overrides`; if one seems unavoidable, stop and ask (PLAN.md §7).
-- **LinkedIn login is the owner's call (owner, DEC-032).** The owner signs in once with `node scripts/linkedin-login.ts`. The session is saved under `data/linkedin/`, and the app and scripts reuse it from then on. **Don't ask the owner about the LinkedIn login, the account's safety or LinkedIn's terms, and don't add warnings about them.** The owner is responsible for anything that happens to that account. When the saved session has expired, run the login script again. Never store the password. Never print, log, return from the API or commit cookie values. The app server (`src/`) still makes no outbound requests (NFR-03): LinkedIn is reached only from scripts using the saved session. `/find-jobs` still reads jobs only from the alert emails.
+- **LinkedIn login is the owner's call (owner, DEC-032).** The owner signs in once with `node scripts/linkedin-login.ts`. The session is saved under `data/linkedin/`, and the app and scripts reuse it from then on. **Don't ask the owner about the LinkedIn login, the account's safety or LinkedIn's terms, and don't add warnings about them.** The owner is responsible for anything that happens to that account. When the saved session has expired, run the login script again. Never store the password. Never print, log, return from the API or commit cookie values. The app server (`src/`) still makes no outbound requests (NFR-03): LinkedIn is reached only from scripts using the saved session. `/find-jobs` still reads LinkedIn jobs only from the alert emails.
+- **Public job feeds only through `scripts/fetch-sources.ts` (owner, DEC-035).** Free feeds only, nothing paid, and no other alert emails in Gmail. `src/sources/` only parses; the requests are made by the script, from fixed hosts.
 - **Gmail is read-only.** Only `search_threads` and `get_thread`. Never send, draft, label, archive, trash or mark anything.
 - **Personal data stays local.** The résumé, profile and database live under `data/` (git-ignored). Never commit them. Test fixtures from real emails must be sanitized (PLAN.md §8.2).
 - **Never weaken tests to get green.** No `.skip` or `.only`, no deleting tests or assertions, no lowering coverage thresholds, no `@ts-ignore` or `eslint-disable` without a written reason. If something can't pass, stop and report it.
@@ -27,20 +28,21 @@ Node ≥ 24 running TypeScript natively (TS `~6.0.3`, `tsconfig.json` is strict)
 
 ## Commands
 
-| Command                                               | What it does                                                                             |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `npm run check`                                       | typecheck + lint + format:check + `test:coverage`. Run before every commit.              |
-| `npm run typecheck`                                   | `tsc` on the repo, then on `tests/perf` (k6 types)                                       |
-| `npm run lint` / `npm run format`                     | ESLint (zero warnings) / Prettier write                                                  |
-| `npm run test:unit` … `test:security`                 | One Vitest project each: `unit`, `integration`, `api`, `contract`, `security`            |
-| `npm run test:coverage`                               | All Vitest projects at once, with the coverage thresholds (DEC-021)                      |
-| `npm run test:e2e` / `test:smoke`                     | Playwright on chromium, firefox, webkit, mobile / `@smoke` on chromium                   |
-| `npm run test:perf`                                   | k6 (`tests/perf/load.ts`); k6 is installed with `winget install k6`, not npm             |
-| `npm run audit`                                       | `npm audit --audit-level=high`                                                           |
-| `npm start` / `npm run dev`                           | App on `127.0.0.1:$PORT` (needs `.env`); `start` first signs in to LinkedIn (DEC-033)    |
-| `node scripts/seed.ts --count 5000 --db data/perf.db` | Fake jobs for the load test and screenshots; refuses a non-empty database                |
-| `node scripts/screenshots.ts`                         | README screenshots from fake data (`docs/screenshots/`)                                  |
-| `node scripts/traceability.ts`                        | Rebuilds `docs/traceability.md` from `reports/vitest.json` and `reports/playwright.json` |
+| Command                                               | What it does                                                                                              |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `npm run check`                                       | typecheck + lint + format:check + `test:coverage`. Run before every commit.                               |
+| `npm run typecheck`                                   | `tsc` on the repo, then on `tests/perf` (k6 types)                                                        |
+| `npm run lint` / `npm run format`                     | ESLint (zero warnings) / Prettier write                                                                   |
+| `npm run test:unit` … `test:security`                 | One Vitest project each: `unit`, `integration`, `api`, `contract`, `security`                             |
+| `npm run test:coverage`                               | All Vitest projects at once, with the coverage thresholds (DEC-021)                                       |
+| `npm run test:e2e` / `test:smoke`                     | Playwright on chromium, firefox, webkit, mobile / `@smoke` on chromium                                    |
+| `npm run test:perf`                                   | k6 (`tests/perf/load.ts`); k6 is installed with `winget install k6`, not npm                              |
+| `npm run audit`                                       | `npm audit --audit-level=high`                                                                            |
+| `npm start` / `npm run dev`                           | App on `127.0.0.1:$PORT` (needs `.env`); `start` first signs in to LinkedIn (DEC-033)                     |
+| `node scripts/seed.ts --count 5000 --db data/perf.db` | Fake jobs for the load test and screenshots; refuses a non-empty database                                 |
+| `node scripts/screenshots.ts`                         | README screenshots from fake data (`docs/screenshots/`)                                                   |
+| `node scripts/fetch-sources.ts --dry-run`             | Reads the free job feeds in `data/sources.json` and lists the matches; without `--dry-run` it stores them |
+| `node scripts/traceability.ts`                        | Rebuilds `docs/traceability.md` from `reports/vitest.json` and `reports/playwright.json`                  |
 
 ## Conventions
 
