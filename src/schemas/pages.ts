@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TABS } from '../domain/board-tabs.ts';
+import { ORIGINS } from '../domain/job-source.ts';
 import { STATUSES } from '../domain/status.ts';
 import { IdParamSchema, intString } from './api.ts';
 
@@ -10,6 +11,7 @@ import { IdParamSchema, intString } from './api.ts';
 export const BOARD_SORTS = ['score', 'recent', 'changed'] as const;
 
 export const BoardQuerySchema = z.object({
+  origin: z.enum(ORIGINS).default('linkedin'),
   tab: z.enum(TABS).default('new'),
   minScore: intString(0, 100).optional(),
   q: z.string().trim().max(200).optional(),

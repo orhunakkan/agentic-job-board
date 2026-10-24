@@ -4,6 +4,8 @@
 
 The `/find-jobs` agent ([`find-jobs.md`](find-jobs.md)) scores every unscored job from 0 to 100 against the owner's profile (`GET /api/profile`). It sees only what the alert email shows: title, company, location and two flags (actively hiring, Easy Apply). There is no description, salary or remote flag, so this is a **triage** score: how likely the job is worth opening, not a full match (PLAN.md §1.4, FR-06).
 
+Jobs from the other sources (DEC-035) are scored with the same factors on their title, company and location, so scores on both board views compare (DEC-038). Their location is often written `Remote (United States)` or `Remote · USA`: that is remote US. The agent never reads their descriptions.
+
 ## How to score
 
 Add the four factors, then apply the cap. Use whole numbers.
@@ -18,7 +20,7 @@ Add the four factors, then apply the cap. Use whole numbers.
 
 Today's deal-breakers (from the profile; always re-read it, it can change): manual-only testing roles; hardware, embedded or device testing; junior or intern roles; requires an active security clearance (a title with "Clearance", "TS/SCI", "Secret" or "Polygraph").
 
-The flags never change the score: "actively hiring" and Easy Apply are shown on the board on their own.
+The flags and the salary never change the score: "actively hiring", Easy Apply and a feed's salary are shown on the board on their own.
 
 ## Label and reason
 

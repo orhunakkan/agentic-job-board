@@ -8,6 +8,7 @@ import { createRepositories } from '../../src/db/repositories/index.ts';
 import { createRouter } from '../../src/http/router.ts';
 import { parseAlertEmail } from '../../src/ingest/linkedin-email-parser.ts';
 import * as api from '../../src/schemas/api.ts';
+import { FetchSourcesSummarySchema } from '../../src/sources/fetch-summary.ts';
 import { curlCalls, labeledBlocks, readRepoFile } from '../helpers/markdown.ts';
 
 // The agent↔app contract (PLAN.md Phase 5 task 4, FR-02, FR-06): every example payload in agent/find-jobs.md
@@ -24,6 +25,7 @@ const SCHEMAS: Readonly<Record<string, z.ZodType>> = {
   ScoresResponseSchema: api.ScoresResponseSchema,
   EmptyRequestSchema: api.EmptyRequestSchema,
   RunSummarySchema: api.RunSummarySchema,
+  FetchSourcesSummarySchema,
 };
 
 function example(label: string): unknown {

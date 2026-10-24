@@ -36,6 +36,13 @@ export const REQUIREMENTS: readonly Requirement[] = [
     title: 'LinkedIn login',
     also: 'Signing in with node scripts/linkedin-login.ts is checked by hand at CP-9 (it needs a real LinkedIn account)',
   },
+  {
+    id: 'FR-15',
+    title: 'Other sources',
+    also: 'Live dry run against the real feeds on 2026-10-24: 40 requests, 4,887 jobs, 137 matching, no failures',
+  },
+  { id: 'FR-16', title: 'Listing deduplication' },
+  { id: 'FR-17', title: 'LinkedIn and other sources apart' },
   { id: 'NFR-01', title: 'Localhost only' },
   { id: 'NFR-02', title: 'No new npm dependencies', also: '`npm run audit` in CI' },
   { id: 'NFR-03', title: 'The app server makes no outbound requests' },

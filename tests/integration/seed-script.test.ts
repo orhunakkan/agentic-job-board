@@ -19,6 +19,7 @@ describe('scripts/seed.ts', () => {
   const testDb = createTestDatabase();
   const summary = seedDatabase(testDb.db, testDb.repos, { count: 400, seed: 7, until: UNTIL });
   const jobs = testDb.repos.jobs.list({
+    sources: null,
     statuses: null,
     minScore: null,
     text: null,

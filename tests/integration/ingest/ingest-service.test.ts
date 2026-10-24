@@ -63,7 +63,15 @@ describe('ingestEmails', () => {
 
     expect(result.results).toEqual([{ gmailMessageId: 'msg-1', outcome: 'new', jobsFound: 6 }]);
     expect(result.newJobIds).toHaveLength(6);
-    expect(countAll(testDb.db)).toEqual({ runs: 1, emails: 1, jobs: 6, sightings: 6, status_history: 6, profile: 0 });
+    expect(countAll(testDb.db)).toEqual({
+      runs: 1,
+      emails: 1,
+      jobs: 6,
+      sightings: 6,
+      listing_sightings: 0,
+      status_history: 6,
+      profile: 0,
+    });
     expect(testDb.repos.emails.get('msg-1')).toMatchObject({
       runId,
       receivedAt: '2026-10-22T14:10:48.000Z',
@@ -75,7 +83,8 @@ describe('ingestEmails', () => {
 
     const [firstId] = result.newJobIds;
     expect(testDb.repos.jobs.get(firstId ?? 0)).toMatchObject({
-      linkedinJobId: '4473592349',
+      source: 'linkedin',
+      sourceJobId: '4473592349',
       title: 'Senior QA Automation Test Engineer',
       company: 'Cboe Global Markets',
       status: 'new',
@@ -234,7 +243,15 @@ describe('ingestEmails', () => {
                   BEGIN SELECT RAISE(ABORT, 'injected failure'); END`);
 
     expect(() => ingest([fixtureEmail('digest-test-automation.txt', 'msg-1')])).toThrow('injected failure');
-    expect(countAll(testDb.db)).toEqual({ runs: 1, emails: 0, jobs: 0, sightings: 0, status_history: 0, profile: 0 });
+    expect(countAll(testDb.db)).toEqual({
+      runs: 1,
+      emails: 0,
+      jobs: 0,
+      sightings: 0,
+      listing_sightings: 0,
+      status_history: 0,
+      profile: 0,
+    });
     expect(testDb.repos.runs.get(runId)).toMatchObject({ emailsSeen: 0, emailsNew: 0, jobsNew: 0 });
 
     testDb.db.exec('DROP TRIGGER fail_third_sighting');
@@ -242,7 +259,7 @@ describe('ingestEmails', () => {
   });
 
   it('FR-05: emails before a failing one in the same batch stay stored', () => {
-    testDb.db.exec(`CREATE TEMP TRIGGER fail_job_two BEFORE INSERT ON jobs WHEN NEW.linkedin_job_id = '2'
+    testDb.db.exec(`CREATE TEMP TRIGGER fail_job_two BEFORE INSERT ON jobs WHEN NEW.source_job_id = '2'
                   BEGIN SELECT RAISE(ABORT, 'injected failure'); END`);
 
     expect(() =>

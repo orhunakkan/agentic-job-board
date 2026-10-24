@@ -25,8 +25,14 @@ describe('the /find-jobs command', () => {
     expect(allowedTools.filter((tool) => /WebFetch|WebSearch|browser|playwright|chrome/i.test(tool))).toEqual([]);
     expect(allowedTools.filter((tool) => tool.startsWith('Bash'))).toEqual([
       'Bash(curl:*)',
+      'Bash(node scripts/fetch-sources.ts --run:*)',
       'Bash(rm -rf data/find-jobs)',
     ]);
+  });
+
+  it('NFR-03: the feeds are read only by scripts/fetch-sources.ts, never by the agent (DEC-035)', () => {
+    expect(procedure).toContain('**Only `scripts/fetch-sources.ts` reads the job feeds.**');
+    expect(procedure).toContain('node scripts/fetch-sources.ts --run 7');
   });
 
   it('NFR-08: may write only payload files under the git-ignored data/find-jobs/', () => {

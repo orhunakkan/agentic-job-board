@@ -20,6 +20,7 @@ export default defineConfig({
         lines: 85,
         'src/domain/**/*.ts': { lines: 95 },
         'src/ingest/**/*.ts': { lines: 95 },
+        'src/sources/**/*.ts': { lines: 95 }, // Phase 10: parsers of untrusted feeds, held to the ingest bar
       },
     },
   },

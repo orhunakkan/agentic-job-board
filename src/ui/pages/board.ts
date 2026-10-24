@@ -1,14 +1,18 @@
 import type { JobRecord } from '../../db/repositories/jobs.ts';
 import { TABS, type BoardSort, type Tab } from '../../domain/board-tabs.ts';
+import { ORIGINS, type Origin } from '../../domain/job-source.ts';
 import { BOARD_SORTS } from '../../schemas/pages.ts';
-import { flags, linkedinLink, notice, scoreBadge, statusButtons } from '../components.ts';
-import { STATUS_LABELS, TAB_LABELS, timeAgo } from '../format.ts';
+import { flags, listingFacts, notice, scoreBadge, sourceLink, statusButtons } from '../components.ts';
+import { ORIGIN_LABELS, STATUS_LABELS, TAB_LABELS, timeAgo } from '../format.ts';
 import { html, raw, type SafeHtml } from '../html.ts';
 import { CURRENT } from '../layout.ts';
 
-// The board (FR-07, PLAN.md §6.3): tabs with counts, filters, ranked job cards with status actions, paging.
+// The board (FR-07, FR-17, PLAN.md §6.3): the LinkedIn | Other sources switch, tabs with counts, filters, ranked
+// job cards with status actions, paging.
 
 export interface BoardView {
+  origin: Origin;
+  originCounts: Readonly<Record<Origin, number>>;
   tab: Tab;
   minScore: number | undefined;
   q: string | undefined;
@@ -43,12 +47,24 @@ export function boardPage(view: BoardView): SafeHtml {
         html`<a href="/jobs/${view.changed.id}">${view.changed.title}</a> is now ${STATUS_LABELS[view.changed.status]}.`,
       )
     }
+    <nav aria-label="Job sources">
+      <ul class="origins">
+        ${ORIGINS.map(
+          (origin) =>
+            html`<li>
+              <a href="${originHref(origin)}" ${origin === view.origin && CURRENT}
+                >${ORIGIN_LABELS[origin]} <span class="count">${view.originCounts[origin]}</span></a
+              >
+            </li>`,
+        )}
+      </ul>
+    </nav>
     <nav aria-label="Board tabs">
       <ul class="tabs">
         ${TABS.map(
           (tab) =>
             html`<li>
-              <a href="/?tab=${tab}" ${tab === view.tab && CURRENT}
+              <a href="${tabHref(view.origin, tab)}" ${tab === view.tab && CURRENT}
                 >${TAB_LABELS[tab]} <span class="count">${view.counts[tab]}</span></a
               >
             </li>`,
@@ -57,6 +73,7 @@ export function boardPage(view: BoardView): SafeHtml {
     </nav>
 
     <form class="filters" method="get" action="/" role="search" aria-label="Filter jobs">
+      ${view.origin !== 'linkedin' && html`<input type="hidden" name="origin" value="${view.origin}" />`}
       <input type="hidden" name="tab" value="${view.tab}" />
       <div class="field">
         <label for="minScore">Min score</label>
@@ -80,10 +97,10 @@ export function boardPage(view: BoardView): SafeHtml {
         </select>
       </div>
       <button type="submit" class="button">Apply</button>
-      ${hasFilters && html`<a class="clear" href="/?tab=${view.tab}">Clear filters</a>`}
+      ${hasFilters && html`<a class="clear" href="${tabHref(view.origin, view.tab)}">Clear filters</a>`}
     </form>
 
-    <h2 class="visually-hidden">${TAB_LABELS[view.tab]} jobs</h2>
+    <h2 class="visually-hidden">${TAB_LABELS[view.tab]} jobs · ${ORIGIN_LABELS[view.origin]}</h2>
     ${
       view.items.length === 0
         ? emptyState(view, hasFilters)
@@ -108,11 +125,11 @@ function card(job: JobRecord, now: string, returnTo: string): SafeHtml {
         <p class="card-meta">
           ${job.company}${job.location !== '' && html` · ${job.location}`}${
             job.status !== 'new' && html` · <span class="status">${STATUS_LABELS[job.status]}</span>`
-          }${flags(job)}
+          }${flags(job)}${listingFacts(job)}
         </p>
         ${job.scoreReason !== null && html`<p class="card-reason">${job.scoreReason}</p>`}
         <div class="card-actions">
-          ${statusButtons(job, returnTo)} ${linkedinLink(job)}
+          ${statusButtons(job, returnTo)} ${sourceLink(job)}
           <span class="card-seen">Seen ${job.seenCount}× · ${timeAgo(job.firstSeenAt, now)}</span>
         </div>
       </div>
@@ -122,11 +139,19 @@ function card(job: JobRecord, now: string, returnTo: string): SafeHtml {
 
 function emptyState(view: BoardView, hasFilters: boolean): SafeHtml {
   if (hasFilters) {
-    return html`<p class="empty">No jobs match these filters. <a href="/?tab=${view.tab}">Clear filters</a></p>`;
+    return html`<p class="empty">
+      No jobs match these filters. <a href="${tabHref(view.origin, view.tab)}">Clear filters</a>
+    </p>`;
+  }
+  if (view.tab === 'new' && view.origin === 'linkedin') {
+    return html`<p class="empty">
+      No new jobs. Run <code>/find-jobs</code> in Claude Code to read your latest LinkedIn alerts.
+    </p>`;
   }
   if (view.tab === 'new') {
     return html`<p class="empty">
-      No new jobs. Run <code>/find-jobs</code> in Claude Code to read your latest LinkedIn alerts.
+      No new jobs from other sources. Run <code>/find-jobs</code> in Claude Code, or
+      <code>node scripts/fetch-sources.ts</code>, to read the job feeds in <code>data/sources.json</code>.
     </p>`;
   }
   return html`<p class="empty">No jobs in ${TAB_LABELS[view.tab]}.</p>`;
@@ -142,9 +167,26 @@ function pager(view: BoardView): SafeHtml | false {
   </nav>`;
 }
 
-/** The board URL with the current tab, filters and sort, for links and for forms to come back to. */
+// LinkedIn is the board's default view, so its URLs carry no origin and stay what they were before DEC-036.
+function originParams(origin: Origin): URLSearchParams {
+  return new URLSearchParams(origin === 'linkedin' ? {} : { origin });
+}
+
+function originHref(origin: Origin): string {
+  const query = originParams(origin).toString();
+  return query === '' ? '/' : `/?${query}`;
+}
+
+function tabHref(origin: Origin, tab: Tab): string {
+  const params = originParams(origin);
+  params.set('tab', tab);
+  return `/?${params.toString()}`;
+}
+
+/** The board URL with the current view, tab, filters and sort, for links and for forms to come back to. */
 function boardHref(view: BoardView, change: { page: number }): string {
-  const params = new URLSearchParams({ tab: view.tab });
+  const params = originParams(view.origin);
+  params.set('tab', view.tab);
   if (view.minScore !== undefined) params.set('minScore', String(view.minScore));
   if (view.q !== undefined && view.q !== '') params.set('q', view.q);
   params.set('sort', view.sort);

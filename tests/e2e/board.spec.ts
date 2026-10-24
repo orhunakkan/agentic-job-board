@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { seedJobs, uniqueTag } from './seed.ts';
+import { seedJobs, seedListings, uniqueTag } from './seed.ts';
 
 // PLAN.md §8.1 types 7 and 8: the owner's daily flows in a real browser, on every Playwright project.
 
@@ -186,6 +186,65 @@ test.describe('board', () => {
     await expect(page.getByText('Not scored yet')).toBeVisible();
   });
 
+  test('FR-17: LinkedIn jobs and jobs from other sources are on separate views', async ({ page, request }) => {
+    const tag = uniqueTag();
+    await seedJobs(request, tag, [{ title: 'LinkedIn SDET', company: 'Alert Co', score: 80 }]);
+    await seedListings(request, tag, [
+      { source: 'greenhouse', title: 'Board SDET', company: 'Feed Co', score: 85, salary: '$150K – $180K' },
+    ]);
+
+    await page.goto(`/?q=${tag}`);
+    await expect(page.locator('.card-title')).toHaveText([`LinkedIn SDET ${tag}`]);
+    const views = page.getByRole('navigation', { name: 'Job sources' });
+    await expect(views.getByRole('link', { name: /LinkedIn/ })).toHaveAttribute('aria-current', 'page');
+
+    await views.getByRole('link', { name: /Other sources/ }).click();
+    await expect(page).toHaveURL(/\/\?origin=other$/);
+    await page.getByRole('searchbox', { name: 'Search' }).fill(tag);
+    await page.getByRole('button', { name: 'Apply' }).click();
+    await expect(page).toHaveURL(/origin=other/);
+    await expect(page.locator('.card-title')).toHaveText([`Board SDET ${tag}`]);
+    const listed = card(page, `Board SDET ${tag}`);
+    await expect(listed).toContainText('Greenhouse');
+    await expect(listed).toContainText('$150K – $180K');
+    await expect(listed.getByRole('link', { name: /Open on Greenhouse/ })).toHaveAttribute('target', '_blank');
+
+    // Saving keeps the owner on the other-sources view, and the job moves to its Saved tab.
+    await listed.getByRole('button', { name: /^Save/ }).click();
+    await expect(page).toHaveURL(/origin=other/);
+    await expect(page.getByRole('status')).toContainText('is now Saved.');
+    await page.goto(`/?origin=other&tab=saved&q=${tag}`);
+    await expect(page.locator('.card-title')).toHaveText([`Board SDET ${tag}`]);
+    await page.goto(`/?tab=saved&q=${tag}`);
+    await expect(page.locator('.card-title')).toHaveCount(0);
+  });
+
+  test('FR-17: an other-source job page shows its description and leads back to its view', async ({
+    page,
+    request,
+  }) => {
+    const tag = uniqueTag();
+    const [job] = await seedListings(request, tag, [
+      {
+        source: 'himalayas',
+        title: 'Remote QA Lead',
+        company: 'Feed Co',
+        description: 'About the role\n\nLead quality.\n• Playwright\n• k6',
+      },
+    ]);
+
+    await page.goto(`/jobs/${String(job?.id)}`);
+    await expect(page.getByRole('heading', { level: 2, name: 'Description' })).toBeVisible();
+    await expect(page.locator('.description')).toHaveText('About the role\n\nLead quality.\n• Playwright\n• k6');
+    await expect(page.getByRole('link', { name: /Open on Himalayas/ })).toHaveAttribute(
+      'href',
+      /^https:\/\/jobs\.example\.com\/himalayas\//,
+    );
+
+    await page.getByRole('link', { name: '← Board' }).click();
+    await expect(page).toHaveURL(/\/\?origin=other&tab=new$/);
+  });
+
   test('FR-11, FR-01: the runs and profile pages open from the main navigation', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Runs' }).click();
@@ -225,7 +284,24 @@ test.describe('board', () => {
       },
     ]);
 
-    for (const path of [`/?q=${tag}`, `/jobs/${String(job?.id)}`, '/runs', '/profile']) {
+    const [listed] = await seedListings(request, tag, [
+      {
+        source: 'hackernews',
+        title: 'Senior Software Engineer in Test, Quality Platform and Developer Productivity',
+        company: 'Averyveryverylongcompanynamewithoutanyspacesatall Labs',
+        salary: '$180K – $240K + equity + a very long list of benefits',
+        description: `Header | Role | Remote\n\n${'Averyverylongwordwithoutanybreaks'.repeat(8)}`,
+      },
+    ]);
+
+    for (const path of [
+      `/?q=${tag}`,
+      `/jobs/${String(job?.id)}`,
+      `/?origin=other&q=${tag}`,
+      `/jobs/${String(listed?.id)}`,
+      '/runs',
+      '/profile',
+    ]) {
       await page.goto(path);
       await expectNoSideScroll(page);
     }

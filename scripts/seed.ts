@@ -128,7 +128,7 @@ function random(seed: number): () => number {
 }
 
 export function seedDatabase(db: DatabaseSync, repos: Repositories, options: SeedOptions): SeedSummary {
-  const existing = repos.jobs.count({ statuses: null, minScore: null, text: null, unscoredOnly: false });
+  const existing = repos.jobs.count({ sources: null, statuses: null, minScore: null, text: null, unscoredOnly: false });
   if (existing > 0) {
     throw new SeedError(`the database already has ${String(existing)} jobs; seed only into a new database`);
   }
@@ -178,6 +178,7 @@ export function seedDatabase(db: DatabaseSync, repos: Repositories, options: See
   let scored = 0;
   transaction(db, () => {
     const jobs = repos.jobs.list({
+      sources: null,
       statuses: null,
       minScore: null,
       text: null,
@@ -187,7 +188,7 @@ export function seedDatabase(db: DatabaseSync, repos: Repositories, options: See
       offset: 0,
     });
     for (const job of jobs) {
-      const fake = byLinkedinId.get(job.linkedinJobId);
+      const fake = byLinkedinId.get(job.sourceJobId);
       if (fake !== undefined && nextRandom() < 0.9) {
         repos.jobs.setScore(job.id, {
           score: fake.score,

@@ -1,22 +1,42 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
 import type { BoardSort } from '../../domain/board-tabs.ts';
+import { JOB_SOURCES, type JobSource } from '../../domain/job-source.ts';
 import { SCORE_LABELS, type ScoreLabel } from '../../domain/score.ts';
 import { STATUSES, type Status } from '../../domain/status.ts';
-import type { ParsedJob } from '../../ingest/linkedin-email-parser.ts';
 import { SqlBoolean, toId, toSqlBoolean } from './columns.ts';
 
-// One row per LinkedIn job ID (FR-04). Repeat sightings update the counters, never add a row.
+// One row per job ID within its source (FR-04, FR-16, DEC-037). Repeat sightings update the counters, never add
+// a row.
 
+/** A job as an email or a feed shows it: everything that comes from the source, nothing the owner sets. */
+export interface NewJob {
+  source: JobSource;
+  sourceJobId: string;
+  title: string;
+  company: string;
+  location: string; // '' when the source gives none
+  url: string;
+  activelyHiring: boolean;
+  easyApply: boolean;
+  postedAt: string | null;
+  salary: string | null;
+  description: string | null;
+}
+
+/** A stored job. The description is left out because lists don't need it; `descriptionOf` reads it. */
 export interface JobRecord {
   id: number;
-  linkedinJobId: string;
+  source: JobSource;
+  sourceJobId: string;
   title: string;
   company: string;
   location: string;
   url: string;
   activelyHiring: boolean;
   easyApply: boolean;
+  postedAt: string | null;
+  salary: string | null;
   status: Status;
   statusChangedAt: string;
   notes: string;
@@ -40,6 +60,7 @@ export interface JobScore {
 }
 
 export interface JobFilter {
+  sources: readonly JobSource[] | null; // null = every source
   statuses: readonly Status[] | null; // null = every status
   minScore: number | null; // excludes unscored jobs
   text: string | null; // case-insensitive substring of title or company
@@ -50,16 +71,22 @@ export interface JobFilter {
 }
 
 export interface JobsRepository {
-  /** Inserts a job first seen at `seenAt` (the email's time) in run `runId`, with status `new` set at `createdAt`. */
-  insert(job: ParsedJob, at: { runId: number | null; seenAt: string; createdAt: string }): number;
-  findIdByLinkedinId(linkedinJobId: string): number | null;
-  get(id: number): JobRecord | null;
   /**
-   * Counts one more sighting of `job` in an email received at `seenAt`. Emails can arrive out of order, so
-   * first/last seen widen to include `seenAt`, and the title, company, location and flags are taken from the
-   * sighting only when it is newer than every earlier one (DEC-023). Status, notes and score are never touched.
+   * Inserts a job first seen at `seenAt` (the email's time, or when a feed listed it) in run `runId`, with status
+   * `new` set at `createdAt`.
    */
-  recordSighting(id: number, job: ParsedJob, seenAt: string): void;
+  insert(job: NewJob, at: { runId: number | null; seenAt: string; createdAt: string }): number;
+  findId(source: JobSource, sourceJobId: string): number | null;
+  get(id: number): JobRecord | null;
+  /** The job's description as plain text, or null when its source gives none (or the job doesn't exist). */
+  descriptionOf(id: number): string | null;
+  /**
+   * Counts one more sighting of `job` at `seenAt`. Emails can arrive out of order, so first/last seen widen to
+   * include `seenAt`, and the details from the source are taken from the sighting only when it is newer than every
+   * earlier one (DEC-023); a newer sighting without a posted date, salary or description keeps the stored one.
+   * Status, notes and score are never touched.
+   */
+  recordSighting(id: number, job: NewJob, seenAt: string): void;
   updateStatus(id: number, status: Status, changedAt: string): void;
   updateNotes(id: number, notes: string): void;
   setScore(id: number, score: JobScore): void;
@@ -73,13 +100,16 @@ export interface JobsRepository {
 
 const Row = z.object({
   id: z.number().int(),
-  linkedinJobId: z.string(),
+  source: z.enum(JOB_SOURCES),
+  sourceJobId: z.string(),
   title: z.string(),
   company: z.string(),
   location: z.string(),
   url: z.string(),
   activelyHiring: SqlBoolean,
   easyApply: SqlBoolean,
+  postedAt: z.string().nullable(),
+  salary: z.string().nullable(),
   status: z.enum(STATUSES),
   statusChangedAt: z.string(),
   notes: z.string(),
@@ -96,19 +126,22 @@ const Row = z.object({
 
 const IdRow = z.object({ id: z.number().int() });
 const CountRow = z.object({ n: z.number().int() });
+const DescriptionRow = z.object({ description: z.string().nullable() });
 
-const COLUMNS = `id, linkedin_job_id AS linkedinJobId, title, company, location, url,
-  actively_hiring AS activelyHiring, easy_apply AS easyApply, status, status_changed_at AS statusChangedAt,
-  notes, score, score_label AS scoreLabel, score_reason AS scoreReason, rubric_version AS rubricVersion,
-  scored_at AS scoredAt, first_seen_at AS firstSeenAt, last_seen_at AS lastSeenAt, seen_count AS seenCount,
-  first_run_id AS firstRunId`;
+const COLUMNS = `id, source, source_job_id AS sourceJobId, title, company, location, url,
+  actively_hiring AS activelyHiring, easy_apply AS easyApply, posted_at AS postedAt, salary,
+  status, status_changed_at AS statusChangedAt, notes, score, score_label AS scoreLabel, score_reason AS scoreReason,
+  rubric_version AS rubricVersion, scored_at AS scoredAt, first_seen_at AS firstSeenAt, last_seen_at AS lastSeenAt,
+  seen_count AS seenCount, first_run_id AS firstRunId`;
 
 // One fixed WHERE clause for every filter: an unused filter is bound as NULL (or 0) and matches everything,
-// so no SQL is ever built from strings. ?1 statuses (JSON array), ?2 min score, ?3 LIKE pattern, ?4 unscored only.
+// so no SQL is ever built from strings. ?1 statuses (JSON array), ?2 min score, ?3 LIKE pattern, ?4 unscored only,
+// ?5 sources (JSON array).
 const FILTER = `(?1 IS NULL OR status IN (SELECT value FROM json_each(?1)))
   AND (?2 IS NULL OR score >= ?2)
   AND (?3 IS NULL OR title LIKE ?3 ESCAPE '\\' OR company LIKE ?3 ESCAPE '\\')
-  AND (?4 = 0 OR score IS NULL)`;
+  AND (?4 = 0 OR score IS NULL)
+  AND (?5 IS NULL OR source IN (SELECT value FROM json_each(?5)))`;
 
 function filterParams(filter: Omit<JobFilter, 'sort' | 'limit' | 'offset'>) {
   return [
@@ -116,17 +149,20 @@ function filterParams(filter: Omit<JobFilter, 'sort' | 'limit' | 'offset'>) {
     filter.minScore,
     filter.text === null ? null : `%${filter.text.replace(/[\\%_]/g, '\\$&')}%`,
     toSqlBoolean(filter.unscoredOnly),
+    filter.sources === null ? null : JSON.stringify(filter.sources),
   ] as const;
 }
 
 export function createJobsRepository(db: DatabaseSync): JobsRepository {
   const insertStatement = db.prepare(
-    `INSERT INTO jobs (linkedin_job_id, title, company, location, url, actively_hiring, easy_apply,
-                       status, status_changed_at, first_seen_at, last_seen_at, first_run_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?)`,
+    `INSERT INTO jobs (source, source_job_id, title, company, location, url, actively_hiring, easy_apply,
+                       posted_at, salary, description, status, status_changed_at, first_seen_at, last_seen_at,
+                       first_run_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?)`,
   );
-  const findStatement = db.prepare('SELECT id FROM jobs WHERE linkedin_job_id = ?');
+  const findStatement = db.prepare('SELECT id FROM jobs WHERE source = ? AND source_job_id = ?');
   const selectStatement = db.prepare(`SELECT ${COLUMNS} FROM jobs WHERE id = ?`);
+  const descriptionStatement = db.prepare('SELECT description FROM jobs WHERE id = ?');
   const sightingStatement = db.prepare(
     // Every right-hand side reads the row as it was before this UPDATE, so `?1 > last_seen_at` is the old value.
     `UPDATE jobs SET
@@ -135,6 +171,10 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
        location        = CASE WHEN ?1 > last_seen_at THEN ?4 ELSE location END,
        actively_hiring = CASE WHEN ?1 > last_seen_at THEN ?5 ELSE actively_hiring END,
        easy_apply      = CASE WHEN ?1 > last_seen_at THEN ?6 ELSE easy_apply END,
+       url             = CASE WHEN ?1 > last_seen_at THEN ?8 ELSE url END,
+       posted_at       = CASE WHEN ?1 > last_seen_at THEN coalesce(?9, posted_at) ELSE posted_at END,
+       salary          = CASE WHEN ?1 > last_seen_at THEN coalesce(?10, salary) ELSE salary END,
+       description     = CASE WHEN ?1 > last_seen_at THEN coalesce(?11, description) ELSE description END,
        seen_count      = seen_count + 1,
        first_seen_at   = min(first_seen_at, ?1),
        last_seen_at    = max(last_seen_at, ?1)
@@ -148,10 +188,10 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
   const existingStatement = db.prepare('SELECT id FROM jobs WHERE id IN (SELECT value FROM json_each(?))');
   const listStatement = db.prepare(
     `SELECT ${COLUMNS} FROM jobs WHERE ${FILTER}
-     ORDER BY CASE WHEN ?5 = 'score' THEN score END DESC NULLS LAST,
-              CASE WHEN ?5 = 'changed' THEN status_changed_at END DESC,
+     ORDER BY CASE WHEN ?6 = 'score' THEN score END DESC NULLS LAST,
+              CASE WHEN ?6 = 'changed' THEN status_changed_at END DESC,
               first_seen_at DESC, id DESC
-     LIMIT ?6 OFFSET ?7`,
+     LIMIT ?7 OFFSET ?8`,
   );
   const countStatement = db.prepare(`SELECT count(*) AS n FROM jobs WHERE ${FILTER}`);
   const topNewStatement = db.prepare(
@@ -162,13 +202,17 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
   return {
     insert(job, at) {
       const result = insertStatement.run(
-        job.linkedinJobId,
+        job.source,
+        job.sourceJobId,
         job.title,
         job.company,
         job.location,
         job.url,
         toSqlBoolean(job.activelyHiring),
         toSqlBoolean(job.easyApply),
+        job.postedAt,
+        job.salary,
+        job.description,
         at.createdAt,
         at.seenAt,
         at.seenAt,
@@ -176,13 +220,17 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
       );
       return toId(result.lastInsertRowid);
     },
-    findIdByLinkedinId(linkedinJobId) {
-      const row = findStatement.get(linkedinJobId);
+    findId(source, sourceJobId) {
+      const row = findStatement.get(source, sourceJobId);
       return row === undefined ? null : IdRow.parse(row).id;
     },
     get(id) {
       const row = selectStatement.get(id);
       return row === undefined ? null : Row.parse(row);
+    },
+    descriptionOf(id) {
+      const row = descriptionStatement.get(id);
+      return row === undefined ? null : DescriptionRow.parse(row).description;
     },
     recordSighting(id, job, seenAt) {
       sightingStatement.run(
@@ -193,6 +241,10 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
         toSqlBoolean(job.activelyHiring),
         toSqlBoolean(job.easyApply),
         id,
+        job.url,
+        job.postedAt,
+        job.salary,
+        job.description,
       );
     },
     updateStatus(id, status, changedAt) {
