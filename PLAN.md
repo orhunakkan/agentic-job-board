@@ -869,11 +869,11 @@ Tasks:
 9. Tests at every level: unit tests for the domain, filter, HTML-to-text and each parser (answers shaped like the live ones, checked 2026-10-24, with made-up companies), integration tests for the migration, repositories, listing ingest and the script (with a fake fetch against a real app), API and contract tests for the new endpoint and fields, security tests (links, escaping, no network in `src/`, the command's allowed tools), E2E and axe on both views and an other-source detail page. Existing tests updated to the new fields.
 
 **🛑 CP-10. The owner checks:**
-- [ ] `node scripts/fetch-sources.ts --dry-run` lists matching jobs from the free feeds without writing anything
-- [ ] With the app running, `node scripts/fetch-sources.ts` stores them, and **Other sources** on the board shows them with their source
-- [ ] **LinkedIn** still shows exactly the LinkedIn jobs, with the same counts as before
-- [ ] `/find-jobs` reads the emails, fetches the other sources and scores both in one run
-- [ ] An other-source job's detail page shows its description and opens the job on its own site
+- [x] `node scripts/fetch-sources.ts --dry-run` lists matching jobs from the free feeds without writing anything
+- [x] With the app running, `node scripts/fetch-sources.ts` stores them, and **Other sources** on the board shows them with their source
+- [x] **LinkedIn** still shows exactly the LinkedIn jobs, with the same counts as before
+- [x] `/find-jobs` reads the emails, fetches the other sources and scores both in one run
+- [x] An other-source job's detail page shows its description and opens the job on its own site
 
 ---
 
@@ -951,7 +951,7 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 | CP-7 | Performance, CI and hardening | Approved | 2026-10-23 | Owner approved with CP-8 (DEC-026). Agent-reviewed; owner checks deferred to CP-8. k6 on 5,000 seeded jobs, 20 VUs: p95 19.5 ms overall (board 23.5, API 21.0, detail 13.8), 0 % errors, no tuning needed. CI workflow validated with actionlint; DEC-031 (CI stages). First GitHub run exposed DEF-014 (browser install stalled on a slow apt mirror); fixed by running E2E in the Playwright image, after which CI is green on GitHub, including the manual k6 job (p95 20.4 ms). Defect log: DEF-005 to DEF-014, none open |
 | CP-8 | MVP acceptance | Approved | 2026-10-23 | MVP accepted. Phases 5–8 built under DEC-026 and approved together; 885 tests green locally and in GitHub CI; traceability matrix and defect log (DEF-005 to DEF-014, none open) reviewed. Older history contains the owner's email in commits 2b1b8b6 and 07cefbf from an earlier project; left as is |
 | CP-9 | LinkedIn login (DEC-032) | Approved | 2026-10-24 | Owner signed in once; session saved to data/linkedin/ and reused (expires 2027-10-24). DEC-032 (owner-authorized login, no questions or warnings), DEC-033 (`npm start` verifies and refreshes the session, header shows the status), DEC-034 (readable coloured start output, JSON logs when piped). 950 tests green (826 Vitest, 124 Playwright); FR-14 and NFR-12 added to the traceability matrix |
-| CP-10 | Other job sources (DEC-035) | Pending | | |
+| CP-10 | Other job sources (DEC-035) | Approved | 2026-10-24 | Free feeds only (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Remote OK, Himalayas, Jobicy, Hacker News; Adzuna only with a free key). DEC-035 (free sources, no other Gmail alerts), DEC-036 (LinkedIn | Other sources views), DEC-037 (source + source_job_id, migration 003 verified on a copy of the real database), DEC-038 (same rubric, descriptions not read by the agent). 1,165 tests green (1,017 Vitest, 148 Playwright). First live run (run 4): 11 emails, 142 feed listings, 157 new jobs, all scored, no feed failures |
 
 ---
 
