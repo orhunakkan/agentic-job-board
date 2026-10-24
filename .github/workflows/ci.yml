@@ -2,7 +2,9 @@
 #   static (typecheck, lint, format, audit, unit) → vitest (every Vitest project with coverage thresholds:
 #   integration, API, contract, security, DEC-021) → browsers (Playwright E2E on 4 projects, then smoke).
 # The k6 load test runs only when started by hand (Actions → CI → Run workflow → perf).
-# Runners are pinned to ubuntu-26.04 rather than ubuntu-latest, so an image migration never changes CI unannounced.
+# Jobs run on the owner's self-hosted runner when the repository variable CI_RUNNER names its label (DEC-039),
+# otherwise on GitHub's ubuntu-26.04, pinned rather than ubuntu-latest so an image migration never changes CI unannounced.
+# Pull requests from forks always go to GitHub's runners, so code from outside never runs on the owner's laptop.
 name: CI
 
 on:
@@ -29,7 +31,7 @@ env:
 jobs:
   static:
     name: Static checks and unit tests
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -47,7 +49,7 @@ jobs:
   vitest:
     name: Integration, API, contract and security tests (with coverage)
     needs: static
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -69,11 +71,12 @@ jobs:
   browsers:
     name: E2E, accessibility and smoke (Playwright)
     needs: vitest
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
     timeout-minutes: 20
     # Browsers and their system libraries come preinstalled, so no slow apt mirror can stall the job (DEF-014).
     # The tag must equal the installed @playwright/test version (tests/unit/toolchain.test.ts checks it).
-    # Firefox refuses to run as root under a different HOME, hence the runner's own user.
+    # Firefox refuses to run as root under a different HOME, hence the runner's own user
+    # (UID 1001 on GitHub's runners, and the self-hosted runner's gh-runner user is created with the same UID).
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --user 1001
@@ -98,7 +101,7 @@ jobs:
     name: Load test (k6, manual only)
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.perf }}
     needs: static
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
     timeout-minutes: 15
     env:
       PORT: '3000'
