@@ -149,7 +149,7 @@ PORT=3000 DB_PATH=data/perf.db LOG_LEVEL=warn node src/main.ts    # in a second 
 npm run test:perf
 ```
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs static checks and unit tests, then every Vitest project with coverage, then E2E and smoke on four browser projects. The load test runs on demand.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs static checks and unit tests, then every Vitest project with coverage, then E2E and smoke on four browser projects, then the k6 load test.
 
 ## Privacy and safety
 
