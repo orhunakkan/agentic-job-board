@@ -9,9 +9,10 @@ import {
 
 describe('page inputs', () => {
   it('FR-07: the board defaults to the New tab, page 1, and parses numbers', () => {
-    expect(BoardQuerySchema.parse({})).toEqual({ tab: 'new', page: 1 });
+    expect(BoardQuerySchema.parse({})).toEqual({ origin: 'linkedin', tab: 'new', page: 1 });
     expect(BoardQuerySchema.parse({ tab: 'closed', minScore: '75', page: '3', changed: '9', sort: 'changed' })).toEqual(
       {
+        origin: 'linkedin',
         tab: 'closed',
         minScore: 75,
         page: 3,
@@ -22,7 +23,12 @@ describe('page inputs', () => {
   });
 
   it('FR-07: the board drops unknown keys instead of failing', () => {
-    expect(BoardQuerySchema.parse({ fbclid: 'x' })).toEqual({ tab: 'new', page: 1 });
+    expect(BoardQuerySchema.parse({ fbclid: 'x' })).toEqual({ origin: 'linkedin', tab: 'new', page: 1 });
+  });
+
+  it('FR-17: the board shows LinkedIn jobs unless other sources are asked for', () => {
+    expect(BoardQuerySchema.parse({ origin: 'other', tab: 'saved' })).toMatchObject({ origin: 'other', tab: 'saved' });
+    expect(BoardQuerySchema.safeParse({ origin: 'greenhouse' }).success).toBe(false);
   });
 
   it('FR-07: empty values are "not set"', () => {

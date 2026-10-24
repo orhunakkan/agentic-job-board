@@ -1,4 +1,5 @@
 import type { JobRecord } from '../db/repositories/jobs.ts';
+import { SOURCE_LABELS } from '../domain/job-source.ts';
 import { nextStatuses } from '../domain/status.ts';
 import { ACTION_LABELS } from './format.ts';
 import { html, type SafeHtml } from './html.ts';
@@ -15,12 +16,23 @@ export function scoreBadge(job: Pick<JobRecord, 'score' | 'scoreLabel'>): SafeHt
   >`;
 }
 
-/** The canonical LinkedIn link (§5.3), opened by the owner; the app itself never fetches it (NFR-03). */
-export function linkedinLink(job: Pick<JobRecord, 'url' | 'title'>): SafeHtml {
+/**
+ * The job on its own site: the canonical LinkedIn link (§5.3) or the feed's listing, named after its source as the
+ * feeds' terms ask (DEC-036). The owner opens it; the app itself never fetches it (NFR-03).
+ */
+export function sourceLink(job: Pick<JobRecord, 'url' | 'title' | 'source'>): SafeHtml {
   return html`<a class="external" href="${job.url}" target="_blank" rel="noopener noreferrer"
-    >Open on LinkedIn<span class="visually-hidden">: ${job.title} (opens in a new tab)</span
+    >Open on ${SOURCE_LABELS[job.source]}<span class="visually-hidden">: ${job.title} (opens in a new tab)</span
     ><span aria-hidden="true"> ↗</span></a
   >`;
+}
+
+/** Where a job from another source came from, and its salary when the feed gives one (FR-17). */
+export function listingFacts(job: Pick<JobRecord, 'source' | 'salary'>): SafeHtml | false {
+  if (job.source === 'linkedin') return false;
+  return html` <span class="flag">${SOURCE_LABELS[job.source]}</span>${
+      job.salary !== null && html` <span class="salary">${job.salary}</span>`
+    }`;
 }
 
 export function flags(job: Pick<JobRecord, 'activelyHiring' | 'easyApply'>): SafeHtml {

@@ -1,6 +1,7 @@
 import type { AppContext } from '../api/context.ts';
 import type { JobRecord } from '../db/repositories/jobs.ts';
 import { defaultSortForTab, statusesForTab, TABS, tabForStatus, type Tab } from '../domain/board-tabs.ts';
+import { ORIGINS, originOf, sourcesForOrigin, type Origin } from '../domain/job-source.ts';
 import { html as htmlReply, parseInput, queryObject, redirect, type TextReply } from '../http/respond.ts';
 import type { ApiRequest, Route } from '../http/router.ts';
 import { staticRoutes } from '../http/static.ts';
@@ -61,25 +62,30 @@ export function pageRoutes(context: AppContext): Route[] {
       path: '/',
       handler: (request) => {
         const query = parseInput(BoardQuerySchema, pageQuery(request), 'query string');
+        const sources = sourcesForOrigin(query.origin);
         const filter = {
+          sources,
           statuses: statusesForTab(query.tab),
           minScore: query.minScore ?? null,
           text: query.q ?? null,
           unscoredOnly: false,
         };
         const sort = query.sort ?? defaultSortForTab(query.tab);
+        const everyJob = { statuses: null, minScore: null, text: null, unscoredOnly: false };
         const counts = Object.fromEntries(
-          TABS.map((tab) => [
-            tab,
-            repos.jobs.count({ statuses: statusesForTab(tab), minScore: null, text: null, unscoredOnly: false }),
-          ]),
+          TABS.map((tab) => [tab, repos.jobs.count({ ...everyJob, sources, statuses: statusesForTab(tab) })]),
         ) as Record<Tab, number>;
+        const originCounts = Object.fromEntries(
+          ORIGINS.map((origin) => [origin, repos.jobs.count({ ...everyJob, sources: sourcesForOrigin(origin) })]),
+        ) as Record<Origin, number>;
 
         // A page past the end (the last job on it was just moved away, or an old bookmark) shows the last page.
         const total = repos.jobs.count(filter);
         const pageNumber = Math.min(query.page, Math.max(1, Math.ceil(total / PAGE_SIZE)));
 
         const body = boardPage({
+          origin: query.origin,
+          originCounts,
           tab: query.tab,
           minScore: query.minScore,
           q: query.q,
@@ -101,11 +107,14 @@ export function pageRoutes(context: AppContext): Route[] {
       handler: (request) => {
         const job = findJob(request);
         const query = parseInput(JobPageQuerySchema, pageQuery(request), 'query string');
+        const origin = originOf(job.source);
         const body = jobDetailPage({
           job,
+          description: repos.jobs.descriptionOf(job.id),
           sightings: repos.sightings.listForJob(job.id),
+          listingSightings: repos.listingSightings.listForJob(job.id),
           history: repos.statusHistory.listForJob(job.id),
-          backHref: `/?tab=${tabForStatus(job.status)}`,
+          backHref: `/?${origin === 'linkedin' ? '' : 'origin=other&'}tab=${tabForStatus(job.status)}`,
           statusChanged: query.changed === job.id,
           notesSaved: query.notes === 'saved',
         });

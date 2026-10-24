@@ -1,17 +1,21 @@
 import type { JobRecord } from '../../db/repositories/jobs.ts';
+import type { ListingSightingRecord } from '../../db/repositories/listing-sightings.ts';
 import type { SightingRecord } from '../../db/repositories/sightings.ts';
 import type { StatusChange } from '../../db/repositories/status-history.ts';
+import { SOURCE_LABELS } from '../../domain/job-source.ts';
 import { nextStatuses } from '../../domain/status.ts';
-import { flags, linkedinLink, notice, scoreBadge } from '../components.ts';
+import { flags, listingFacts, notice, scoreBadge, sourceLink } from '../components.ts';
 import { formatDateTime, STATUS_LABELS } from '../format.ts';
 import { html, type SafeHtml } from '../html.ts';
 
-// Job detail (FR-08 to FR-10, PLAN.md §6.3): every field, score and reason, status form (only allowed
-// transitions are offered), notes, status history and sightings.
+// Job detail (FR-08 to FR-10, FR-17, PLAN.md §6.3): every field, score and reason, status form (only allowed
+// transitions are offered), notes, the description a feed gave, status history and sightings.
 
 export interface JobDetailView {
   job: JobRecord;
+  description: string | null;
   sightings: readonly SightingRecord[];
+  listingSightings: readonly ListingSightingRecord[];
   history: readonly StatusChange[];
   backHref: string;
   statusChanged: boolean;
@@ -32,7 +36,9 @@ export function jobDetailPage(view: JobDetailView): SafeHtml {
       <h1>${job.title}</h1>
       ${scoreBadge(job)}
     </div>
-    <p class="job-meta">${job.company}${job.location !== '' && html` · ${job.location}`}${flags(job)}</p>
+    <p class="job-meta">
+      ${job.company}${job.location !== '' && html` · ${job.location}`}${flags(job)}${listingFacts(job)}
+    </p>
     <p class="job-reason">
       ${job.scoreReason === null ? 'Not scored yet: the next /find-jobs run scores it.' : html`Reason: ${job.scoreReason}`}
     </p>
@@ -55,8 +61,17 @@ export function jobDetailPage(view: JobDetailView): SafeHtml {
               <button type="submit" class="button">Update</button>
             </form>`
       }
-      <p>${linkedinLink(job)}</p>
+      <p>${sourceLink(job)}</p>
     </section>
+
+    ${
+      view.description !== null &&
+      html`<section class="panel" aria-labelledby="description-heading">
+        <h2 id="description-heading">Description</h2>
+        <p class="hint">As ${SOURCE_LABELS[job.source]} lists it.</p>
+        <div class="description">${view.description}</div>
+      </section>`
+    }
 
     <section class="panel" aria-labelledby="notes-heading">
       <h2 id="notes-heading">Notes</h2>
@@ -95,6 +110,13 @@ export function jobDetailPage(view: JobDetailView): SafeHtml {
                 ${sighting.savedSearch === null ? 'LinkedIn recommendations' : html`Alert: ${sighting.savedSearch}`}
               </li>`,
           )}
+          ${view.listingSightings.map(
+            (sighting) =>
+              html`<li>
+                <time datetime="${sighting.seenAt}">${formatDateTime(sighting.seenAt)}</time>
+                Listed on ${SOURCE_LABELS[job.source]} · <a href="/runs">run ${sighting.runId}</a>
+              </li>`,
+          )}
         </ol>
       </section>
     </div>
@@ -102,8 +124,20 @@ export function jobDetailPage(view: JobDetailView): SafeHtml {
     <section class="panel" aria-labelledby="details-heading">
       <h2 id="details-heading">Details</h2>
       <dl class="details">
-        <dt>LinkedIn job ID</dt>
-        <dd>${job.linkedinJobId}</dd>
+        <dt>Source</dt>
+        <dd>${SOURCE_LABELS[job.source]}</dd>
+        <dt>${SOURCE_LABELS[job.source]} job ID</dt>
+        <dd>${job.sourceJobId}</dd>
+        ${
+          job.postedAt !== null &&
+          html`<dt>Posted</dt>
+            <dd><time datetime="${job.postedAt}">${formatDateTime(job.postedAt)}</time></dd>`
+        }
+        ${
+          job.salary !== null &&
+          html`<dt>Salary</dt>
+            <dd>${job.salary}</dd>`
+        }
         <dt>First seen</dt>
         <dd><time datetime="${job.firstSeenAt}">${formatDateTime(job.firstSeenAt)}</time></dd>
         <dt>Last seen</dt>

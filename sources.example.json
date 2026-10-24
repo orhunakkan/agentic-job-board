@@ -1,0 +1,40 @@
+{
+  "keywords": [
+    "qa",
+    "quality assurance",
+    "quality engineer",
+    "software quality engineer",
+    "sdet",
+    "software engineer in test",
+    "software development engineer in test",
+    "test automation",
+    "test engineer"
+  ],
+  "excludeKeywords": ["intern", "internship", "junior", "entry level", "manual"],
+  "locations": ["remote", "united states", "usa", "us", "u.s.", "anywhere", "north america", "americas"],
+  "companies": {
+    "greenhouse": [
+      "anaplan",
+      "billcom",
+      "coursera",
+      "keepersecurity",
+      "quanata",
+      "synack",
+      "gitlab",
+      "saucelabs",
+      "smartbear",
+      "mabl"
+    ],
+    "lever": ["spotify"],
+    "ashby": ["consumeraffairs", "zapier"],
+    "smartrecruiters": ["Canva"],
+    "workable": ["dispel"]
+  },
+  "feeds": {
+    "remoteok": true,
+    "himalayas": true,
+    "jobicy": true,
+    "hackernews": true,
+    "adzuna": true
+  }
+}

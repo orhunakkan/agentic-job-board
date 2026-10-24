@@ -46,6 +46,7 @@ const BOARD_PATHS = [
   '/?tab=saved',
   '/?tab=in-progress',
   '/?tab=dismissed',
+  '/?origin=other',
 ];
 
 const API_PATHS = [

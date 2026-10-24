@@ -38,6 +38,7 @@ export function loadMigrations(dir: URL = MIGRATIONS_DIR): Migration[] {
 }
 
 const AppliedRow = z.object({ version: z.number().int() });
+const ForeignKeysRow = z.object({ foreign_keys: z.union([z.literal(0), z.literal(1)]) });
 
 export function appliedVersions(db: DatabaseSync): number[] {
   const table = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'").get();
@@ -57,13 +58,23 @@ export function migrate(
   const done = new Set(appliedVersions(db));
   const applied: number[] = [];
 
-  for (const migration of migrations) {
-    if (done.has(migration.version)) continue;
-    transaction(db, () => {
-      db.exec(migration.sql);
-      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(migration.version, now());
-    });
-    applied.push(migration.version);
+  // SQLite's table-rebuild procedure (003, DEC-037) needs foreign keys off, and that pragma does nothing inside a
+  // transaction, so it is switched off around the migrations. Each one is checked before it commits instead.
+  const { foreign_keys: foreignKeys } = ForeignKeysRow.parse(db.prepare('PRAGMA foreign_keys').get());
+  db.exec('PRAGMA foreign_keys = OFF');
+  try {
+    for (const migration of migrations) {
+      if (done.has(migration.version)) continue;
+      transaction(db, () => {
+        db.exec(migration.sql);
+        const broken = db.prepare('PRAGMA foreign_key_check').all().length;
+        if (broken > 0) throw new MigrationError(`${migration.name} breaks ${String(broken)} foreign key(s)`);
+        db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)').run(migration.version, now());
+      });
+      applied.push(migration.version);
+    }
+  } finally {
+    db.exec(`PRAGMA foreign_keys = ${String(foreignKeys)}`);
   }
   return applied;
 }

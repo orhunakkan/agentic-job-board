@@ -1,7 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { transaction } from '../db/database.ts';
 import type { Repositories } from '../db/repositories/index.ts';
-import { parseAlertEmail } from './linkedin-email-parser.ts';
+import type { NewJob } from '../db/repositories/jobs.ts';
+import { parseAlertEmail, type ParsedJob } from './linkedin-email-parser.ts';
 
 // Stores a batch of Gmail messages for a run (PLAN.md Phase 3, FR-02/04/05/12).
 // Each email is one transaction: its email row, jobs, sightings, history and run counters
@@ -114,8 +115,9 @@ function ingestOne(
 
   let jobsNew = 0;
   let jobsSeenAgain = 0;
-  for (const job of parsed.jobs) {
-    let jobId = repos.jobs.findIdByLinkedinId(job.linkedinJobId);
+  for (const parsedJob of parsed.jobs) {
+    const job = linkedInJob(parsedJob);
+    let jobId = repos.jobs.findId(job.source, job.sourceJobId);
     if (jobId === null) {
       jobId = repos.jobs.insert(job, { runId, seenAt: email.receivedAt, createdAt: processedAt });
       repos.statusHistory.insert(jobId, { fromStatus: null, toStatus: 'new', changedAt: processedAt });
@@ -130,6 +132,19 @@ function ingestOne(
   repos.runs.addCounts(runId, { emailsSeen: 1, emailsNew: 1, jobsNew, jobsSeenAgain });
 
   return { gmailMessageId, outcome: 'new', jobsFound: parsed.jobs.length };
+}
+
+// A job from an alert email, keyed by its LinkedIn job ID (DEC-037). Emails carry no date, salary or description.
+function linkedInJob(job: ParsedJob): NewJob {
+  const { linkedinJobId, ...details } = job;
+  return {
+    ...details,
+    source: 'linkedin',
+    sourceJobId: linkedinJobId,
+    postedAt: null,
+    salary: null,
+    description: null,
+  };
 }
 
 // Timestamps are compared as text (first/last seen), so every one is stored in the same ISO-8601 UTC form.

@@ -9,13 +9,16 @@ import type { JobDetail, JobSummary, RunSummary } from '../schemas/api.ts';
 export function toJobSummary(job: JobRecord): JobSummary {
   return {
     id: job.id,
-    linkedinJobId: job.linkedinJobId,
+    source: job.source,
+    sourceJobId: job.sourceJobId,
     title: job.title,
     company: job.company,
     location: job.location,
     url: job.url,
     activelyHiring: job.activelyHiring,
     easyApply: job.easyApply,
+    postedAt: job.postedAt,
+    salary: job.salary,
     status: job.status,
     statusChangedAt: job.statusChangedAt,
     score: job.score,
@@ -31,9 +34,11 @@ export function toJobDetail(job: JobRecord, repos: Repositories): JobDetail {
   return {
     ...toJobSummary(job),
     notes: job.notes,
+    description: repos.jobs.descriptionOf(job.id),
     rubricVersion: job.rubricVersion,
     scoredAt: job.scoredAt,
     sightings: repos.sightings.listForJob(job.id),
+    listingSightings: repos.listingSightings.listForJob(job.id),
     history: repos.statusHistory.listForJob(job.id),
   };
 }

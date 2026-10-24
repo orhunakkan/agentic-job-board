@@ -1,6 +1,7 @@
 import { transaction } from '../db/database.ts';
 import type { JobRecord } from '../db/repositories/jobs.ts';
 import { defaultSortForTab, statusesForTab } from '../domain/board-tabs.ts';
+import { sourcesForOrigin } from '../domain/job-source.ts';
 import { ok, parseInput, queryObject } from '../http/respond.ts';
 import type { ApiRequest, Route } from '../http/router.ts';
 import { changeJobStatus, JobNotFoundError } from '../jobs/status-service.ts';
@@ -8,7 +9,7 @@ import { IdParamSchema, JobListQuerySchema, PatchJobRequestSchema } from '../sch
 import type { AppContext } from './context.ts';
 import { toJobDetail, toJobSummary } from './views.ts';
 
-// The board's data (FR-07 to FR-10): list with tab/filters/sort, job detail, status and notes changes.
+// The board's data (FR-07 to FR-10, FR-17): list with origin/tab/filters/sort, job detail, status and notes changes.
 export function jobRoutes(context: AppContext): Route[] {
   const { db, repos } = context;
 
@@ -26,6 +27,7 @@ export function jobRoutes(context: AppContext): Route[] {
       handler: (request) => {
         const query = parseInput(JobListQuerySchema, queryObject(request.query), 'query string');
         const filter = {
+          sources: query.origin === undefined ? null : sourcesForOrigin(query.origin),
           statuses: query.tab === undefined ? null : statusesForTab(query.tab),
           minScore: query.minScore ?? null,
           text: query.q === undefined || query.q === '' ? null : query.q,

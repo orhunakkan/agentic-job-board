@@ -41,7 +41,7 @@ export function createTestDatabase(options: { migrated?: boolean } = {}): TestDa
   };
 }
 
-const TABLES = ['runs', 'emails', 'jobs', 'sightings', 'status_history', 'profile'] as const;
+const TABLES = ['runs', 'emails', 'jobs', 'sightings', 'listing_sightings', 'status_history', 'profile'] as const;
 type Table = (typeof TABLES)[number];
 const CountRow = z.object({ n: z.number().int() });
 

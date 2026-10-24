@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { TABS } from '../../src/domain/board-tabs.ts';
-import { PROFILE, seedJobs, uniqueTag } from './seed.ts';
+import { PROFILE, seedJobs, seedListings, uniqueTag } from './seed.ts';
 
 // PLAN.md §8.1 type 9, NFR-06: every page and every board tab has no axe violations against the WCAG 2.2 AA
 // rules, in light and dark mode, on every Playwright project (so also at phone width).
@@ -20,6 +20,7 @@ async function expectNoViolations(page: Page): Promise<void> {
 
 test.describe('accessibility', () => {
   let jobId = 0;
+  let listedId = 0;
   let tag = '';
 
   test.beforeEach(async ({ request }) => {
@@ -31,6 +32,18 @@ test.describe('accessibility', () => {
       { title: 'Unscored QA', company: 'Plain Co' },
     ]);
     jobId = jobs[0]?.id ?? 0;
+    const listed = await seedListings(request, tag, [
+      {
+        source: 'greenhouse',
+        title: 'Feed SDET',
+        company: 'Feed Co',
+        score: 81,
+        salary: '$150K – $180K',
+        description: 'About the role\n\nOwn the test platform.\n• Playwright',
+      },
+      { source: 'hackernews', title: 'Feed QA', company: 'Post Co' },
+    ]);
+    listedId = listed[0]?.id ?? 0;
     expect((await request.put('/api/profile', { data: PROFILE })).status()).toBe(200);
   });
 
@@ -48,6 +61,16 @@ test.describe('accessibility', () => {
       test('NFR-06: board with filters, scores and a notice', async ({ page }) => {
         await page.goto(`/?q=${tag}&minScore=50&changed=${String(jobId)}`);
         await expect(page.getByRole('status')).toBeVisible();
+        await expectNoViolations(page);
+      });
+
+      test('NFR-06: board, other sources', async ({ page }) => {
+        await page.goto('/?origin=other');
+        await expectNoViolations(page);
+      });
+
+      test('NFR-06: job detail from another source, with its description', async ({ page }) => {
+        await page.goto(`/jobs/${String(listedId)}`);
         await expectNoViolations(page);
       });
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TABS } from '../domain/board-tabs.ts';
+import { JOB_SOURCES, LISTING_SOURCES, ORIGINS } from '../domain/job-source.ts';
 import { isLabelConsistent, SCORE_LABELS } from '../domain/score.ts';
 import { STATUSES } from '../domain/status.ts';
 import { LINKEDIN_SESSION_STATES } from '../linkedin/session.ts';
@@ -30,16 +31,28 @@ export const ErrorResponseSchema = z.strictObject({
 
 export const EmptyRequestSchema = z.strictObject({});
 
-export const JobSummarySchema = z.strictObject({
+/** An absolute https link without a user name or password: the only kind of link a job may have (NFR-07). */
+export const HttpsUrl = z
+  .url({ protocol: /^https$/, hostname: z.regexes.domain })
+  .max(2000)
+  .refine((url) => {
+    // z.url lets a scheme-relative "//host/path" through; URL.parse rejects it, as it has no base.
+    const parsed = URL.parse(url);
+    return parsed?.protocol === 'https:' && parsed.username === '' && parsed.password === '';
+  }, 'must be an absolute https link without a user name or password');
+
+const JobSummaryFields = z.strictObject({
   id: Id,
-  linkedinJobId: z.string().regex(/^\d+$/),
+  source: z.enum(JOB_SOURCES),
+  sourceJobId: z.string().min(1),
   title: z.string(),
   company: z.string(),
   location: z.string(),
-  // Exactly the canonical form of PLAN.md §5.3: no query string, so no tracking token can ever be served.
-  url: z.string().regex(/^https:\/\/www\.linkedin\.com\/jobs\/view\/\d+\/$/),
+  url: HttpsUrl,
   activelyHiring: z.boolean(),
   easyApply: z.boolean(),
+  postedAt: IsoTimestamp.nullable(),
+  salary: z.string().nullable(),
   status: z.enum(STATUSES),
   statusChangedAt: IsoTimestamp,
   score: z.number().int().min(0).max(100).nullable(),
@@ -50,17 +63,30 @@ export const JobSummarySchema = z.strictObject({
   seenCount: z.number().int().positive(),
 });
 
-export const JobDetailSchema = JobSummarySchema.extend({
+// A LinkedIn job links exactly to the canonical form of PLAN.md §5.3: no query string, so no tracking token can
+// ever be served.
+const LINKEDIN_CANONICAL = {
+  check: (job: { source: string; sourceJobId: string; url: string }) =>
+    job.source !== 'linkedin' ||
+    (/^\d+$/.test(job.sourceJobId) && job.url === `https://www.linkedin.com/jobs/view/${job.sourceJobId}/`),
+  issue: { message: 'a LinkedIn job must link to its canonical URL', path: ['url'] },
+};
+
+export const JobSummarySchema = JobSummaryFields.refine(LINKEDIN_CANONICAL.check, LINKEDIN_CANONICAL.issue);
+
+export const JobDetailSchema = JobSummaryFields.extend({
   notes: z.string(),
+  description: z.string().nullable(),
   rubricVersion: z.string().nullable(),
   scoredAt: IsoTimestamp.nullable(),
   sightings: z.array(
     z.strictObject({ gmailMessageId: z.string(), savedSearch: z.string().nullable(), receivedAt: IsoTimestamp }),
   ),
+  listingSightings: z.array(z.strictObject({ runId: Id, seenAt: IsoTimestamp })),
   history: z.array(
     z.strictObject({ fromStatus: z.enum(STATUSES).nullable(), toStatus: z.enum(STATUSES), changedAt: IsoTimestamp }),
   ),
-});
+}).refine(LINKEDIN_CANONICAL.check, LINKEDIN_CANONICAL.issue);
 
 export const RunSummarySchema = z.strictObject({
   id: Id,
@@ -70,6 +96,7 @@ export const RunSummarySchema = z.strictObject({
   emailsNew: Count,
   emailsDuplicate: Count,
   emailsUnrecognized: Count,
+  listingsSeen: Count,
   jobsNew: Count,
   jobsSeenAgain: Count,
   jobsScored: Count,
@@ -128,6 +155,45 @@ export const IngestEmailsResponseSchema = z.strictObject({
   newJobs: z.array(JobSummarySchema),
 });
 
+// --- POST /api/runs/:id/listings ---------------------------------------------------------------------------------
+
+/** At most this many listings per call; with full descriptions a batch stays well under the 1 MB body limit. */
+export const MAX_LISTINGS_PER_CALL = 25;
+/** Descriptions are cut to this many characters by scripts/fetch-sources.ts before they are sent. */
+export const DESCRIPTION_MAX = 10_000;
+
+const OneLine = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .regex(/^[^\r\n]*$/, 'must be one line');
+
+/** One job as a feed lists it; scripts/fetch-sources.ts checks every listing with this before sending it. */
+export const IncomingListingSchema = z.strictObject({
+  source: z.enum(LISTING_SOURCES),
+  sourceJobId: OneLine(200).min(1),
+  title: OneLine(300).min(1),
+  company: OneLine(200).min(1),
+  location: OneLine(300),
+  url: HttpsUrl,
+  postedAt: IsoTimestamp.nullable(),
+  salary: OneLine(200).min(1).nullable(),
+  description: z.string().trim().min(1).max(DESCRIPTION_MAX).nullable(),
+});
+
+export const IngestListingsRequestSchema = z.strictObject({
+  listings: z.array(IncomingListingSchema).min(1).max(MAX_LISTINGS_PER_CALL),
+});
+
+export const IngestListingsResponseSchema = z.strictObject({
+  received: Count,
+  new: Count,
+  seenAgain: Count,
+  repeated: Count,
+  newJobs: z.array(JobSummarySchema),
+});
+
 // --- POST /api/runs/:id/scores -----------------------------------------------------------------------------------
 
 export const ScoresRequestSchema = z
@@ -167,6 +233,7 @@ export const RunListResponseSchema = z.array(RunSummarySchema);
 
 export const JobListQuerySchema = z
   .strictObject({
+    origin: z.enum(ORIGINS).optional(),
     tab: z.enum(TABS).optional(),
     minScore: intString(0, 100).optional(),
     q: z.string().trim().max(200).optional(),

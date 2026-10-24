@@ -3,7 +3,7 @@ import type { RunRecord } from '../../db/repositories/runs.ts';
 import { formatDateTime } from '../format.ts';
 import { html, type SafeHtml } from '../html.ts';
 
-// Run history and unrecognized emails (FR-11, FR-12).
+// Run history and unrecognized emails (FR-11, FR-12). Listings are the jobs other sources sent (FR-15).
 
 export interface RunsView {
   runs: readonly RunRecord[];
@@ -30,6 +30,7 @@ export function runsPage(view: RunsView): SafeHtml {
                   <th scope="col" class="num">New emails</th>
                   <th scope="col" class="num">Duplicates</th>
                   <th scope="col" class="num">Unrecognized</th>
+                  <th scope="col" class="num">Listings</th>
                   <th scope="col" class="num">New jobs</th>
                   <th scope="col" class="num">Seen again</th>
                   <th scope="col" class="num">Scored</th>
@@ -52,6 +53,7 @@ export function runsPage(view: RunsView): SafeHtml {
                       <td class="num">${run.emailsNew}</td>
                       <td class="num">${run.emailsDuplicate}</td>
                       <td class="num">${run.emailsUnrecognized}</td>
+                      <td class="num">${run.listingsSeen}</td>
                       <td class="num">${run.jobsNew}</td>
                       <td class="num">${run.jobsSeenAgain}</td>
                       <td class="num">${run.jobsScored}</td>

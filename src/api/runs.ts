@@ -3,18 +3,20 @@ import type { RunRecord } from '../db/repositories/runs.ts';
 import { HttpError, ok, parseInput, queryObject } from '../http/respond.ts';
 import type { ApiRequest, Route } from '../http/router.ts';
 import { ingestEmails, RunFinishedError, RunNotFoundError } from '../ingest/ingest-service.ts';
+import { ingestListings } from '../ingest/listing-ingest.ts';
 import {
   EmptyRequestSchema,
   IdParamSchema,
   IngestEmailsRequestSchema,
+  IngestListingsRequestSchema,
   RunListQuerySchema,
   ScoresRequestSchema,
 } from '../schemas/api.ts';
 import type { AppContext } from './context.ts';
 import { toJobSummary, toRunSummary } from './views.ts';
 
-// The /find-jobs run lifecycle (PLAN.md §4.1 steps 1 and 3–7; FR-02, FR-05, FR-06, FR-11, FR-12):
-// where to resume, start a run, send emails, store scores, finish, and list past runs.
+// The /find-jobs run lifecycle (PLAN.md §4.1 steps 1 and 3–7; FR-02, FR-05, FR-06, FR-11, FR-12, FR-15):
+// where to resume, start a run, send emails and listings, store scores, finish, and list past runs.
 export function runRoutes(context: AppContext): Route[] {
   const { db, repos } = context;
 
@@ -24,6 +26,13 @@ export function runRoutes(context: AppContext): Route[] {
     if (run === null) throw new RunNotFoundError(runId);
     if (run.finishedAt !== null) throw new RunFinishedError(runId);
     return run;
+  }
+
+  function summaries(jobIds: readonly number[]) {
+    return jobIds.flatMap((id) => {
+      const job = repos.jobs.get(id);
+      return job === null ? [] : [toJobSummary(job)];
+    });
   }
 
   return [
@@ -47,11 +56,17 @@ export function runRoutes(context: AppContext): Route[] {
         const run = openRun(request);
         const { emails } = parseInput(IngestEmailsRequestSchema, request.body);
         const { results, newJobIds } = ingestEmails(db, repos, run.id, emails, context.now);
-        const newJobs = newJobIds.flatMap((id) => {
-          const job = repos.jobs.get(id);
-          return job === null ? [] : [toJobSummary(job)];
-        });
-        return ok({ results, newJobs });
+        return ok({ results, newJobs: summaries(newJobIds) });
+      },
+    },
+    {
+      method: 'POST',
+      path: '/api/runs/:id/listings',
+      handler: (request) => {
+        const run = openRun(request);
+        const { listings } = parseInput(IngestListingsRequestSchema, request.body);
+        const { newJobIds, ...counts } = ingestListings(db, repos, run.id, listings, context.now);
+        return ok({ ...counts, newJobs: summaries(newJobIds) });
       },
     },
     {

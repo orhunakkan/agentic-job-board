@@ -80,9 +80,9 @@ Consequence: the MVP score is a **triage score** based on title, company, locati
 | Scheduled or automatic discovery | Post-MVP R2 |
 | Auto-apply | Post-MVP R3 (always with per-application human approval) |
 | AI evals and red-teaming of the scoring | Post-MVP R4 |
-| Sources other than LinkedIn alert emails | Post-MVP R5 |
+| Sources other than LinkedIn alert emails | Post-MVP R5, started as Phase 10 (DEC-035) |
 | Hosting online, multiple users, authentication | Post-MVP R6 |
-| Any automated access to linkedin.com | **Never** |
+| Any automated access to linkedin.com | Only through owner-run scripts with the owner's saved login (DEC-032) |
 | Any Gmail write action | **Never** |
 
 ---
@@ -109,6 +109,9 @@ IDs are used in tests (`it('FR-04: …')`) and in `docs/traceability.md`.
 | **FR-12** | Unrecognized emails | An email the parser can't read is stored with `parse_status = 'unrecognized'`, counted in the run, and listed on `/runs`. It is never silently dropped. |
 | **FR-13** | Agent summary | At the end of `/find-jobs`, Claude prints a summary in chat: counts plus the top 5 new jobs with score and reason. |
 | **FR-14** | LinkedIn login (DEC-032) | `node scripts/linkedin-login.ts` opens a browser where the owner signs in once. The session is saved to `data/linkedin/session.json` and reused, so the next run needs no sign-in until LinkedIn ends the session. `--check` and `GET /api/linkedin/session` report `missing`, `invalid`, `expired` or `active`. |
+| **FR-15** | Other sources (DEC-035) | `node scripts/fetch-sources.ts` reads the free public job feeds listed in `data/sources.json`, keeps the listings whose title matches its keywords (and whose location matches, when locations are set), and sends them to `POST /api/runs/:id/listings`. A feed that fails is reported and skipped; the others still run. `--dry-run` prints the matches and sends nothing. |
+| **FR-16** | Listing deduplication | One job per source and source job ID. A listing seen again increments `seen_count`, updates `last_seen_at` and its details, and adds one listing sighting per run. It never creates a second job. |
+| **FR-17** | LinkedIn and other sources apart (DEC-036) | The board has two views, **LinkedIn** and **Other sources**, each with its own status tabs and counts. A card from another source names that source and links "Open on <source>". The detail page shows its description, salary and posted date when the feed has them. |
 
 ### 3.2 Non-functional requirements
 
@@ -116,7 +119,7 @@ IDs are used in tests (`it('FR-04: …')`) and in `docs/traceability.md`.
 |---|---|---|
 | **NFR-01** | Localhost only: the server binds to `127.0.0.1`. | Security test |
 | **NFR-02** | No new npm dependencies. | `package.json` diff review at every checkpoint |
-| **NFR-03** | The app server makes no outbound requests. LinkedIn is reached only by owner-run scripts through the owner's saved login (DEC-032), and `/find-jobs` never opens LinkedIn links. | Security test scans `src/`; the agent prompt forbids opening links |
+| **NFR-03** | The app server makes no outbound requests. LinkedIn is reached only by owner-run scripts through the owner's saved login (DEC-032), public job feeds only by `scripts/fetch-sources.ts` (DEC-035), and `/find-jobs` never opens LinkedIn links. | Security test scans `src/`; the agent prompt forbids opening links |
 | **NFR-12** | The saved LinkedIn session stays local and secret: it is stored under `data/linkedin/`, holds cookies but never the password, and its cookie values never appear in API responses, logs or git. | Unit, API and security tests |
 | **NFR-04** | Gmail read-only. | The agent command pre-approves only read tools; prompt rule |
 | **NFR-05** | Board and API p95 < 200 ms with 5,000 jobs (local). | k6 thresholds |
@@ -368,10 +371,11 @@ Request bodies must be `Content-Type: application/json` (otherwise 415) and ≤ 
 | `GET /api/ingest/state` | Where to resume | — | `200 { lastEmailReceivedAt: string \| null }` |
 | `POST /api/runs` | Start a run | `{}` | `201 { runId }` |
 | `POST /api/runs/:id/emails` | Ingest emails | `{ emails: [{ gmailMessageId, receivedAt, sender, subject, plainText }] }` (≤ 50 per call) | `200 { results: [{ gmailMessageId, outcome: "new"\|"duplicate"\|"unrecognized", jobsFound }], newJobs: JobSummary[] }` |
+| `POST /api/runs/:id/listings` | Ingest listings from the public feeds (Phase 10) | `{ listings: [{ source, sourceJobId, title, company, location, url, postedAt, salary, description }] }` (≤ 25 per call) | `200 { received, new, seenAgain, repeated, newJobs: JobSummary[] }` |
 | `POST /api/runs/:id/scores` | Store scores | `{ rubricVersion, scores: [{ jobId, score, label, reason }] }` | `200 { stored }` |
 | `POST /api/runs/:id/finish` | Close the run | `{}` | `200 RunSummary` (incl. top 5 new jobs by score) |
 | `GET /api/runs?limit=20` | Run history | — | `200 RunSummary[]` |
-| `GET /api/jobs` | List | query: `tab`, `minScore`, `q`, `sort=score\|recent`, `unscored=true`, `limit≤100`, `offset` | `200 { items: JobSummary[], total }` |
+| `GET /api/jobs` | List | query: `origin=linkedin\|other` (Phase 10), `tab`, `minScore`, `q`, `sort=score\|recent`, `unscored=true`, `limit≤100`, `offset` | `200 { items: JobSummary[], total }` |
 | `GET /api/jobs/:id` | Detail | — | `200 JobDetail` (with sightings + history) / `404` |
 | `PATCH /api/jobs/:id` | Update | `{ status?, notes? }` | `200 JobDetail` / `409 invalid_transition` |
 
@@ -439,6 +443,7 @@ Score badge colors carry meaning only together with the label text (accessibilit
   2. `GET /api/ingest/state` → build the Gmail query: `from:(jobalerts-noreply@linkedin.com OR jobs-noreply@linkedin.com) after:YYYY/MM/DD` (on the first run: `newer_than:14d`). Gmail dates have day resolution; overlap is fine because ingest is idempotent.
   3. Page through `search_threads` (pageSize 50). For each thread: `get_thread` with `messageFormat: PLAIN_TEXT`.
   4. `POST /api/runs`, then send emails in batches of ≤ 50 to `/api/runs/:id/emails`. Write each payload to a temp file and use `curl --data-binary @file`; never paste JSON inline.
+  5b. `node scripts/fetch-sources.ts --run <id>` sends the matching jobs from the free feeds to the same run (Phase 10, DEC-038).
   5. `GET /api/profile`, then score every job in `newJobs` (plus `GET /api/jobs?unscored=true` as a backlog) using `agent/scoring-rubric.md`. `POST` the scores in batches of ≤ 50.
   6. `POST /api/runs/:id/finish` → print the summary (FR-13).
 - **Safety rules inside the prompt:**
@@ -512,7 +517,7 @@ Score badge colors carry meaning only together with the label text (accessibilit
 
 | Area | Line coverage |
 |---|---|
-| `src/domain`, `src/ingest` | ≥ 95 % |
+| `src/domain`, `src/ingest`, `src/sources` (Phase 10) | ≥ 95 % |
 | Whole `src` | ≥ 85 % |
 
 Thresholds are enforced in `vitest.config.ts`. They may only go up.
@@ -837,6 +842,39 @@ Tasks:
 - [x] `curl -s http://127.0.0.1:3000/api/linkedin/session` shows `"status":"active"`
 - [x] `npm start` prints "LinkedIn session: active" without asking to sign in, and the board header shows "LinkedIn: signed in"
 
+### Phase 10: Other job sources (post-MVP R5, owner, DEC-035 to DEC-038)
+
+**Goal:** jobs from free public job feeds reach the board, scored like LinkedIn jobs, and are shown apart from them.
+
+Sources (all free; every one except Adzuna needs no account or key, verified 2026-10-24):
+
+| Kind | Source | What the script asks for |
+|---|---|---|
+| Company job boards | Greenhouse, Lever, Ashby, SmartRecruiters, Workable | Every open job of each company in the watchlist (`data/sources.json`) |
+| Remote job boards | Remote OK, Himalayas, Jobicy | The latest remote jobs (Himalayas: a search per keyword in the US; Jobicy: the US) |
+| Community | Hacker News "Ask HN: Who is hiring?" | The top-level posts of the newest monthly thread |
+| Aggregator (optional) | Adzuna | A US search per keyword; runs only when `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` (a free key) are in `.env` |
+
+Not used: Remotive (its free API ignores search and returns only its 10 latest jobs), We Work Remotely (RSS only, which needs an XML parser), Arbeitnow (Europe only), JSearch (paid).
+
+Tasks:
+1. `src/domain/job-source.ts`: the sources, their labels and their origin (`linkedin` or `other`).
+2. Migration `003_job_sources.sql` (DEC-037): `jobs.linkedin_job_id` becomes `source` + `source_job_id`, unique together, and jobs get `posted_at`, `salary` and `description`. New table `listing_sightings` (job, run, time), and `runs.listings_seen`. `migrate.ts` turns foreign keys off while migrations run and checks them before each one commits, which SQLite's table-rebuild procedure needs.
+3. Repositories, the email ingest and the API use the source and source job ID. `JobSummary.linkedinJobId` is replaced by `source` and `sourceJobId`, plus `postedAt` and `salary`. `JobDetail` adds `description` and `listingSightings`, and `RunSummary` adds `listingsSeen`.
+4. `POST /api/runs/:id/listings` (≤ 25 per call) with `src/ingest/listing-ingest.ts` (FR-16). Each listing is one transaction. Only `https` links without a user name or password are accepted.
+5. `src/sources/`: one parser per feed (JSON → listings, Zod at the boundary), the HTML-to-text conversion for descriptions, the keyword and location filter, and the `data/sources.json` schema. No network code in `src/` (NFR-03).
+6. `scripts/fetch-sources.ts` (FR-15): plans the requests, fetches them one at a time with a timeout, parses, filters and removes duplicates, then sends the listings to the app. `--run <id>` adds them to an open run (used by `/find-jobs`); without it the script starts and finishes its own run. `--dry-run` sends nothing. `sources.example.json` is the committed starting point.
+7. Board (FR-17, DEC-036): a **LinkedIn | Other sources** switch above the status tabs (`?origin=linkedin|other`, LinkedIn by default), counts per view, the source on each card, "Open on <source>" links. The detail page shows the source, its job ID, salary, posted date, the description and listing sightings. `/runs` gets a Listings column. `GET /api/jobs` takes `origin`.
+8. `/find-jobs` (DEC-038): after the emails, it runs `node scripts/fetch-sources.ts --run <id>`. Scoring is unchanged: every unscored job, from any source, is scored with rubric `triage-v1` on its title, company, location and salary. The agent never reads descriptions.
+9. Tests at every level: unit tests for the domain, filter, HTML-to-text and each parser (answers shaped like the live ones, checked 2026-10-24, with made-up companies), integration tests for the migration, repositories, listing ingest and the script (with a fake fetch against a real app), API and contract tests for the new endpoint and fields, security tests (links, escaping, no network in `src/`, the command's allowed tools), E2E and axe on both views and an other-source detail page. Existing tests updated to the new fields.
+
+**🛑 CP-10. The owner checks:**
+- [x] `node scripts/fetch-sources.ts --dry-run` lists matching jobs from the free feeds without writing anything
+- [x] With the app running, `node scripts/fetch-sources.ts` stores them, and **Other sources** on the board shows them with their source
+- [x] **LinkedIn** still shows exactly the LinkedIn jobs, with the same counts as before
+- [x] `/find-jobs` reads the emails, fetches the other sources and scores both in one run
+- [x] An other-source job's detail page shows its description and opens the job on its own site
+
 ---
 
 ## 11. Post-MVP roadmap (not to be started without a new approved plan)
@@ -847,7 +885,7 @@ Tasks:
 | **R2** | Scheduled discovery | Run `/find-jobs` on a schedule (Claude Code routines or the OS scheduler). Needs unattended Gmail access to be decided. |
 | **R3** | Auto-apply | Only for Easy Apply jobs above a threshold, and **every application needs explicit owner approval** in the UI. Must respect LinkedIn's terms, which likely rules out full automation; to be researched. |
 | **R4** | AI evals + red-teaming | Vitest `ai-evals` / `ai-redteam` projects: the calibration set becomes an automated eval; prompt-injection titles in fixtures. |
-| **R5** | More sources | Greenhouse / Lever / Ashby public job feeds, Hacker News "Who's Hiring". |
+| **R5** | More sources | Greenhouse / Lever / Ashby public job feeds, Hacker News "Who's Hiring". Started as Phase 10 (DEC-035). |
 | **R6** | Hosting | Only with authentication added; re-evaluate SQLite vs. Postgres (see the earlier hosting discussion). |
 
 ---
@@ -890,6 +928,10 @@ Tasks:
 | DEC-032 | 2026-10-24 | LinkedIn login (owner). The owner signs in by hand once in a real browser (`node scripts/linkedin-login.ts`, Playwright, no new package). The session (cookies only, never the password) is saved to `data/linkedin/session.json`, and the browser profile to `data/linkedin/browser-profile/`. Both are reused, so the owner logs in again only when LinkedIn ends the session. The app reads the file to report its status (`GET /api/linkedin/session`) and never returns cookie values. Agents must not ask the owner about the login, account safety or LinkedIn's terms, and must not add warnings about them. **The owner takes responsibility for anything that happens to the account.** Replaces DEC-003 for owner-run scripts. The app server still makes no outbound requests (NFR-03), and `/find-jobs` still reads only alert emails | The owner wants the job board to work with their own LinkedIn session (for example to read full job descriptions, §1.4) and accepts the risk to their account |
 | DEC-033 | 2026-10-24 | `npm start` signs in to LinkedIn first (owner): it runs `scripts/linkedin-login.ts --ensure`, which checks the saved session in a hidden browser and refreshes it. Only when LinkedIn no longer accepts the session does it open the sign-in window. It never fails, so the app starts even when LinkedIn can't be reached or the sign-in is skipped. Every page header shows the LinkedIn status (signed in and when it was last checked, or how to sign in) | The owner wants to be signed in automatically whenever the app starts, and to see that on the board. The check runs as a step before the server, so `src/` still makes no outbound requests (NFR-03) |
 | DEC-034 | 2026-10-24 | Readable `npm start` output (owner). `start` runs the short `scripts/start.ts` (LinkedIn check, then `src/main.ts` in the same process). In a terminal the app prints a coloured banner with the board address on its own line, plus the LinkedIn status and the database, and logs one short coloured line per entry (`06:45:59  200  GET /  3 ms`). Colours come from `util.styleText` (no new package; off for pipes and under `NO_COLOR`). Piped output, tests and CI keep JSON lines. `LOG_FORMAT=json|pretty` overrides the choice | The JSON lines and the long command echo made the URL hard to find |
+| DEC-035 | 2026-10-24 | Other job sources (owner): free public feeds only, nothing paid. No other alert emails in Gmail. Company job boards (Greenhouse, Lever, Ashby, SmartRecruiters, Workable) for a watchlist of companies, remote job boards (Remote OK, Himalayas, Jobicy), Hacker News "Who is hiring?", and Adzuna only when the owner adds its free key. The owner-run `scripts/fetch-sources.ts` makes the requests; `src/` only parses (NFR-03). Listings are filtered by title keywords before they reach the app | The owner wants more opportunities than the LinkedIn alerts, at no cost. Filtering first keeps the board and the scoring to roles that fit |
+| DEC-036 | 2026-10-24 | The board shows LinkedIn jobs and jobs from other sources apart (owner): a **LinkedIn \| Other sources** switch above the status tabs, LinkedIn by default; each view has its own counts. Cards from other sources name their source and link to it | The owner wants to tell LinkedIn jobs from the rest at a glance. The feeds' terms (Remote OK, Jobicy) ask for the source to be named and linked |
+| DEC-037 | 2026-10-24 | Migration 003 replaces `jobs.linkedin_job_id` with `source` + `source_job_id` (unique together) by rebuilding the table, and `migrate.ts` turns foreign keys off while migrating and runs `foreign_key_check` before each commit. LinkedIn jobs keep their IDs as `source = 'linkedin'`. `JobSummary.linkedinJobId` becomes `source` + `sourceJobId` (agent) | A job ID is only unique within its source. A column-level UNIQUE can't be dropped in SQLite without a rebuild, and a rebuild with foreign keys on would fail on the jobs that sightings and history point to |
+| DEC-038 | 2026-10-24 | Jobs from other sources are scored with the same rubric `triage-v1` on title, company, location and salary; descriptions are stored and shown to the owner but the agent never reads them. `/find-jobs` fetches the other sources in the same run as the emails (agent) | Same scale on both views, so scores compare. Keeping descriptions out of the agent's context keeps long untrusted text (anyone can post on Hacker News) away from it and keeps runs cheap; deep match on descriptions stays R1 |
 
 ---
 
@@ -909,6 +951,7 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 | CP-7 | Performance, CI and hardening | Approved | 2026-10-23 | Owner approved with CP-8 (DEC-026). Agent-reviewed; owner checks deferred to CP-8. k6 on 5,000 seeded jobs, 20 VUs: p95 19.5 ms overall (board 23.5, API 21.0, detail 13.8), 0 % errors, no tuning needed. CI workflow validated with actionlint; DEC-031 (CI stages). First GitHub run exposed DEF-014 (browser install stalled on a slow apt mirror); fixed by running E2E in the Playwright image, after which CI is green on GitHub, including the manual k6 job (p95 20.4 ms). Defect log: DEF-005 to DEF-014, none open |
 | CP-8 | MVP acceptance | Approved | 2026-10-23 | MVP accepted. Phases 5–8 built under DEC-026 and approved together; 885 tests green locally and in GitHub CI; traceability matrix and defect log (DEF-005 to DEF-014, none open) reviewed. Older history contains the owner's email in commits 2b1b8b6 and 07cefbf from an earlier project; left as is |
 | CP-9 | LinkedIn login (DEC-032) | Approved | 2026-10-24 | Owner signed in once; session saved to data/linkedin/ and reused (expires 2027-10-24). DEC-032 (owner-authorized login, no questions or warnings), DEC-033 (`npm start` verifies and refreshes the session, header shows the status), DEC-034 (readable coloured start output, JSON logs when piped). 950 tests green (826 Vitest, 124 Playwright); FR-14 and NFR-12 added to the traceability matrix |
+| CP-10 | Other job sources (DEC-035) | Approved | 2026-10-24 | Free feeds only (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Remote OK, Himalayas, Jobicy, Hacker News; Adzuna only with a free key). DEC-035 (free sources, no other Gmail alerts), DEC-036 (LinkedIn | Other sources views), DEC-037 (source + source_job_id, migration 003 verified on a copy of the real database), DEC-038 (same rubric, descriptions not read by the agent). 1,165 tests green (1,017 Vitest, 148 Playwright). First live run (run 4): 11 emails, 142 feed listings, 157 new jobs, all scored, no feed failures |
 
 ---
 

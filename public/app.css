@@ -214,6 +214,39 @@ main.wrap {
 
 /* Board ----------------------------------------------------------------------------------------------------- */
 
+/* The LinkedIn | Other sources switch (FR-17, DEC-036): one segmented control above the status tabs. */
+.origins {
+  display: inline-flex;
+  flex-wrap: wrap;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.origins li + li {
+  border-left: 1px solid var(--border);
+}
+
+.origins a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0.4rem 1rem;
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.origins a[aria-current='page'] {
+  background: var(--text);
+  color: var(--surface);
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -494,6 +527,13 @@ textarea {
 .job-meta {
   color: var(--muted);
   margin: 0;
+}
+
+/* A feed's description is plain text: keep its paragraphs and line breaks, never its markup. */
+.description {
+  max-width: 75ch;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .panel {

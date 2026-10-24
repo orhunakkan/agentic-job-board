@@ -1,4 +1,5 @@
 import type { Tab } from '../domain/board-tabs.ts';
+import type { Origin } from '../domain/job-source.ts';
 import type { Status } from '../domain/status.ts';
 
 // Words and dates as the pages show them (PLAN.md §6.3). Dates are in the server's time zone, which on the
@@ -31,6 +32,11 @@ export const TAB_LABELS: Readonly<Record<Tab, string>> = {
   'in-progress': 'In progress',
   closed: 'Closed',
   dismissed: 'Dismissed',
+};
+
+export const ORIGIN_LABELS: Readonly<Record<Origin, string>> = {
+  linkedin: 'LinkedIn',
+  other: 'Other sources',
 };
 
 export function formatDateTime(iso: string, timeZone?: string): string {

@@ -134,13 +134,16 @@ describe('API responses match their schemas', () => {
 describe('the response schemas are strict', () => {
   const summary = {
     id: 1,
-    linkedinJobId: '4473592349',
+    source: 'linkedin',
+    sourceJobId: '4473592349',
     title: 'SDET',
     company: 'Example Co',
     location: 'Remote',
     url: 'https://www.linkedin.com/jobs/view/4473592349/',
     activelyHiring: false,
     easyApply: false,
+    postedAt: null,
+    salary: null,
     status: 'new',
     statusChangedAt: '2026-10-23T12:00:00.000Z',
     score: null,
@@ -151,8 +154,19 @@ describe('the response schemas are strict', () => {
     seenCount: 1,
   };
 
-  it('NFR-09: a valid job summary passes', () => {
+  // The same job as a public feed lists it (FR-15).
+  const listed = {
+    ...summary,
+    source: 'greenhouse',
+    sourceJobId: '5550001',
+    url: 'https://job-boards.greenhouse.io/examplelabs/jobs/5550001?gh_src=feed',
+    postedAt: '2026-10-20T13:00:00.000Z',
+    salary: '$150K – $180K',
+  };
+
+  it('NFR-09: a valid job summary passes, from LinkedIn or from another source', () => {
     expect(JobSummarySchema.safeParse(summary).success).toBe(true);
+    expect(JobSummarySchema.safeParse(listed).success).toBe(true);
   });
 
   it.each<[string, Record<string, unknown>]>([
@@ -162,6 +176,11 @@ describe('the response schemas are strict', () => {
     ['a URL off LinkedIn', { ...summary, url: 'https://example.com/jobs/view/1/' }],
     ['a non-ISO timestamp', { ...summary, firstSeenAt: 'Oct 22' }],
     ['an unknown status', { ...summary, status: 'hired' }],
+    ['a LinkedIn link to another job', { ...summary, url: 'https://www.linkedin.com/jobs/view/1/' }],
+    ['an unknown source', { ...listed, source: 'monster' }],
+    ['a plain http link', { ...listed, url: 'http://job-boards.greenhouse.io/examplelabs/jobs/5550001' }],
+    ['a javascript: link', { ...listed, url: 'javascript:alert(1)' }],
+    ['a link with a password', { ...listed, url: 'https://user:secret@example.com/jobs/1' }],
   ])('NFR-09: a job summary with %s fails', (_case, value) => {
     expect(JobSummarySchema.safeParse(value).success).toBe(false);
   });
