@@ -978,11 +978,11 @@ Tasks:
 6. Tests: unit (config), integration (the runner with a stand-in for Claude Code: arguments, one run at a time, failure, missing program, timeout, stop; `dismissNewJobs` including rollback), API (both forms on both views, notices, the Find Now line, invalid forms), security (cross-site posts refused and a GET does nothing; the runner is the only file that starts a process, with no shell; Find Now's tools equal the command's, with no MCP server and no prompts), E2E and axe on a server of their own (DEC-053).
 
 **🛑 CP-12. The owner checks:**
-- [ ] On the LinkedIn view, **Clear All** asks first, then moves exactly that view's New jobs to Dismissed; Other sources keeps its jobs, and a job restores from Dismissed
-- [ ] After Clear All, the switch shows **LinkedIn 0**, and Other sources still shows its number of New jobs
-- [ ] With the app on port 3000, **Find Now** on LinkedIn shows "running" and disables both buttons, and a reload shows new jobs arriving; at the end the board says it finished, `data/find-now/linkedin.log` has the summary, and `/runs` has the run
-- [ ] **Find Now** on Other sources reads only the feeds
-- [ ] No permission prompt and no Gmail tool was involved; anything refused is listed in the log's summary
+- [x] On the LinkedIn view, **Clear All** asks first, then moves exactly that view's New jobs to Dismissed; Other sources keeps its jobs, and a job restores from Dismissed
+- [x] After Clear All, the switch shows **LinkedIn 0**, and Other sources still shows its number of New jobs
+- [x] With the app on port 3000, **Find Now** on LinkedIn shows "running" and disables both buttons, and a reload shows new jobs arriving; at the end the board says it finished, `data/find-now/linkedin.log` has the summary, and `/runs` has the run
+- [x] **Find Now** on Other sources reads only the feeds
+- [x] No permission prompt and no Gmail tool was involved; anything refused is listed in the log's summary
 
 ---
 
@@ -1078,6 +1078,7 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 | CP-9 | LinkedIn login (DEC-032) | Approved | 2026-10-24 | Owner signed in once; session saved to data/linkedin/ and reused (expires 2027-10-24). DEC-032 (owner-authorized login, no questions or warnings), DEC-033 (`npm start` verifies and refreshes the session, header shows the status), DEC-034 (readable coloured start output, JSON logs when piped). 950 tests green (826 Vitest, 124 Playwright); FR-14 and NFR-12 added to the traceability matrix |
 | CP-10 | Other job sources (DEC-035) | Approved | 2026-10-24 | Free feeds only (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Remote OK, Himalayas, Jobicy, Hacker News; Adzuna only with a free key). DEC-035 (free sources, no other Gmail alerts), DEC-036 (LinkedIn | Other sources views), DEC-037 (source + source_job_id, migration 003 verified on a copy of the real database), DEC-038 (same rubric, descriptions not read by the agent). 1,165 tests green (1,017 Vitest, 148 Playwright). First live run (run 4): 11 emails, 142 feed listings, 157 new jobs, all scored, no feed failures |
 | CP-11 | LinkedIn search; Gmail track retired (DEC-041) | Approved | 2026-10-24 | scripts/search-linkedin.ts runs the owner's four searches (three mirrored alerts plus AI QA) with the saved session: last 7 days, newest first, remote, full-time and contract, 10 pages (DEC-047); parameter codes checked live. Gmail track removed, email endpoint 404, old email data still shown. Rubric match-v1 scores on descriptions; calibration 6/6 with Agilent changed to strong (DEC-050). Comparison with a week of alerts: 2/79 found newest-first, 16 of 30 open remote jobs with relevance (report in data/reports/). DEC-044 to DEC-050, DEF-015 to DEF-019. 1,297 tests green (1,145 Vitest, 152 Playwright); k6 p95 44.0 ms |
+| CP-12 | Find Now and Clear All (DEC-051) | Approved | 2026-10-25 | Clear All dismisses a view's New jobs after asking; Find Now runs `/find-jobs linkedin|other` headless (dontAsk, no MCP server, the command's tools only, no shell, one run at a time, log in data/find-now/). NFR-03 allows that one process (DEC-052). The view switch counts New jobs only (DEC-054). DEF-020 fixed (the command's write rule never matched; now `Edit(/data/find-jobs/**)`). E2E for the two actions on a server of their own (DEC-053). 1,343 tests green (1,189 Vitest, 154 Playwright); k6 p95 44.0 ms |
 
 ---
 
