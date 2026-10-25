@@ -9,6 +9,7 @@ describe('loadConfig', () => {
       logLevel: 'warn',
       logFormat: null,
       linkedinSessionPath: 'data/linkedin/session.json',
+      claudeCommand: ['claude'],
     });
   });
 
@@ -19,6 +20,7 @@ describe('loadConfig', () => {
       logLevel: 'info',
       logFormat: null,
       linkedinSessionPath: 'data/linkedin/session.json',
+      claudeCommand: ['claude'],
     });
   });
 
@@ -31,6 +33,14 @@ describe('loadConfig', () => {
     expect(loadConfig({ DB_PATH: 'x.db', LINKEDIN_SESSION_PATH: ' tmp/li.json ' })).toMatchObject({
       linkedinSessionPath: 'tmp/li.json',
     });
+  });
+
+  it('FR-22: CLAUDE_COMMAND sets how Find Now starts Claude Code, as a JSON array (DEC-052)', () => {
+    const program = String.raw`C:\Program Files\Claude\claude.exe`;
+    const env = { DB_PATH: 'x.db', CLAUDE_COMMAND: ` ${JSON.stringify([program, '--verbose'])} ` };
+
+    expect(env.CLAUDE_COMMAND).toContain(String.raw`"C:\\Program Files\\Claude\\claude.exe"`);
+    expect(loadConfig(env)).toMatchObject({ claudeCommand: [program, '--verbose'] });
   });
 
   it('NFR-09: trims surrounding whitespace', () => {
@@ -51,6 +61,18 @@ describe('loadConfig', () => {
     ['an unknown LOG_LEVEL', { DB_PATH: 'x', LOG_LEVEL: 'verbose' }, 'LOG_LEVEL:'],
     ['an unknown LOG_FORMAT', { DB_PATH: 'x', LOG_FORMAT: 'xml' }, 'LOG_FORMAT:'],
     ['an empty LINKEDIN_SESSION_PATH', { DB_PATH: 'x', LINKEDIN_SESSION_PATH: ' ' }, 'LINKEDIN_SESSION_PATH:'],
+    [
+      'a CLAUDE_COMMAND that is not JSON',
+      { DB_PATH: 'x', CLAUDE_COMMAND: 'claude -p' },
+      'CLAUDE_COMMAND: must be a JSON',
+    ],
+    ['an empty CLAUDE_COMMAND array', { DB_PATH: 'x', CLAUDE_COMMAND: '[]' }, 'CLAUDE_COMMAND: must be a JSON'],
+    [
+      'a CLAUDE_COMMAND that is a string',
+      { DB_PATH: 'x', CLAUDE_COMMAND: '"claude"' },
+      'CLAUDE_COMMAND: must be a JSON',
+    ],
+    ['a CLAUDE_COMMAND with an empty program', { DB_PATH: 'x', CLAUDE_COMMAND: '[" "]' }, 'CLAUDE_COMMAND.0: must be'],
   ])('NFR-09: %s is a ConfigError that says what to fix', (_case, env, message) => {
     expect(() => loadConfig(env)).toThrow(ConfigError);
     expect(() => loadConfig(env)).toThrow(message);

@@ -98,6 +98,8 @@ export interface JobsRepository {
   updateStatus(id: number, status: Status, changedAt: string): void;
   updateNotes(id: number, notes: string): void;
   setScore(id: number, score: JobScore): void;
+  /** The IDs of every job from `sources` with `status`, oldest first (Clear All, FR-21). */
+  idsWithStatus(sources: readonly JobSource[], status: Status): number[];
   /** The subset of `ids` that exist. */
   existingIds(ids: readonly number[]): Set<number>;
   /** The subset of `sourceJobIds` the board has from `source`. */
@@ -204,6 +206,9 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
   const scoreStatement = db.prepare(
     `UPDATE jobs SET score = ?, score_label = ?, score_reason = ?, rubric_version = ?, scored_at = ? WHERE id = ?`,
   );
+  const idsWithStatusStatement = db.prepare(
+    'SELECT id FROM jobs WHERE status = ? AND source IN (SELECT value FROM json_each(?)) ORDER BY id',
+  );
   const existingStatement = db.prepare('SELECT id FROM jobs WHERE id IN (SELECT value FROM json_each(?))');
   const knownStatement = db.prepare(
     'SELECT source_job_id AS sourceJobId FROM jobs WHERE source = ? AND source_job_id IN (SELECT value FROM json_each(?))',
@@ -287,6 +292,9 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
     },
     setScore(id, score) {
       scoreStatement.run(score.score, score.label, score.reason, score.rubricVersion, score.scoredAt, id);
+    },
+    idsWithStatus(sources, status) {
+      return idsWithStatusStatement.all(status, JSON.stringify(sources)).map((row) => IdRow.parse(row).id);
     },
     existingIds(ids) {
       return new Set(existingStatement.all(JSON.stringify(ids)).map((row) => IdRow.parse(row).id));

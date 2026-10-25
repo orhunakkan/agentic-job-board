@@ -1,14 +1,15 @@
 import type { JobRecord } from '../../db/repositories/jobs.ts';
 import { TABS, type BoardSort, type Tab } from '../../domain/board-tabs.ts';
 import { ORIGINS, type Origin } from '../../domain/job-source.ts';
+import type { FindNowRun } from '../../find-now/claude-runner.ts';
 import { BOARD_SORTS } from '../../schemas/pages.ts';
 import { flags, listingFacts, notice, scoreBadge, sourceLink, statusButtons } from '../components.ts';
-import { ORIGIN_LABELS, STATUS_LABELS, TAB_LABELS, timeAgo } from '../format.ts';
+import { formatDateTime, ORIGIN_LABELS, STATUS_LABELS, TAB_LABELS, timeAgo } from '../format.ts';
 import { html, raw, type SafeHtml } from '../html.ts';
 import { CURRENT } from '../layout.ts';
 
-// The board (FR-07, FR-17, PLAN.md §6.3): the LinkedIn | Other sources switch, tabs with counts, filters, ranked
-// job cards with status actions, paging.
+// The board (FR-07, FR-17, PLAN.md §6.3): the LinkedIn | Other sources switch, the view's Find Now and Clear All
+// (FR-21, FR-22), tabs with counts, filters, ranked job cards with status actions, paging.
 
 export interface BoardView {
   origin: Origin;
@@ -23,6 +24,8 @@ export interface BoardView {
   total: number;
   counts: Readonly<Record<Tab, number>>;
   changed: JobRecord | null;
+  cleared: number | null; // how many jobs Clear All just dismissed
+  findNow: FindNowRun | null;
   now: string;
 }
 
@@ -47,6 +50,7 @@ export function boardPage(view: BoardView): SafeHtml {
         html`<a href="/jobs/${view.changed.id}">${view.changed.title}</a> is now ${STATUS_LABELS[view.changed.status]}.`,
       )
     }
+    ${view.cleared !== null && notice(clearedMessage(view.origin, view.cleared))}
     <nav aria-label="Job sources">
       <ul class="origins">
         ${ORIGINS.map(
@@ -59,6 +63,7 @@ export function boardPage(view: BoardView): SafeHtml {
         )}
       </ul>
     </nav>
+    ${boardActions(view)}
     <nav aria-label="Board tabs">
       <ul class="tabs">
         ${TABS.map(
@@ -114,6 +119,64 @@ export function boardPage(view: BoardView): SafeHtml {
 }
 
 const SELECTED = raw('selected');
+const DISABLED = raw('disabled');
+
+/**
+ * Find Now and Clear All for the view (FR-21, FR-22). Clear All asks first, in a disclosure that needs no
+ * script (DEC-006); it is left out when New is empty. Find Now is disabled while any run is going: both views share
+ * the scoring queue, so one run at a time (DEC-052).
+ */
+function boardActions(view: BoardView): SafeHtml {
+  const newJobs = view.counts.new;
+  return html`<div class="board-actions">
+      <form class="inline-form" method="post" action="/board/find">
+        <input type="hidden" name="origin" value="${view.origin}" />
+        <button type="submit" class="button" ${view.findNow?.outcome === 'running' && DISABLED}>Find Now</button>
+      </form>
+      ${
+        newJobs > 0 &&
+        html`<details class="clear-all">
+          <summary class="button button-quiet">Clear All</summary>
+          <form class="clear-all-form" method="post" action="/board/clear">
+            <input type="hidden" name="origin" value="${view.origin}" />
+            <p>
+              Dismiss all ${newJobs} ${newJobsOf(view.origin, newJobs)}? Each one can be restored from
+              <a href="${tabHref(view.origin, 'dismissed')}">Dismissed</a>.
+            </p>
+            <button type="submit" class="button">Dismiss ${newJobs} ${newJobs === 1 ? 'job' : 'jobs'}</button>
+          </form>
+        </details>`
+      }
+    </div>
+    ${view.findNow !== null && findNowLine(view.findNow)}`;
+}
+
+function newJobsOf(origin: Origin, count: number): string {
+  const jobs = count === 1 ? 'job' : 'jobs';
+  return origin === 'linkedin' ? `new LinkedIn ${jobs}` : `new ${jobs} from other sources`;
+}
+
+function clearedMessage(origin: Origin, count: number): SafeHtml {
+  if (count === 0) return html`There were no new jobs to dismiss.`;
+  return html`Dismissed ${count} ${newJobsOf(origin, count)}. Each one can be restored from
+    <a href="${tabHref(origin, 'dismissed')}">Dismissed</a>.`;
+}
+
+/** What Find Now is doing, or how its last run ended; the redirect after pressing it lands here (#find-now). */
+function findNowLine(run: FindNowRun): SafeHtml {
+  const view = ORIGIN_LABELS[run.origin];
+  const ended = formatDateTime(run.finishedAt ?? run.startedAt);
+  const text =
+    run.outcome === 'running'
+      ? html`Find Now is running for ${view} since ${formatDateTime(run.startedAt)}: it searches, then scores. Reload
+        the page to see the jobs as they arrive.`
+      : run.outcome === 'finished'
+        ? html`Find Now for ${view} finished at ${ended}. Its summary is in <code>${run.logPath}</code>, and the counts
+            are on <a href="/runs">Runs</a>.`
+        : html`Find Now for ${view} stopped at ${ended}: ${run.problem ?? 'unknown problem'}. Its output is in
+            <code>${run.logPath}</code>.`;
+  return html`<p class="find-now" id="find-now" role="status" tabindex="-1" data-outcome="${run.outcome}">${text}</p>`;
+}
 
 function card(job: JobRecord, now: string, returnTo: string): SafeHtml {
   const titleId = `job-${String(job.id)}-title`;
@@ -148,12 +211,12 @@ function emptyState(view: BoardView, hasFilters: boolean): SafeHtml {
   }
   if (view.tab === 'new' && view.origin === 'linkedin') {
     return html`<p class="empty">
-      No new jobs. Run <code>/find-jobs</code> in Claude Code to read your latest LinkedIn alerts.
+      No new jobs. Press Find Now, or run <code>/find-jobs</code> in Claude Code, to run your LinkedIn searches.
     </p>`;
   }
   if (view.tab === 'new') {
     return html`<p class="empty">
-      No new jobs from other sources. Run <code>/find-jobs</code> in Claude Code, or
+      No new jobs from other sources. Press Find Now, run <code>/find-jobs</code> in Claude Code, or run
       <code>node scripts/fetch-sources.ts</code>, to read the job feeds in <code>data/sources.json</code>.
     </p>`;
   }

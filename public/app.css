@@ -246,6 +246,60 @@ main.wrap {
   background: var(--text);
   color: var(--surface);
 }
+/* Find Now and Clear All (FR-21, FR-22). Clear All's confirmation opens in a <details>, so it needs no script. */
+.board-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+.board-actions .button[disabled] {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.clear-all summary {
+  display: inline-flex;
+  align-items: center;
+  list-style: none;
+}
+.clear-all summary::-webkit-details-marker {
+  display: none;
+}
+.clear-all[open] summary {
+  background: var(--notice-bg);
+  color: var(--notice-text);
+}
+.clear-all-form {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  max-width: 36rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.clear-all-form p {
+  margin: 0 0 0.6rem;
+}
+.find-now {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+.find-now[data-outcome='running'] {
+  background: var(--notice-bg);
+  color: var(--notice-text);
+  border-color: transparent;
+}
+.find-now a {
+  color: inherit;
+  font-weight: 600;
+}
 
 .tabs {
   display: flex;

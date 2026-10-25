@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startApp, type RunningApp } from '../../src/app.ts';
 import { createLogger } from '../../src/logger.ts';
+import { fakeClaudeCommand } from './fake-claude.ts';
 import { fakeClock } from './fixtures.ts';
 
 // The real app on 127.0.0.1 with a free port, its own temporary database and its own LinkedIn session path
-// (PLAN.md §8.2, DEC-032), so tests never read the owner's data/.
+// (PLAN.md §8.2, DEC-032), so tests never read the owner's data/. Find Now runs tests/helpers/fake-claude.ts, never
+// Claude Code (FR-22).
 // `call` uses the built-in fetch (API tests); `raw` uses node:http so tests can set any header,
 // including Host, which fetch does not allow.
 
@@ -31,6 +33,7 @@ export interface TestApp {
   logs: string[];
   /** Where this app looks for the saved LinkedIn login; tests write a fake one here. */
   linkedinSessionPath: string;
+  dbPath: string;
   call(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<ApiResponse>;
   get(path: string): Promise<ApiResponse>;
   post(path: string, body?: unknown): Promise<ApiResponse>;
@@ -45,14 +48,16 @@ export interface TestApp {
   close(): Promise<void>;
 }
 
-export async function startTestApp(): Promise<TestApp> {
+export async function startTestApp(options: { claudeCommand?: readonly string[] } = {}): Promise<TestApp> {
   const dir = mkdtempSync(join(tmpdir(), 'jobboard-api-'));
   const logs: string[] = [];
   const linkedinSessionPath = join(dir, 'linkedin', 'session.json');
+  const dbPath = join(dir, 'test.db');
   const app = await startApp({
     port: 0,
-    dbPath: join(dir, 'test.db'),
+    dbPath,
     linkedinSessionPath,
+    claudeCommand: options.claudeCommand ?? fakeClaudeCommand(),
     logger: createLogger('debug', (line) => logs.push(line)),
     now: fakeClock('2026-10-23T12:00:00.000Z'),
   });
@@ -109,6 +114,7 @@ export async function startTestApp(): Promise<TestApp> {
     port: app.port,
     logs,
     linkedinSessionPath,
+    dbPath,
     call,
     get: (path) => call('GET', path),
     post: (path, body = {}) => call('POST', path, body),

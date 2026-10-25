@@ -5,10 +5,11 @@ import { ORIGINS, originOf, sourcesForOrigin, type Origin } from '../domain/job-
 import { html as htmlReply, parseInput, queryObject, redirect, type TextReply } from '../http/respond.ts';
 import type { ApiRequest, Route } from '../http/router.ts';
 import { staticRoutes } from '../http/static.ts';
-import { changeJobStatus, JobNotFoundError } from '../jobs/status-service.ts';
+import { changeJobStatus, dismissNewJobs, JobNotFoundError } from '../jobs/status-service.ts';
 import { linkedInSessionStatus } from '../linkedin/session.ts';
 import { IdParamSchema } from '../schemas/api.ts';
 import {
+  BoardActionFormSchema,
   BoardQuerySchema,
   JobPageQuerySchema,
   NotesFormSchema,
@@ -96,9 +97,34 @@ export function pageRoutes(context: AppContext): Route[] {
           total,
           counts,
           changed: query.changed === undefined ? null : repos.jobs.get(query.changed),
+          cleared: query.cleared ?? null,
+          findNow: context.findNow.last(),
           now: context.now(),
         });
         return page('Board', 'board', body);
+      },
+    },
+    {
+      // Clear All (FR-21, DEC-051): every New job of the view goes to Dismissed, from where each can be restored.
+      method: 'POST',
+      path: '/board/clear',
+      accepts: 'form',
+      handler: (request) => {
+        const { origin } = parseInput(BoardActionFormSchema, request.body, 'form');
+        const dismissed = dismissNewJobs(db, repos, sourcesForOrigin(origin), context.now);
+        return redirect(`/?${originQuery(origin)}tab=new&cleared=${String(dismissed)}#notice`);
+      },
+    },
+    {
+      // Find Now (FR-22, DEC-051): /find-jobs for the view in the background. While a run is going, the button is
+      // disabled and another press starts nothing; the board's Find Now line says what is running.
+      method: 'POST',
+      path: '/board/find',
+      accepts: 'form',
+      handler: (request) => {
+        const { origin } = parseInput(BoardActionFormSchema, request.body, 'form');
+        context.findNow.start(origin);
+        return redirect(`/?${originQuery(origin)}tab=new#find-now`);
       },
     },
     {
@@ -114,7 +140,7 @@ export function pageRoutes(context: AppContext): Route[] {
           sightings: repos.sightings.listForJob(job.id),
           listingSightings: repos.listingSightings.listForJob(job.id),
           history: repos.statusHistory.listForJob(job.id),
-          backHref: `/?${origin === 'linkedin' ? '' : 'origin=other&'}tab=${tabForStatus(job.status)}`,
+          backHref: `/?${originQuery(origin)}tab=${tabForStatus(job.status)}`,
           statusChanged: query.changed === job.id,
           notesSaved: query.notes === 'saved',
         });
@@ -159,6 +185,11 @@ export function pageRoutes(context: AppContext): Route[] {
     },
     ...staticRoutes(),
   ];
+}
+
+/** LinkedIn is the board's default view, so its URLs carry no origin (DEC-036). */
+function originQuery(origin: Origin): string {
+  return origin === 'linkedin' ? '' : `origin=${origin}&`;
 }
 
 /** Any error outside /api/ as a full page. It shows no last run: the database may be what failed. */

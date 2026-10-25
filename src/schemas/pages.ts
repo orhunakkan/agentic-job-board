@@ -18,6 +18,7 @@ export const BoardQuerySchema = z.object({
   sort: z.enum(BOARD_SORTS).optional(),
   page: intString(1, 100_000).default(1),
   changed: IdParamSchema.optional(), // the job a form just moved, for the notice
+  cleared: intString(0, Number.MAX_SAFE_INTEGER).optional(), // how many jobs Clear All just dismissed (FR-21)
 });
 
 export const JobPageQuerySchema = z.object({
@@ -28,6 +29,11 @@ export const JobPageQuerySchema = z.object({
 export const StatusFormSchema = z.strictObject({
   status: z.enum(STATUSES),
   return: z.string().max(2000).optional(),
+});
+
+/** Clear All (FR-21) and Find Now (FR-22): the view of the board they act on. */
+export const BoardActionFormSchema = z.strictObject({
+  origin: z.enum(ORIGINS),
 });
 
 export const NotesFormSchema = z.strictObject({
