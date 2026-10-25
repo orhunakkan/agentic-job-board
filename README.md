@@ -90,6 +90,15 @@ The command file lives in `.claude/commands/find-jobs.md`, which is not committe
 
 Open the board at http://127.0.0.1:3000/. Stop the server with Ctrl+C: it finishes open requests and closes the database.
 
+### Find Now and Clear All
+
+Each view of the board (LinkedIn, Other sources) has two buttons (PLAN.md Phase 12, DEC-051):
+
+- **Find Now** runs `/find-jobs linkedin` or `/find-jobs other` for you, in Claude Code's headless mode (`claude -p`), in the background: that view's searches or feeds, then scoring. The board says it is running and disables the button until it ends; reload to see jobs arrive. Claude Code's output, with the run's summary, goes to `data/find-now/<view>.log`. It needs the `claude` command on your PATH (or set `CLAUDE_COMMAND` in `.env`) and the app on port 3000, which the procedure calls. The run can use only the command's pre-approved tools and no MCP server: there is no one to answer a prompt, so anything else is refused and listed in the summary.
+- **Clear All** moves every job in that view's New tab to Dismissed, after asking. Each one can be restored from Dismissed, and a later search doesn't bring them back as new.
+
+`/find-jobs` with no argument, typed in Claude Code, still runs both sources.
+
 ### LinkedIn searches
 
 `/find-jobs` runs your own LinkedIn searches (PLAN.md Phase 11, DEC-041, DEC-042). Each search has a name and keywords, and any of LinkedIn's filters under readable names: `location`, `distanceMiles`, `postedWithin` (`since-last-run`, `day`, `week`, `month` or a number of hours), `workplace` (`remote`, `hybrid`, `on-site`), `experience`, `jobType`, `salaryMin`, `easyApply`, `companies` (LinkedIn company IDs), `sort` (`recent` or `relevant`) and `maxPages` (25 jobs a page). `defaults` apply to every search, and `excludeKeywords` drops titles with those words. A typo in the file stops the script with a message that names it.
@@ -166,12 +175,12 @@ PORT=3000 DB_PATH=data/perf.db LOG_LEVEL=warn node src/main.ts    # in a second 
 npm run test:perf
 ```
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs static checks and unit tests, then every Vitest project with coverage (in the Playwright image, since the script tests open saved LinkedIn pages in Chromium), then E2E and smoke on four browser projects, then the k6 load test.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs static checks and unit tests, then every Vitest project with coverage (in the Playwright image, since the script tests open saved LinkedIn pages in Chromium), then E2E and smoke on four browser projects (plus the Clear All and Find Now tests on a server of their own, DEC-053), then the k6 load test.
 
 ## Privacy and safety
 
 - **Job sources only through two scripts.** `scripts/fetch-sources.ts` asks a fixed list of hosts; your config only fills in company names and keywords. `scripts/search-linkedin.ts` builds only `https://www.linkedin.com/jobs/search/` addresses from your searches.
-- **LinkedIn only through your own login.** LinkedIn is reached only by scripts you run, with the session you saved yourself (DEC-032). The app server makes no outbound requests at all (a test checks every source file), and `/find-jobs` never opens links. Cookie values never appear in API responses, pages, logs or script output.
+- **LinkedIn only through your own login.** LinkedIn is reached only by scripts you run, with the session you saved yourself (DEC-032). The app server makes no outbound requests at all (a test checks every source file), and `/find-jobs` never opens links. The one process the app starts is Claude Code for Find Now, with fixed arguments and no shell (DEC-052). Cookie values never appear in API responses, pages, logs or script output.
 - **No Gmail.** The alert-email track is retired (DEC-041); nothing reads your mail. Jobs from the email years keep their email sightings on the board.
 - **Personal data stays local.** The database, résumé, profile and searches live in `data/`, which git ignores. LinkedIn links are stored only in their canonical form, so no tracking value reaches the database.
 - **Job text is data, never instructions.** Every title and description is HTML-escaped on every page, and the agent treats a description like "ignore previous instructions" as just a strange job ad.

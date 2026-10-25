@@ -145,3 +145,11 @@ Open defects: none.
 - **Expected:** the seed test finishes well inside 5 s; 5,000 jobs seed in under a second.
 - **Actual:** the test timed out once in a full run, and 5,000 jobs took 13 s. Since Phase 11 the seed brings its jobs in as LinkedIn listings, and each listing was its own transaction and commit.
 - **Fix:** all search pages are seeded in one transaction, which each listing's transaction joins; 5,000 jobs take 0.24 s. **Status:** Fixed in `0bc72c8`.
+
+### DEF-020: The `/find-jobs` command's write rule never matched
+
+- **Severity:** High for Find Now (a headless run could not write its score files, so nothing would be scored, FR-22); Low for `/find-jobs` typed by hand (each payload file asked the owner first)
+- **Steps:** start Claude Code with the command's tools as `--allowedTools`, as Find Now does.
+- **Expected:** writing payload files under `data/find-jobs/` is pre-approved.
+- **Actual:** Claude Code warns that `Write(/data/find-jobs/**)` "is not matched by file permission checks — only Edit(path) rules are". Under `--permission-mode dontAsk` every payload write would be refused.
+- **Fix:** the command pre-approves `Edit(/data/find-jobs/**)`, which covers every file-writing tool for the same folder; Find Now passes the same rule, and the security test expects it. Found by a check of the real CLI with the exact flags in Phase 12. **Status:** Fixed in Phase 12.
