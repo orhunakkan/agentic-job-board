@@ -58,3 +58,43 @@ export function countAll(db: DatabaseSync): Record<Table, number> {
 export function dumpAll(db: DatabaseSync): string {
   return JSON.stringify(TABLES.map((table) => db.prepare(`SELECT * FROM ${table}`).all()));
 }
+
+/**
+ * A LinkedIn job from the alert-email years (before Phase 11, DEC-041): a run, the email, the job with its triage
+ * score and status, and its email sighting, written as the old email ingest left them. Returns the job's ID.
+ */
+export function seedEmailYearsJob(db: DatabaseSync, linkedinJobId = '4473592349'): number {
+  const runId = db
+    .prepare(
+      `INSERT INTO runs (started_at, finished_at, emails_seen, emails_new, jobs_new, jobs_scored)
+       VALUES ('2026-10-20T16:00:00.000Z', '2026-10-20T16:05:00.000Z', 1, 1, 1, 1)`,
+    )
+    .run().lastInsertRowid;
+  db.prepare(
+    `INSERT INTO emails (gmail_message_id, run_id, received_at, sender, subject, saved_search, parse_status,
+                         jobs_found, processed_at)
+     VALUES ('msg-email-years', ?, '2026-10-20T14:10:48.000Z', 'jobalerts-noreply@linkedin.com',
+             'Senior QA Automation Test Engineer', 'senior quality assurance engineer in United States', 'parsed',
+             1, '2026-10-20T16:00:01.000Z')`,
+  ).run(runId);
+  const result = db
+    .prepare(
+      `INSERT INTO jobs (source, source_job_id, title, company, location, url, actively_hiring, easy_apply, status,
+                         status_changed_at, notes, score, score_label, score_reason, rubric_version, scored_at,
+                         first_seen_at, last_seen_at, first_run_id)
+       VALUES ('linkedin', ?, 'Senior QA Automation Test Engineer', 'Example Markets', 'Chicago, IL', ?, 1, 0, 'saved',
+               '2026-10-21T09:00:00.000Z', 'Call back', 70, 'possible', 'Senior QA role, Chicago-based.', 'triage-v1',
+               '2026-10-20T16:04:00.000Z', '2026-10-20T14:10:48.000Z', '2026-10-20T14:10:48.000Z', ?)`,
+    )
+    .run(linkedinJobId, `https://www.linkedin.com/jobs/view/${linkedinJobId}/`, runId);
+  const jobId = Number(result.lastInsertRowid);
+  db.prepare(
+    `INSERT INTO sightings (job_id, gmail_message_id, saved_search)
+     VALUES (?, 'msg-email-years', 'senior quality assurance engineer in United States')`,
+  ).run(jobId);
+  db.prepare(
+    `INSERT INTO status_history (job_id, from_status, to_status, changed_at)
+     VALUES (?, NULL, 'new', '2026-10-20T16:00:01.000Z'), (?, 'new', 'saved', '2026-10-21T09:00:00.000Z')`,
+  ).run(jobId, jobId);
+  return jobId;
+}

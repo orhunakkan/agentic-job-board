@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { CreateRunResponseSchema, IngestEmailsResponseSchema, RunSummarySchema } from '../../src/schemas/api.ts';
+import {
+  CreateRunResponseSchema,
+  IngestEmailsResponseSchema,
+  IngestStateResponseSchema,
+  RunSummarySchema,
+} from '../../src/schemas/api.ts';
 import { fixtureEmail } from '../helpers/fixtures.ts';
-import { jobAt, seedBoard } from '../helpers/seed-board.ts';
+import { jobAt, seedBoard, seedLinkedInListings, seedListings } from '../helpers/seed-board.ts';
 import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
 const UNRECOGNIZED = {
@@ -28,26 +33,25 @@ describe('the /find-jobs run API', () => {
   }
 
   describe('GET /api/ingest/state', () => {
-    it('FR-02: is null before any email is stored', async () => {
+    it('FR-18: is null before any LinkedIn search stored a job', async () => {
       const response = await testApp.get('/api/ingest/state');
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ lastEmailReceivedAt: null });
+      expect(response.body).toEqual({ lastLinkedInSearchAt: null });
     });
 
-    it('FR-02: returns the newest receivedAt of any stored email, unrecognized ones included', async () => {
+    it('FR-18: is when a run last stored a job a LinkedIn search found; the feeds and emails do not count', async () => {
       const runId = await newRun();
-      await testApp.post(`/api/runs/${String(runId)}/emails`, {
-        emails: [
-          fixtureEmail('digest-senior-qa.txt', 'msg1'),
-          UNRECOGNIZED,
-          fixtureEmail('recommendations.txt', 'msg2'),
-        ],
-      });
+      await seedListings(testApp, runId);
+      await testApp.post(`/api/runs/${String(runId)}/emails`, { emails: [fixtureEmail('digest-senior-qa.txt')] });
+      expect((await testApp.get('/api/ingest/state')).body).toEqual({ lastLinkedInSearchAt: null });
 
-      expect((await testApp.get('/api/ingest/state')).body).toEqual({
-        lastEmailReceivedAt: '2026-10-23T09:00:00.000Z',
-      });
+      await seedLinkedInListings(testApp, runId);
+      const { lastLinkedInSearchAt } = IngestStateResponseSchema.parse((await testApp.get('/api/ingest/state')).body);
+      await seedListings(testApp, await newRun());
+
+      expect(lastLinkedInSearchAt).not.toBeNull();
+      expect((await testApp.get('/api/ingest/state')).body).toEqual({ lastLinkedInSearchAt });
     });
   });
 

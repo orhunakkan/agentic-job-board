@@ -5,18 +5,22 @@ import {
   ErrorResponseSchema,
   HealthResponseSchema,
   IngestEmailsResponseSchema,
+  IngestListingsResponseSchema,
   IngestStateResponseSchema,
   JobDetailSchema,
   JobListResponseSchema,
   JobSummarySchema,
+  KnownListingsResponseSchema,
   LinkedInSessionResponseSchema,
   RunListResponseSchema,
   RunSummarySchema,
   ScoresResponseSchema,
+  ScoringQueueResponseSchema,
 } from '../../src/schemas/api.ts';
 import { createLinkedInSessionFile, saveLinkedInSession } from '../../src/linkedin/session.ts';
 import { ProfileSchema } from '../../src/schemas/profile.ts';
 import { fakeLinkedInStorageState, fixtureEmail } from '../helpers/fixtures.ts';
+import { LINKEDIN_LISTINGS } from '../helpers/seed-board.ts';
 import { startTestApp, type ApiResponse, type TestApp } from '../helpers/test-app.ts';
 
 // Every response of PLAN.md §6.1 is checked against its Zod schema (DEC-009). The schemas are strict,
@@ -77,6 +81,25 @@ describe('API responses match their schemas', () => {
     conforms(IngestEmailsResponseSchema, response, 200);
     jobId = IngestEmailsResponseSchema.parse(response.body).newJobs[0]?.id ?? 0;
     conforms(IngestStateResponseSchema, await testApp.get('/api/ingest/state'), 200);
+  });
+
+  it('FR-18: POST /api/runs/:id/listings with jobs from LinkedIn searches, and the ingest state after it', async () => {
+    const response = await testApp.post(`/api/runs/${String(runId)}/listings`, { listings: LINKEDIN_LISTINGS });
+    conforms(IngestListingsResponseSchema, response, 200);
+    conforms(IngestStateResponseSchema, await testApp.get('/api/ingest/state'), 200);
+  });
+
+  it('FR-19: POST /api/listings/known', async () => {
+    const response = await testApp.post('/api/listings/known', {
+      source: 'linkedin',
+      sourceJobIds: ['4480000001', '1'],
+    });
+    conforms(KnownListingsResponseSchema, response, 200);
+  });
+
+  it('FR-20: GET /api/scoring/queue', async () => {
+    conforms(ScoringQueueResponseSchema, await testApp.get('/api/scoring/queue'), 200);
+    conforms(ScoringQueueResponseSchema, await testApp.get('/api/scoring/queue?limit=1'), 200);
   });
 
   it('FR-06: POST /api/runs/:id/scores', async () => {
@@ -144,6 +167,7 @@ describe('the response schemas are strict', () => {
     easyApply: false,
     postedAt: null,
     salary: null,
+    workplace: null,
     status: 'new',
     statusChangedAt: '2026-10-23T12:00:00.000Z',
     score: null,
@@ -178,6 +202,8 @@ describe('the response schemas are strict', () => {
     ['an unknown status', { ...summary, status: 'hired' }],
     ['a LinkedIn link to another job', { ...summary, url: 'https://www.linkedin.com/jobs/view/1/' }],
     ['an unknown source', { ...listed, source: 'monster' }],
+    ['an unknown workplace', { ...summary, workplace: 'office' }],
+    ['no workplace field', { ...summary, workplace: undefined }],
     ['a plain http link', { ...listed, url: 'http://job-boards.greenhouse.io/examplelabs/jobs/5550001' }],
     ['a javascript: link', { ...listed, url: 'javascript:alert(1)' }],
     ['a link with a password', { ...listed, url: 'https://user:secret@example.com/jobs/1' }],

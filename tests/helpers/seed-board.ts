@@ -58,9 +58,62 @@ export const LISTINGS: readonly IncomingListing[] = [
   },
 ];
 
+// Three made-up jobs from the owner's LinkedIn searches (PLAN.md Phase 11), as scripts/search-linkedin.ts sends them:
+// one with every detail from its job page, one from a search card only, one from another search.
+export const LINKEDIN_LISTINGS: readonly IncomingListing[] = [
+  {
+    source: 'linkedin',
+    sourceJobId: '4480000001',
+    title: 'Senior SDET (Playwright, TypeScript)',
+    company: 'Example Health',
+    location: 'United States (Remote)',
+    url: 'https://www.linkedin.com/jobs/view/4480000001/',
+    postedAt: '2026-10-23T09:00:00.000Z',
+    salary: '$150K/yr - $180K/yr',
+    description: 'About us\n\nWe build health software.\n• 5+ years of test automation\n• Playwright and TypeScript',
+    workplace: 'remote',
+    easyApply: true,
+    searchName: 'QA family',
+  },
+  {
+    source: 'linkedin',
+    sourceJobId: '4480000002',
+    title: 'QA Automation Engineer',
+    company: 'Sample Freight',
+    location: 'Austin, TX',
+    url: 'https://www.linkedin.com/jobs/view/4480000002/',
+    postedAt: '2026-10-23T07:00:00.000Z',
+    salary: null,
+    description: null,
+    workplace: null,
+    easyApply: false,
+    searchName: 'QA family',
+  },
+  {
+    source: 'linkedin',
+    sourceJobId: '4480000003',
+    title: 'Software Quality Assurance Engineer',
+    company: 'Acme Payments',
+    location: 'New York, NY (Hybrid)',
+    url: 'https://www.linkedin.com/jobs/view/4480000003/',
+    postedAt: '2026-10-22T15:00:00.000Z',
+    salary: null,
+    description: 'Hybrid role, three days a week in our New York office.',
+    workplace: 'hybrid',
+    easyApply: false,
+    searchName: 'Software QA',
+  },
+];
+
 /** Sends LISTINGS to an open run, as scripts/fetch-sources.ts --run would. */
 export async function seedListings(testApp: TestApp, runId: number): Promise<JobSummary[]> {
   const response = await testApp.post(`/api/runs/${String(runId)}/listings`, { listings: LISTINGS });
+  return IngestListingsResponseSchema.parse(response.body).newJobs;
+}
+
+/** Sends LINKEDIN_LISTINGS to an open run, as scripts/search-linkedin.ts --run would. */
+export async function seedLinkedInListings(testApp: TestApp, runId: number): Promise<JobSummary[]> {
+  const response = await testApp.post(`/api/runs/${String(runId)}/listings`, { listings: LINKEDIN_LISTINGS });
   return IngestListingsResponseSchema.parse(response.body).newJobs;
 }
 

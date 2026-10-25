@@ -29,6 +29,7 @@ const STORED_FIELDS = {
   easyApply: false,
   postedAt: null,
   salary: null,
+  workplace: null,
 } as const satisfies Omit<NewJob, 'description'>;
 
 const NEW_JOB: NewJob = { ...STORED_FIELDS, description: null };
@@ -46,6 +47,7 @@ const LISTED_JOB: NewJob = {
   postedAt: '2026-10-20T09:00:00.000Z',
   salary: '$150K – $180K',
   description: 'Build the test platform.',
+  workplace: null,
 };
 
 function email(runId: number, overrides: Partial<EmailRecord> = {}): EmailRecord {
@@ -448,6 +450,95 @@ describe('repositories', () => {
         /CHECK constraint failed/,
       );
     });
+
+    it('FR-19: stores the workplace; a newer sighting without one keeps it, a newer one with one replaces it', () => {
+      const at = { runId: null, seenAt: '2026-10-22T14:00:00.000Z', createdAt: '2026-10-22T14:00:00.000Z' };
+      const id = testDb.repos.jobs.insert({ ...NEW_JOB, workplace: 'hybrid' }, at);
+
+      testDb.repos.jobs.recordSighting(id, NEW_JOB, '2026-10-23T14:00:00.000Z');
+      expect(testDb.repos.jobs.get(id)?.workplace).toBe('hybrid');
+
+      testDb.repos.jobs.recordSighting(id, { ...NEW_JOB, workplace: 'remote' }, '2026-10-24T14:00:00.000Z');
+      expect(testDb.repos.jobs.get(id)?.workplace).toBe('remote');
+
+      testDb.repos.jobs.recordSighting(id, { ...NEW_JOB, workplace: 'on-site' }, '2026-10-21T14:00:00.000Z');
+      expect(testDb.repos.jobs.get(id)?.workplace).toBe('remote');
+    });
+
+    it('FR-19: tells which job IDs of a source the board already has', () => {
+      const at = { runId: null, seenAt: '2026-10-22T14:00:00.000Z', createdAt: '2026-10-22T14:00:00.000Z' };
+      testDb.repos.jobs.insert(NEW_JOB, at);
+      testDb.repos.jobs.insert({ ...LISTED_JOB, sourceJobId: '777' }, at);
+
+      expect(testDb.repos.jobs.knownSourceJobIds('linkedin', ['4473592349', '777', '1'])).toEqual(
+        new Set(['4473592349']),
+      );
+      expect(testDb.repos.jobs.knownSourceJobIds('greenhouse', ['4473592349', '777'])).toEqual(new Set(['777']));
+      expect(testDb.repos.jobs.knownSourceJobIds('linkedin', [])).toEqual(new Set());
+    });
+
+    describe('scoring queue (FR-20, DEC-044)', () => {
+      const RESCORE = ['new', 'saved'] as const;
+
+      function add(sourceJobId: string, description: string | null, seenAt: string): number {
+        return testDb.repos.jobs.insert(
+          { ...LISTED_JOB, sourceJobId, description },
+          { runId: null, seenAt, createdAt: seenAt },
+        );
+      }
+
+      function score(id: number, rubricVersion: string): void {
+        testDb.repos.jobs.setScore(id, {
+          score: 60,
+          label: 'possible',
+          reason: 'Seeded.',
+          rubricVersion,
+          scoredAt: '2026-10-23T12:00:00.000Z',
+        });
+      }
+
+      it('holds every unscored job, then jobs in New or Saved scored without their description, newest first', () => {
+        const unscoredOld = add('1', null, '2026-10-20T00:00:00.000Z');
+        const unscoredNew = add('2', 'About the job', '2026-10-22T00:00:00.000Z');
+        const triaged = add('3', 'About the job', '2026-10-23T00:00:00.000Z');
+        score(triaged, 'triage-v1');
+        const saved = add('4', 'About the job', '2026-10-21T00:00:00.000Z');
+        score(saved, 'triage-v1');
+        testDb.repos.jobs.updateStatus(saved, 'saved', '2026-10-23T00:00:00.000Z');
+        const matched = add('5', 'About the job', '2026-10-24T00:00:00.000Z');
+        score(matched, 'match-v1');
+        const noDescription = add('6', null, '2026-10-24T00:00:00.000Z');
+        score(noDescription, 'triage-v1');
+        const applied = add('7', 'About the job', '2026-10-24T00:00:00.000Z');
+        score(applied, 'triage-v1');
+        testDb.repos.jobs.updateStatus(applied, 'applied', '2026-10-24T00:00:00.000Z');
+        const unscoredDismissed = add('8', null, '2026-10-19T00:00:00.000Z');
+        testDb.repos.jobs.updateStatus(unscoredDismissed, 'dismissed', '2026-10-24T00:00:00.000Z');
+
+        const { jobs, total } = testDb.repos.jobs.scoringQueue('match-v1', RESCORE, 10);
+
+        expect(jobs.map((job) => job.id)).toEqual([unscoredNew, unscoredOld, unscoredDismissed, triaged, saved]);
+        expect(total).toBe(5);
+        expect(jobs[0]).toMatchObject({ description: 'About the job', score: null });
+        expect(jobs[3]).toMatchObject({ description: 'About the job', rubricVersion: 'triage-v1' });
+      });
+
+      it('returns at most `limit` jobs but counts them all', () => {
+        for (const id of ['1', '2', '3']) add(id, null, '2026-10-20T00:00:00.000Z');
+
+        const { jobs, total } = testDb.repos.jobs.scoringQueue('match-v1', RESCORE, 2);
+
+        expect(jobs).toHaveLength(2);
+        expect(total).toBe(3);
+      });
+
+      it('is empty once every job is scored with the right rubric', () => {
+        score(add('1', 'About the job', '2026-10-20T00:00:00.000Z'), 'match-v1');
+        score(add('2', null, '2026-10-20T00:00:00.000Z'), 'triage-v1');
+
+        expect(testDb.repos.jobs.scoringQueue('match-v1', RESCORE, 10)).toEqual({ jobs: [], total: 0 });
+      });
+    });
   });
 
   describe('sightings and status history', () => {
@@ -486,21 +577,36 @@ describe('repositories', () => {
         createdAt: '2026-10-22T12:00:01.000Z',
       });
 
-      expect(testDb.repos.listingSightings.insert(jobId, secondRun, '2026-10-23T12:00:01.000Z')).toBe(true);
-      expect(testDb.repos.listingSightings.insert(jobId, firstRun, '2026-10-22T12:00:01.000Z')).toBe(true);
-      expect(testDb.repos.listingSightings.insert(jobId, firstRun, '2026-10-22T12:00:09.000Z')).toBe(false);
+      expect(testDb.repos.listingSightings.insert(jobId, secondRun, '2026-10-23T12:00:01.000Z', 'SDET')).toBe(true);
+      expect(testDb.repos.listingSightings.insert(jobId, firstRun, '2026-10-22T12:00:01.000Z', null)).toBe(true);
+      expect(testDb.repos.listingSightings.insert(jobId, firstRun, '2026-10-22T12:00:09.000Z', 'QA')).toBe(false);
 
       expect(testDb.repos.listingSightings.listForJob(jobId)).toEqual([
-        { runId: firstRun, seenAt: '2026-10-22T12:00:01.000Z' },
-        { runId: secondRun, seenAt: '2026-10-23T12:00:01.000Z' },
+        { runId: firstRun, seenAt: '2026-10-22T12:00:01.000Z', searchName: null },
+        { runId: secondRun, seenAt: '2026-10-23T12:00:01.000Z', searchName: 'SDET' },
       ]);
       expect(testDb.repos.listingSightings.listForJob(999)).toEqual([]);
     });
 
     it('FR-16: a listing sighting must point at a stored job and run', () => {
-      expect(() => testDb.repos.listingSightings.insert(999, 999, '2026-10-23T12:00:00.000Z')).toThrow(
+      expect(() => testDb.repos.listingSightings.insert(999, 999, '2026-10-23T12:00:00.000Z', null)).toThrow(
         /FOREIGN KEY constraint failed/,
       );
+    });
+
+    it('FR-18: knows when a run last stored a sighting of a LinkedIn job, apart from the other sources', () => {
+      const run = testDb.repos.runs.create('2026-10-22T12:00:00.000Z');
+      const at = { runId: run, seenAt: '2026-10-22T12:00:01.000Z', createdAt: '2026-10-22T12:00:01.000Z' };
+      const linkedin = testDb.repos.jobs.insert(NEW_JOB, at);
+      const listed = testDb.repos.jobs.insert(LISTED_JOB, at);
+      expect(testDb.repos.listingSightings.latestSeenAt('linkedin')).toBeNull();
+
+      testDb.repos.listingSightings.insert(linkedin, run, '2026-10-22T12:00:05.000Z', 'SDET');
+      const later = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
+      testDb.repos.listingSightings.insert(listed, later, '2026-10-23T12:00:05.000Z', null);
+
+      expect(testDb.repos.listingSightings.latestSeenAt('linkedin')).toBe('2026-10-22T12:00:05.000Z');
+      expect(testDb.repos.listingSightings.latestSeenAt('greenhouse')).toBe('2026-10-23T12:00:05.000Z');
     });
 
     it('FR-08: lists a job’s status changes in the order they happened', () => {

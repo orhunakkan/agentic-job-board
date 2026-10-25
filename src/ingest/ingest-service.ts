@@ -144,6 +144,7 @@ function linkedInJob(job: ParsedJob): NewJob {
     postedAt: null,
     salary: null,
     description: null,
+    workplace: null,
   };
 }
 

@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { TABS } from '../domain/board-tabs.ts';
-import { JOB_SOURCES, LISTING_SOURCES, ORIGINS } from '../domain/job-source.ts';
-import { isLabelConsistent, SCORE_LABELS } from '../domain/score.ts';
+import { JOB_SOURCES, ORIGINS } from '../domain/job-source.ts';
+import { isLabelConsistent, RUBRICS, SCORE_LABELS } from '../domain/score.ts';
 import { STATUSES } from '../domain/status.ts';
+import { WORKPLACES } from '../domain/workplace.ts';
 import { LINKEDIN_SESSION_STATES } from '../linkedin/session.ts';
 
 // Every JSON API request and response shape (PLAN.md §6.1). Requests are parsed with these schemas in the
@@ -53,6 +54,7 @@ const JobSummaryFields = z.strictObject({
   easyApply: z.boolean(),
   postedAt: IsoTimestamp.nullable(),
   salary: z.string().nullable(),
+  workplace: z.enum(WORKPLACES).nullable(),
   status: z.enum(STATUSES),
   statusChangedAt: IsoTimestamp,
   score: z.number().int().min(0).max(100).nullable(),
@@ -82,7 +84,7 @@ export const JobDetailSchema = JobSummaryFields.extend({
   sightings: z.array(
     z.strictObject({ gmailMessageId: z.string(), savedSearch: z.string().nullable(), receivedAt: IsoTimestamp }),
   ),
-  listingSightings: z.array(z.strictObject({ runId: Id, seenAt: IsoTimestamp })),
+  listingSightings: z.array(z.strictObject({ runId: Id, seenAt: IsoTimestamp, searchName: z.string().nullable() })),
   history: z.array(
     z.strictObject({ fromStatus: z.enum(STATUSES).nullable(), toStatus: z.enum(STATUSES), changedAt: IsoTimestamp }),
   ),
@@ -121,7 +123,8 @@ export const LinkedInSessionResponseSchema = z.strictObject({
 
 // --- GET /api/ingest/state ---------------------------------------------------------------------------------------
 
-export const IngestStateResponseSchema = z.strictObject({ lastEmailReceivedAt: IsoTimestamp.nullable() });
+/** When a run last stored a job a LinkedIn search found: where `postedWithin: since-last-run` starts (Phase 11). */
+export const IngestStateResponseSchema = z.strictObject({ lastLinkedInSearchAt: IsoTimestamp.nullable() });
 
 // --- POST /api/runs ----------------------------------------------------------------------------------------------
 
@@ -159,7 +162,7 @@ export const IngestEmailsResponseSchema = z.strictObject({
 
 /** At most this many listings per call; with full descriptions a batch stays well under the 1 MB body limit. */
 export const MAX_LISTINGS_PER_CALL = 25;
-/** Descriptions are cut to this many characters by scripts/fetch-sources.ts before they are sent. */
+/** Descriptions are cut to this many characters by the scripts before they are sent. */
 export const DESCRIPTION_MAX = 10_000;
 
 const OneLine = (max: number) =>
@@ -169,18 +172,28 @@ const OneLine = (max: number) =>
     .max(max)
     .regex(/^[^\r\n]*$/, 'must be one line');
 
-/** One job as a feed lists it; scripts/fetch-sources.ts checks every listing with this before sending it. */
-export const IncomingListingSchema = z.strictObject({
-  source: z.enum(LISTING_SOURCES),
-  sourceJobId: OneLine(200).min(1),
-  title: OneLine(300).min(1),
-  company: OneLine(200).min(1),
-  location: OneLine(300),
-  url: HttpsUrl,
-  postedAt: IsoTimestamp.nullable(),
-  salary: OneLine(200).min(1).nullable(),
-  description: z.string().trim().min(1).max(DESCRIPTION_MAX).nullable(),
-});
+/**
+ * One job as a feed or a LinkedIn search lists it; scripts/fetch-sources.ts and scripts/search-linkedin.ts check every
+ * listing with this before sending it. A LinkedIn job links to its canonical URL, like every LinkedIn job (§5.3).
+ */
+export const IncomingListingSchema = z
+  .strictObject({
+    source: z.enum(JOB_SOURCES),
+    sourceJobId: OneLine(200).min(1),
+    title: OneLine(300).min(1),
+    company: OneLine(200).min(1),
+    location: OneLine(300),
+    url: HttpsUrl,
+    postedAt: IsoTimestamp.nullable(),
+    salary: OneLine(200).min(1).nullable(),
+    description: z.string().trim().min(1).max(DESCRIPTION_MAX).nullable(),
+    // Only LinkedIn says these (FR-19); the feeds leave them out.
+    workplace: z.enum(WORKPLACES).nullable().optional(),
+    easyApply: z.boolean().optional(),
+    /** The LinkedIn search that found the job, stored on its sighting. */
+    searchName: OneLine(100).min(1).optional(),
+  })
+  .refine(LINKEDIN_CANONICAL.check, LINKEDIN_CANONICAL.issue);
 
 export const IngestListingsRequestSchema = z.strictObject({
   listings: z.array(IncomingListingSchema).min(1).max(MAX_LISTINGS_PER_CALL),
@@ -193,6 +206,42 @@ export const IngestListingsResponseSchema = z.strictObject({
   repeated: Count,
   newJobs: z.array(JobSummarySchema),
 });
+
+// --- POST /api/listings/known ------------------------------------------------------------------------------------
+
+/** At most this many job IDs per call: four search pages. */
+export const MAX_KNOWN_IDS_PER_CALL = 100;
+
+export const KnownListingsRequestSchema = z.strictObject({
+  source: z.enum(JOB_SOURCES),
+  sourceJobIds: z.array(OneLine(200).min(1)).min(1).max(MAX_KNOWN_IDS_PER_CALL),
+});
+
+/** The IDs from the request that the board already has, in request order. */
+export const KnownListingsResponseSchema = z.strictObject({ known: z.array(z.string()) });
+
+// --- GET /api/scoring/queue --------------------------------------------------------------------------------------
+
+export const ScoringQueueQuerySchema = z.strictObject({ limit: intString(1, 25).default(10) });
+
+/** A job waiting for a score, with everything the rubric reads (FR-20, DEC-043). */
+export const ScoringQueueItemSchema = z.strictObject({
+  id: Id,
+  source: z.enum(JOB_SOURCES),
+  title: z.string(),
+  company: z.string(),
+  location: z.string(),
+  workplace: z.enum(WORKPLACES).nullable(),
+  salary: z.string().nullable(),
+  postedAt: IsoTimestamp.nullable(),
+  description: z.string().nullable(),
+  /** match-v1 when there is a description, triage-v1 when there isn't. */
+  rubric: z.enum(RUBRICS),
+  /** The score it has from another rubric, or null when it has none yet. */
+  currentRubric: z.string().nullable(),
+});
+
+export const ScoringQueueResponseSchema = z.strictObject({ items: z.array(ScoringQueueItemSchema), total: Count });
 
 // --- POST /api/runs/:id/scores -----------------------------------------------------------------------------------
 

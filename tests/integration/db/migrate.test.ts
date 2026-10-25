@@ -19,6 +19,7 @@ const EXPECTED_INDEXES = [
   'idx_emails_received',
   'idx_jobs_first_run',
   'idx_jobs_first_seen',
+  'idx_jobs_rubric',
   'idx_jobs_status_score',
   'idx_status_history_job',
 ];
@@ -48,13 +49,14 @@ describe('migrate', () => {
 
     const applied = migrate(testDb.db, loadMigrations(), () => '2026-10-23T12:00:00.000Z');
 
-    expect(applied).toEqual([1, 2, 3]);
+    expect(applied).toEqual([1, 2, 3, 4]);
     expect(names('table')).toEqual(EXPECTED_TABLES);
     expect(names('index')).toEqual(EXPECTED_INDEXES);
     expect(testDb.db.prepare('SELECT version, applied_at FROM schema_migrations').all()).toEqual([
       { version: 1, applied_at: '2026-10-23T12:00:00.000Z' },
       { version: 2, applied_at: '2026-10-23T12:00:00.000Z' },
       { version: 3, applied_at: '2026-10-23T12:00:00.000Z' },
+      { version: 4, applied_at: '2026-10-23T12:00:00.000Z' },
     ]);
   });
 
@@ -66,7 +68,7 @@ describe('migrate', () => {
                                     first_seen_at, last_seen_at)
                   VALUES ('1', 'SDET', 'Example Co', 'Remote', 'https://www.linkedin.com/jobs/view/1/', 'x', 'x', 'x')`);
 
-    expect(migrate(testDb.db, migrations)).toEqual([2, 3]);
+    expect(migrate(testDb.db, migrations)).toEqual([2, 3, 4]);
     expect(testDb.db.prepare('SELECT title, first_run_id FROM jobs').all()).toEqual([
       { title: 'SDET', first_run_id: null },
     ]);
@@ -89,7 +91,7 @@ describe('migrate', () => {
       INSERT INTO status_history (job_id, from_status, to_status, changed_at) VALUES (7, NULL, 'new', 'x');
     `);
 
-    expect(migrate(testDb.db, migrations)).toEqual([3]);
+    expect(migrate(testDb.db, migrations.slice(0, 3))).toEqual([3]);
 
     expect(testDb.db.prepare('SELECT * FROM jobs').all()).toEqual([
       {
@@ -123,6 +125,42 @@ describe('migrate', () => {
       [{ job_id: 7 }, { job_id: 7 }],
     );
     expect(testDb.db.prepare('SELECT listings_seen FROM runs').all()).toEqual([{ listings_seen: 0 }]);
+    expect(testDb.db.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+  });
+
+  it('FR-19: upgrading a database built on 003 keeps every job and sighting; workplace and search name start empty', () => {
+    testDb = createTestDatabase({ migrated: false });
+    const migrations = loadMigrations();
+    migrate(testDb.db, migrations.slice(0, 3));
+    testDb.db.exec(`
+      INSERT INTO runs (id, started_at) VALUES (1, '2026-10-22T10:00:00.000Z');
+      INSERT INTO emails (gmail_message_id, run_id, received_at, sender, subject, parse_status, processed_at)
+        VALUES ('msg-1', 1, '2026-10-22T10:00:00.000Z', 'jobalerts-noreply@linkedin.com', 'Alert', 'parsed', 'x');
+      INSERT INTO jobs (id, source, source_job_id, title, company, location, url, status_changed_at, first_seen_at,
+                        last_seen_at)
+        VALUES (7, 'linkedin', '4000000001', 'SDET', 'Example Co', 'Remote',
+                'https://www.linkedin.com/jobs/view/4000000001/', 's', 'f', 'l'),
+               (8, 'greenhouse', '55', 'QA Lead', 'Sample Co', '', 'https://example.com/55', 's', 'f', 'l');
+      INSERT INTO sightings (job_id, gmail_message_id, saved_search) VALUES (7, 'msg-1', 'sdet');
+      INSERT INTO listing_sightings (job_id, run_id, seen_at) VALUES (8, 1, '2026-10-22T10:00:01.000Z');
+    `);
+
+    expect(migrate(testDb.db, migrations)).toEqual([4]);
+
+    expect(testDb.db.prepare('SELECT id, title, workplace FROM jobs ORDER BY id').all()).toEqual([
+      { id: 7, title: 'SDET', workplace: null },
+      { id: 8, title: 'QA Lead', workplace: null },
+    ]);
+    expect(testDb.db.prepare('SELECT job_id, saved_search FROM sightings').all()).toEqual([
+      { job_id: 7, saved_search: 'sdet' },
+    ]);
+    expect(testDb.db.prepare('SELECT job_id, search_name FROM listing_sightings').all()).toEqual([
+      { job_id: 8, search_name: null },
+    ]);
+    expect(() => {
+      testDb.db.exec("UPDATE jobs SET workplace = 'office' WHERE id = 7");
+    }).toThrow(/CHECK constraint/);
+    testDb.db.exec("UPDATE jobs SET workplace = 'on-site' WHERE id = 7");
     expect(testDb.db.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
   });
 
@@ -165,7 +203,7 @@ describe('migrate', () => {
     testDb = createTestDatabase();
 
     expect(migrate(testDb.db)).toEqual([]);
-    expect(appliedVersions(testDb.db)).toEqual([1, 2, 3]);
+    expect(appliedVersions(testDb.db)).toEqual([1, 2, 3, 4]);
   });
 
   it('FR-05: an empty database has no applied versions', () => {

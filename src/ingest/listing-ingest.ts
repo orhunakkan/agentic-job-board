@@ -2,15 +2,18 @@ import type { DatabaseSync } from 'node:sqlite';
 import { transaction } from '../db/database.ts';
 import type { Repositories } from '../db/repositories/index.ts';
 import type { NewJob } from '../db/repositories/jobs.ts';
-import type { ListingSource } from '../domain/job-source.ts';
+import type { JobSource } from '../domain/job-source.ts';
+import type { Workplace } from '../domain/workplace.ts';
 import { RunFinishedError, RunNotFoundError } from './ingest-service.ts';
 
-// Stores a batch of listings from the public feeds for a run (PLAN.md Phase 10, FR-15, FR-16). The feeds were
-// read and filtered by scripts/fetch-sources.ts; the app only stores what it is sent. Each listing is one
-// transaction: its job, status history, listing sighting and run counters are all written or none are.
+// Stores a batch of listings for a run (PLAN.md Phase 10 and 11, FR-15, FR-16, FR-18): jobs from the public feeds
+// (scripts/fetch-sources.ts) and from the owner's LinkedIn searches (scripts/search-linkedin.ts). The scripts read
+// and filter; the app only stores what it is sent. A LinkedIn job the board has from an alert email is the same
+// job. Each listing is one transaction: its job, status history, listing sighting and run counters are all written
+// or none are.
 
 export interface IncomingListing {
-  source: ListingSource;
+  source: JobSource;
   sourceJobId: string;
   title: string;
   company: string;
@@ -19,6 +22,10 @@ export interface IncomingListing {
   postedAt: string | null;
   salary: string | null;
   description: string | null;
+  workplace?: Workplace | null | undefined;
+  easyApply?: boolean | undefined;
+  /** The LinkedIn search that found it, stored on the sighting. */
+  searchName?: string | undefined;
 }
 
 export interface ListingIngestResult {
@@ -65,25 +72,28 @@ function ingestOne(
   listing: IncomingListing,
   seenAt: string,
 ): number | 'seenAgain' | 'repeated' {
+  const { searchName = null, ...details } = listing;
   const job: NewJob = {
-    ...listing,
+    ...details,
     postedAt: listing.postedAt === null ? null : new Date(listing.postedAt).toISOString(),
+    workplace: listing.workplace ?? null,
     activelyHiring: false,
-    easyApply: false,
+    easyApply: listing.easyApply ?? false,
   };
 
   const existingId = repos.jobs.findId(job.source, job.sourceJobId);
   if (existingId === null) {
     const jobId = repos.jobs.insert(job, { runId, seenAt, createdAt: seenAt });
     repos.statusHistory.insert(jobId, { fromStatus: null, toStatus: 'new', changedAt: seenAt });
-    repos.listingSightings.insert(jobId, runId, seenAt);
+    repos.listingSightings.insert(jobId, runId, seenAt, searchName);
     repos.runs.addCounts(runId, { listingsSeen: 1, jobsNew: 1 });
     return jobId;
   }
 
   repos.runs.addCounts(runId, { listingsSeen: 1 });
-  // A feed may list a job twice, and a run may fetch the same feed twice: one run counts one sighting.
-  if (!repos.listingSightings.insert(existingId, runId, seenAt)) return 'repeated';
+  // A feed may list a job twice, a run may fetch the same feed twice, and two searches may find the same job: one run
+  // counts one sighting, under the first search that found it.
+  if (!repos.listingSightings.insert(existingId, runId, seenAt, searchName)) return 'repeated';
   repos.jobs.recordSighting(existingId, job, seenAt);
   repos.runs.addCounts(runId, { jobsSeenAgain: 1 });
   return 'seenAgain';

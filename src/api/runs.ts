@@ -15,7 +15,7 @@ import {
 import type { AppContext } from './context.ts';
 import { toJobSummary, toRunSummary } from './views.ts';
 
-// The /find-jobs run lifecycle (PLAN.md §4.1 steps 1 and 3–7; FR-02, FR-05, FR-06, FR-11, FR-12, FR-15):
+// The /find-jobs run lifecycle (PLAN.md §4.1 steps 1 and 3–7; FR-02, FR-05, FR-06, FR-11, FR-12, FR-15, FR-18):
 // where to resume, start a run, send emails and listings, store scores, finish, and list past runs.
 export function runRoutes(context: AppContext): Route[] {
   const { db, repos } = context;
@@ -39,7 +39,7 @@ export function runRoutes(context: AppContext): Route[] {
     {
       method: 'GET',
       path: '/api/ingest/state',
-      handler: () => ok({ lastEmailReceivedAt: repos.emails.latestReceivedAt() }),
+      handler: () => ok({ lastLinkedInSearchAt: repos.listingSightings.latestSeenAt('linkedin') }),
     },
     {
       method: 'POST',

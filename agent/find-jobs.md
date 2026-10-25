@@ -115,6 +115,7 @@ The reply lists each email's outcome and the jobs that are new to the app:
       "easyApply": true,
       "postedAt": null,
       "salary": null,
+      "workplace": null,
       "status": "new",
       "statusChangedAt": "2026-10-23T18:30:00.000Z",
       "score": null,
