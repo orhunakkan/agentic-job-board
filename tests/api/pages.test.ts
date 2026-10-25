@@ -162,11 +162,11 @@ describe('the HTML pages', () => {
       expect(cardIds(await page('/?utm_source=x'))).toHaveLength(18);
     });
 
-    it('FR-07: the empty New tab tells the owner to run /find-jobs', async () => {
+    it('FR-07, FR-22: the empty New tab tells the owner to press Find Now or run /find-jobs', async () => {
       const empty = await startTestApp();
       try {
         const response = await empty.get('/');
-        expect(response.text).toContain('No new jobs. Run <code>/find-jobs</code>');
+        expect(response.text).toContain('No new jobs. Press Find Now, or run <code>/find-jobs</code>');
         expect(response.text).toContain('No runs yet');
       } finally {
         await empty.close();

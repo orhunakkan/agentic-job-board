@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { changeJobStatus, InvalidTransitionError, JobNotFoundError } from '../../../src/jobs/status-service.ts';
+import { LISTING_SOURCES } from '../../../src/domain/job-source.ts';
+import {
+  changeJobStatus,
+  dismissNewJobs,
+  InvalidTransitionError,
+  JobNotFoundError,
+} from '../../../src/jobs/status-service.ts';
 import { ingestListings } from '../../../src/ingest/listing-ingest.ts';
-import { LINKEDIN_LISTINGS } from '../../helpers/seed-board.ts';
+import { LINKEDIN_LISTINGS, LISTINGS } from '../../helpers/seed-board.ts';
 import { createTestDatabase, fakeClock, type TestDatabase } from '../helpers/test-database.ts';
 
 describe('changeJobStatus', () => {
@@ -84,5 +90,63 @@ describe('changeJobStatus', () => {
 
     expect(updated.statusChangedAt >= before).toBe(true);
     expect(new Date(updated.statusChangedAt).toISOString()).toBe(updated.statusChangedAt);
+  });
+});
+
+describe('dismissNewJobs', () => {
+  let testDb: TestDatabase;
+  const clock = fakeClock('2026-10-25T09:00:00.000Z');
+
+  beforeEach(() => {
+    testDb = createTestDatabase();
+  });
+  afterEach(() => {
+    testDb.close();
+  });
+
+  function seed(): { linkedin: number[]; other: number[] } {
+    const runId = testDb.repos.runs.create('2026-10-24T12:00:00.000Z');
+    return {
+      linkedin: ingestListings(testDb.db, testDb.repos, runId, LINKEDIN_LISTINGS).newJobIds,
+      other: ingestListings(testDb.db, testDb.repos, runId, LISTINGS).newJobIds,
+    };
+  }
+
+  it('FR-21: dismisses every New job from the sources, one history row each, all at one time', () => {
+    const { linkedin, other } = seed();
+    const [saved, ...rest] = linkedin;
+    changeJobStatus(testDb.db, testDb.repos, saved ?? 0, 'saved', clock);
+
+    expect(dismissNewJobs(testDb.db, testDb.repos, ['linkedin'], clock)).toBe(rest.length);
+
+    expect(testDb.repos.jobs.idsWithStatus(['linkedin'], 'dismissed')).toEqual(rest);
+    expect(testDb.repos.jobs.idsWithStatus(['linkedin'], 'saved')).toEqual([saved]);
+    expect(testDb.repos.jobs.idsWithStatus(LISTING_SOURCES, 'new')).toEqual(other);
+    const changedAt = testDb.repos.jobs.get(rest[0] ?? 0)?.statusChangedAt;
+    for (const id of rest) {
+      expect(testDb.repos.statusHistory.listForJob(id).slice(1)).toEqual([
+        { fromStatus: 'new', toStatus: 'dismissed', changedAt },
+      ]);
+    }
+  });
+
+  it('FR-21: with nothing in New it changes nothing and returns 0', () => {
+    expect(dismissNewJobs(testDb.db, testDb.repos, LISTING_SOURCES, clock)).toBe(0);
+  });
+
+  it('FR-21: a failure part-way leaves every job as it was', () => {
+    const { linkedin } = seed();
+    const failing = {
+      ...testDb.repos,
+      statusHistory: {
+        ...testDb.repos.statusHistory,
+        insert: () => {
+          throw new Error('disk full');
+        },
+      },
+    };
+
+    expect(() => dismissNewJobs(testDb.db, failing, ['linkedin'], clock)).toThrow('disk full');
+    expect(testDb.repos.jobs.idsWithStatus(['linkedin'], 'new')).toEqual(linkedin);
   });
 });

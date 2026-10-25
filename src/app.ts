@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
+import { dirname, join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
 import type { AppContext } from './api/context.ts';
@@ -7,6 +8,7 @@ import { apiRoutes } from './api/routes.ts';
 import { openDatabase } from './db/database.ts';
 import { migrate } from './db/migrate.ts';
 import { createRepositories } from './db/repositories/index.ts';
+import { createFindNow } from './find-now/claude-runner.ts';
 import { createAppServer } from './http/server.ts';
 import type { Logger } from './logger.ts';
 import { pageRoutes, renderErrorPage } from './ui/routes.ts';
@@ -18,6 +20,8 @@ export interface StartOptions {
   port: number; // 0 picks a free port (tests)
   dbPath: string;
   linkedinSessionPath: string;
+  /** How Find Now starts Claude Code (FR-22). Required, so no test starts the real one by accident. */
+  claudeCommand: readonly string[];
   logger: Logger;
   now?: () => string;
 }
@@ -37,12 +41,20 @@ export async function startApp(options: StartOptions): Promise<RunningApp> {
   const db = openDatabase(options.dbPath);
   try {
     migrate(db);
+    const now = options.now ?? (() => new Date().toISOString());
+    const findNow = createFindNow({
+      command: options.claudeCommand,
+      logDir: join(dirname(options.dbPath), 'find-now'),
+      now,
+      logger: options.logger,
+    });
     const context: AppContext = {
       db,
       repos: createRepositories(db),
-      now: options.now ?? (() => new Date().toISOString()),
+      now,
       version: readVersion(),
       linkedinSessionPath: options.linkedinSessionPath,
+      findNow,
     };
     const server = createAppServer([...apiRoutes(context), ...pageRoutes(context)], options.logger, renderErrorPage);
     const port = await listen(server, options.port);
@@ -54,7 +66,7 @@ export async function startApp(options: StartOptions): Promise<RunningApp> {
       server,
       db,
       close(graceMs = 5000) {
-        closing ??= stop(server, db, graceMs);
+        closing ??= findNow.stop().then(() => stop(server, db, graceMs));
         return closing;
       },
     };

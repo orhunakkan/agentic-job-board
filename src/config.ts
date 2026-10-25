@@ -11,6 +11,8 @@ export interface Config {
   logFormat: LogFormat | null;
   /** The saved LinkedIn login (DEC-032), written by scripts/linkedin-login.ts. */
   linkedinSessionPath: string;
+  /** How the board's Find Now starts Claude Code (FR-22, DEC-052): the program, then any leading arguments. */
+  claudeCommand: string[];
 }
 
 export class ConfigError extends Error {
@@ -18,6 +20,22 @@ export class ConfigError extends Error {
 }
 
 export const DEFAULT_LINKEDIN_SESSION_PATH = 'data/linkedin/session.json';
+
+const COMMAND_SHAPE = 'must be a JSON array of strings, for example ["claude"]';
+
+// A JSON array, so a program path with spaces in it stays one argument.
+const CommandSchema = z
+  .string()
+  .trim()
+  .transform((text, context) => {
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      context.addIssue({ code: 'custom', message: COMMAND_SHAPE });
+      return z.NEVER;
+    }
+  })
+  .pipe(z.array(z.string().trim().min(1, COMMAND_SHAPE), COMMAND_SHAPE).min(1, COMMAND_SHAPE));
 
 const EnvSchema = z.object({
   PORT: z
@@ -34,6 +52,7 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
   LOG_FORMAT: z.enum(LOG_FORMATS).optional(),
   LINKEDIN_SESSION_PATH: z.string().trim().min(1).default(DEFAULT_LINKEDIN_SESSION_PATH),
+  CLAUDE_COMMAND: CommandSchema.optional(),
 });
 
 export function loadConfig(env: Readonly<Record<string, string | undefined>>): Config {
@@ -43,6 +62,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
     LOG_LEVEL: env['LOG_LEVEL'],
     LOG_FORMAT: env['LOG_FORMAT'],
     LINKEDIN_SESSION_PATH: env['LINKEDIN_SESSION_PATH'],
+    CLAUDE_COMMAND: env['CLAUDE_COMMAND'],
   });
   if (!parsed.success) {
     const problems = parsed.error.issues.map((issue) => `  ${issue.path.join('.')}: ${issue.message}`);
@@ -54,5 +74,6 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
     logLevel: parsed.data.LOG_LEVEL,
     logFormat: parsed.data.LOG_FORMAT ?? null,
     linkedinSessionPath: parsed.data.LINKEDIN_SESSION_PATH,
+    claudeCommand: parsed.data.CLAUDE_COMMAND ?? ['claude'],
   };
 }

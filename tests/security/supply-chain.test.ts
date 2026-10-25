@@ -62,14 +62,27 @@ describe('no outbound requests (NFR-03)', () => {
 
   it.each(files.map((path) => [path.slice(root.length).replaceAll('\\', '/'), path] as const))(
     'NFR-03: %s makes no outbound request',
-    (_name, path) => {
+    (name, path) => {
       const code = readFileSync(path, 'utf8');
 
-      // No HTTP client, socket or child process: the server only answers requests, it never sends one.
-      expect(code).not.toMatch(/\bfetch\(|XMLHttpRequest|WebSocket|node:https|node:net|node:tls|node:child_process/);
+      // No HTTP client, socket or child process: the server only answers requests, it never sends one. The one
+      // exception is Find Now's runner, which starts Claude Code (DEC-052); the next test pins down how.
+      expect(code).not.toMatch(/\bfetch\(|XMLHttpRequest|WebSocket|node:https|node:net|node:tls/);
+      if (name !== FIND_NOW_RUNNER) expect(code).not.toMatch(/node:child_process/);
       // node:http is only used for the server: its client functions are never imported.
       const httpImports = /import (?:type )?\{([^}]*)\} from 'node:http'/.exec(code)?.[1] ?? '';
       expect(httpImports).not.toMatch(/\b(?:request|get)\b/);
     },
   );
+
+  it('NFR-03, FR-22: the only process the app starts is Claude Code for Find Now, without a shell (DEC-052)', () => {
+    const code = readFileSync(join(root, FIND_NOW_RUNNER), 'utf8');
+
+    expect(code).toContain("import { spawn, type ChildProcessByStdio } from 'node:child_process';");
+    expect(code.match(/\bspawn\(/g)).toHaveLength(1);
+    // No shell, so no argument is ever read as a command; and no other way to run one.
+    expect(code).not.toMatch(/\bshell\s*:|\bexec(?:Sync|File|FileSync)?\(|\bfork\(|spawnSync/);
+  });
 });
+
+const FIND_NOW_RUNNER = 'src/find-now/claude-runner.ts';

@@ -169,6 +169,7 @@ describe('startApp', () => {
         port: blocker.port,
         dbPath: join(dir, 'x.db'),
         linkedinSessionPath: join(dir, 'session.json'),
+        claudeCommand: ['claude-is-never-started-here'],
         logger: createLogger('error', () => undefined),
       });
 

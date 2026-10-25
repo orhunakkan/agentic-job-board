@@ -80,6 +80,7 @@ describe('agent/find-jobs.md calls only real API routes', () => {
     now: () => '',
     version: 'test',
     linkedinSessionPath: 'no-session.json',
+    findNow: { last: () => null, start: () => false, stop: () => Promise.resolve() }, // the API never uses it
   };
   const match = createRouter(apiRoutes(context));
   const calls = curlCalls(procedure);

@@ -1,22 +1,10 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { TABS } from '../../src/domain/board-tabs.ts';
+import { expectNoViolations } from './axe.ts';
 import { PROFILE, seedJobs, seedListings, uniqueTag } from './seed.ts';
 
 // PLAN.md §8.1 type 9, NFR-06: every page and every board tab has no axe violations against the WCAG 2.2 AA
 // rules, in light and dark mode, on every Playwright project (so also at phone width).
-
-const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'];
-
-async function expectNoViolations(page: Page): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-  const summary = results.violations.map((violation) => ({
-    id: violation.id,
-    impact: violation.impact,
-    nodes: violation.nodes.map((node) => node.target.join(' ')),
-  }));
-  expect(summary).toEqual([]);
-}
 
 test.describe('accessibility', () => {
   let jobId = 0;

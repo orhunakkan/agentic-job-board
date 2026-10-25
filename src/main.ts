@@ -35,6 +35,7 @@ try {
     port: config.port,
     dbPath: config.dbPath,
     linkedinSessionPath: config.linkedinSessionPath,
+    claudeCommand: config.claudeCommand,
     logger,
   });
   if (logFormat === 'pretty') {
