@@ -4,11 +4,11 @@ import { canonicalizeJobUrl } from '../../../src/domain/linkedin-url.ts';
 const CANONICAL = { jobId: '4473592349', url: 'https://www.linkedin.com/jobs/view/4473592349/' };
 
 describe('canonicalizeJobUrl', () => {
-  it('FR-03: turns an alert-email "comm" link into the job ID and canonical URL', () => {
+  it('FR-04: turns an alert-email "comm" link into the job ID and canonical URL', () => {
     expect(canonicalizeJobUrl('https://www.linkedin.com/comm/jobs/view/4473592349/')).toEqual(CANONICAL);
   });
 
-  it('FR-03: accepts a link without "comm"', () => {
+  it('FR-04: accepts a link without "comm"', () => {
     expect(canonicalizeJobUrl('https://www.linkedin.com/jobs/view/4473592349/')).toEqual(CANONICAL);
   });
 
@@ -19,7 +19,7 @@ describe('canonicalizeJobUrl', () => {
     'https://linkedin.com/comm/jobs/view/4473592349/',
     'https://WWW.LinkedIn.com/comm/jobs/view/4473592349/',
     '  https://www.linkedin.com/comm/jobs/view/4473592349/  ',
-  ])('FR-03: accepts the variant %s', (link) => {
+  ])('FR-04: accepts the variant %s', (link) => {
     expect(canonicalizeJobUrl(link)).toEqual(CANONICAL);
   });
 
@@ -61,7 +61,7 @@ describe('canonicalizeJobUrl', () => {
     ['a job path with an extra segment', 'https://www.linkedin.com/jobs/view/4473592349/apply/'],
     ['a job path with no ID', 'https://www.linkedin.com/jobs/view/'],
     ['an implausibly long ID', `https://www.linkedin.com/jobs/view/${'1'.repeat(21)}/`],
-  ])('FR-03: returns null for a LinkedIn link that is not a job: %s', (_case, link) => {
+  ])('FR-04: returns null for a LinkedIn link that is not a job: %s', (_case, link) => {
     expect(canonicalizeJobUrl(link)).toBeNull();
   });
 
@@ -75,7 +75,7 @@ describe('canonicalizeJobUrl', () => {
     ['a javascript: URL', 'javascript:alert(1)//www.linkedin.com/jobs/view/4473592349/'],
     ['text that is not a URL', 'not a url'],
     ['an empty string', ''],
-  ])('FR-03: returns null for a non-LinkedIn link: %s', (_case, link) => {
+  ])('FR-04: returns null for a non-LinkedIn link: %s', (_case, link) => {
     expect(canonicalizeJobUrl(link)).toBeNull();
   });
 });

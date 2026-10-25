@@ -182,7 +182,7 @@ describe('migrate', () => {
     expect(testDb.db.prepare('PRAGMA foreign_keys').get()).toEqual({ foreign_keys: 1 });
   });
 
-  it('FR-05: a migration that breaks a foreign key is rolled back', () => {
+  it('FR-04: a migration that breaks a foreign key is rolled back', () => {
     testDb = createTestDatabase({ migrated: false });
     const dir = migrationsDir({
       '001_first.sql': `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
@@ -199,20 +199,20 @@ describe('migrate', () => {
     expect(testDb.db.prepare('PRAGMA foreign_keys').get()).toEqual({ foreign_keys: 1 });
   });
 
-  it('FR-05: running it again is a no-op', () => {
+  it('FR-04: running it again is a no-op', () => {
     testDb = createTestDatabase();
 
     expect(migrate(testDb.db)).toEqual([]);
     expect(appliedVersions(testDb.db)).toEqual([1, 2, 3, 4]);
   });
 
-  it('FR-05: an empty database has no applied versions', () => {
+  it('FR-04: an empty database has no applied versions', () => {
     testDb = createTestDatabase({ migrated: false });
 
     expect(appliedVersions(testDb.db)).toEqual([]);
   });
 
-  it('FR-05: applies only the versions that are missing, in order', () => {
+  it('FR-04: applies only the versions that are missing, in order', () => {
     testDb = createTestDatabase({ migrated: false });
     const dir = migrationsDir({
       '002_second.sql': 'CREATE TABLE b (x INTEGER);',
@@ -228,7 +228,7 @@ describe('migrate', () => {
     expect(appliedVersions(testDb.db)).toEqual([1, 2]);
   });
 
-  it('FR-05: a failing migration leaves no trace', () => {
+  it('FR-04: a failing migration leaves no trace', () => {
     testDb = createTestDatabase({ migrated: false });
     const dir = migrationsDir({
       '001_first.sql':
@@ -246,7 +246,7 @@ describe('migrate', () => {
     [{ '001_ok.sql': '', 'second.sql': '' }, 'migration file name must look like 001_name.sql: second.sql'],
     [{ '001_ok.sql': '', '003_gap.sql': '' }, 'without gaps; found 003_gap.sql'],
     [{ '001_a.sql': '', '001_b.sql': '' }, 'without gaps; found 001_b.sql'],
-  ])('FR-05: rejects a bad set of migration files', (files, message) => {
+  ])('FR-04: rejects a bad set of migration files', (files, message) => {
     testDb = createTestDatabase({ migrated: false });
     const dir = migrationsDir(files);
 

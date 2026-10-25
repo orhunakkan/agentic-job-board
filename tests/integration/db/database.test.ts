@@ -55,7 +55,7 @@ describe('transaction', () => {
     return testDb.db.prepare('SELECT v FROM t ORDER BY v').all();
   }
 
-  it('FR-05: commits when the work returns, and passes its result through', () => {
+  it('FR-04: commits when the work returns, and passes its result through', () => {
     const { db } = setUp();
 
     const result = transaction(db, () => {
@@ -68,7 +68,7 @@ describe('transaction', () => {
     expect(db.isTransaction).toBe(false);
   });
 
-  it('FR-05: rolls everything back when the work throws, and rethrows', () => {
+  it('FR-04: rolls everything back when the work throws, and rethrows', () => {
     const { db } = setUp();
 
     expect(() =>
@@ -82,7 +82,7 @@ describe('transaction', () => {
     expect(db.isTransaction).toBe(false);
   });
 
-  it('FR-05: a nested call joins the open transaction, so an inner failure undoes the outer work', () => {
+  it('FR-04: a nested call joins the open transaction, so an inner failure undoes the outer work', () => {
     const { db } = setUp();
 
     expect(() => {
