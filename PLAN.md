@@ -954,11 +954,11 @@ Tasks:
     - E2E and axe: a LinkedIn detail page with workplace, rubric and search name.
 
 **🛑 CP-11. The owner checks:**
-- [ ] `node scripts/search-linkedin.ts --dry-run` lists jobs from their searches, none posted before the search window
-- [ ] The comparison report: the searches find the jobs the alert emails had, or the report explains why not
-- [ ] `/find-jobs` runs without any Gmail tool: it searches LinkedIn, fetches the free feeds and scores on descriptions
-- [ ] Spot-checks 5 `match-v1` scores and reasons against the descriptions; the calibration set lands on the expected labels
-- [ ] Jobs from the email years still open, with their email sightings, and the LinkedIn view's counts did not drop
+- [x] `node scripts/search-linkedin.ts --dry-run` lists jobs from their searches, none posted before the search window
+- [x] The comparison report: the searches find the jobs the alert emails had, or the report explains why not
+- [x] `/find-jobs` runs without any Gmail tool: it searches LinkedIn, fetches the free feeds and scores on descriptions
+- [x] Spot-checks 5 `match-v1` scores and reasons against the descriptions; the calibration set lands on the expected labels
+- [x] Jobs from the email years still open, with their email sightings, and the LinkedIn view's counts did not drop
 
 ---
 
@@ -1049,6 +1049,7 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 | CP-8 | MVP acceptance | Approved | 2026-10-23 | MVP accepted. Phases 5–8 built under DEC-026 and approved together; 885 tests green locally and in GitHub CI; traceability matrix and defect log (DEF-005 to DEF-014, none open) reviewed. Older history contains the owner's email in commits 2b1b8b6 and 07cefbf from an earlier project; left as is |
 | CP-9 | LinkedIn login (DEC-032) | Approved | 2026-10-24 | Owner signed in once; session saved to data/linkedin/ and reused (expires 2027-10-24). DEC-032 (owner-authorized login, no questions or warnings), DEC-033 (`npm start` verifies and refreshes the session, header shows the status), DEC-034 (readable coloured start output, JSON logs when piped). 950 tests green (826 Vitest, 124 Playwright); FR-14 and NFR-12 added to the traceability matrix |
 | CP-10 | Other job sources (DEC-035) | Approved | 2026-10-24 | Free feeds only (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Remote OK, Himalayas, Jobicy, Hacker News; Adzuna only with a free key). DEC-035 (free sources, no other Gmail alerts), DEC-036 (LinkedIn | Other sources views), DEC-037 (source + source_job_id, migration 003 verified on a copy of the real database), DEC-038 (same rubric, descriptions not read by the agent). 1,165 tests green (1,017 Vitest, 148 Playwright). First live run (run 4): 11 emails, 142 feed listings, 157 new jobs, all scored, no feed failures |
+| CP-11 | LinkedIn search; Gmail track retired (DEC-041) | Approved | 2026-10-24 | scripts/search-linkedin.ts runs the owner's four searches (three mirrored alerts plus AI QA) with the saved session: last 7 days, newest first, remote, full-time and contract, 10 pages (DEC-047); parameter codes checked live. Gmail track removed, email endpoint 404, old email data still shown. Rubric match-v1 scores on descriptions; calibration 6/6 with Agilent changed to strong (DEC-050). Comparison with a week of alerts: 2/79 found newest-first, 16 of 30 open remote jobs with relevance (report in data/reports/). DEC-044 to DEC-050, DEF-015 to DEF-019. 1,297 tests green (1,145 Vitest, 152 Playwright); k6 p95 44.0 ms |
 
 ---
 
