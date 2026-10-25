@@ -594,19 +594,19 @@ describe('repositories', () => {
       );
     });
 
-    it('FR-18: knows when a run last stored a sighting of a LinkedIn job, apart from the other sources', () => {
+    it('FR-18: knows when a run last stored a job a LinkedIn search found; feeds and backfills do not count', () => {
       const run = testDb.repos.runs.create('2026-10-22T12:00:00.000Z');
       const at = { runId: run, seenAt: '2026-10-22T12:00:01.000Z', createdAt: '2026-10-22T12:00:01.000Z' };
       const linkedin = testDb.repos.jobs.insert(NEW_JOB, at);
       const listed = testDb.repos.jobs.insert(LISTED_JOB, at);
-      expect(testDb.repos.listingSightings.latestSeenAt('linkedin')).toBeNull();
+      expect(testDb.repos.listingSightings.latestSearchAt()).toBeNull();
 
       testDb.repos.listingSightings.insert(linkedin, run, '2026-10-22T12:00:05.000Z', 'SDET');
       const later = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
       testDb.repos.listingSightings.insert(listed, later, '2026-10-23T12:00:05.000Z', null);
+      testDb.repos.listingSightings.insert(linkedin, later, '2026-10-23T12:00:06.000Z', null);
 
-      expect(testDb.repos.listingSightings.latestSeenAt('linkedin')).toBe('2026-10-22T12:00:05.000Z');
-      expect(testDb.repos.listingSightings.latestSeenAt('greenhouse')).toBe('2026-10-23T12:00:05.000Z');
+      expect(testDb.repos.listingSightings.latestSearchAt()).toBe('2026-10-22T12:00:05.000Z');
     });
 
     it('FR-08: lists a job’s status changes in the order they happened', () => {

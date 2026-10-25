@@ -46,6 +46,11 @@ jobs:
     needs: static
     runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
     timeout-minutes: 10
+    # The integration tests open saved copies of LinkedIn's pages in Chromium (scripts/search-linkedin.ts, Phase 11),
+    # so this job runs in the same Playwright image as the browser job below.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --user 1001
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

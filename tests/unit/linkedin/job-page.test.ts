@@ -89,6 +89,7 @@ describe('toSearchCard', () => {
       company: 'Example Health',
       location: 'United States (Remote)',
       listedAt: '2026-10-24T11:19:00.000Z',
+      listedDayOnly: false,
       salary: '$140K/yr - $170K/yr',
       easyApply: true,
     });
@@ -102,8 +103,14 @@ describe('toSearchCard', () => {
   });
 
   it('FR-18: falls back to the card’s date when its text names no time, and to null without either', () => {
-    expect(toSearchCard({ ...CARD, listedText: 'Promoted' }, NOW)?.listedAt).toBe('2026-10-24T00:00:00.000Z');
-    expect(toSearchCard({ ...CARD, listedText: null, listedDate: 'yesterday' }, NOW)?.listedAt).toBeNull();
+    expect(toSearchCard({ ...CARD, listedText: 'Promoted' }, NOW)).toMatchObject({
+      listedAt: '2026-10-24T00:00:00.000Z',
+      listedDayOnly: true,
+    });
+    expect(toSearchCard({ ...CARD, listedText: null, listedDate: 'yesterday' }, NOW)).toMatchObject({
+      listedAt: null,
+      listedDayOnly: false,
+    });
   });
 
   it('FR-18: a card without a location, salary or Easy Apply keeps them empty', () => {

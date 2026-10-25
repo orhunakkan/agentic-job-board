@@ -67,6 +67,15 @@ export function isLinkedInDomain(domain: string): boolean {
   return host === 'linkedin.com' || host.endsWith('.linkedin.com');
 }
 
+// Pages LinkedIn shows to a visitor who is not signed in, or while a sign-in is in progress (password, 2FA, check).
+const SIGN_IN_PATHS = /^\/(?:login|checkpoint|uas|authwall)(?:\/|$)/;
+
+/** Whether a browser on `url` is on LinkedIn's sign-in or security-check pages, so the session no longer works. */
+export function isLinkedInSignInPage(url: string): boolean {
+  const parsed = URL.parse(url);
+  return parsed !== null && isLinkedInDomain(parsed.hostname) && SIGN_IN_PATHS.test(parsed.pathname);
+}
+
 function isLinkedInOrigin(origin: string): boolean {
   try {
     const url = new URL(origin);

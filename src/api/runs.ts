@@ -39,7 +39,7 @@ export function runRoutes(context: AppContext): Route[] {
     {
       method: 'GET',
       path: '/api/ingest/state',
-      handler: () => ok({ lastLinkedInSearchAt: repos.listingSightings.latestSeenAt('linkedin') }),
+      handler: () => ok({ lastLinkedInSearchAt: repos.listingSightings.latestSearchAt() }),
     },
     {
       method: 'POST',

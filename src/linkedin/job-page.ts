@@ -54,6 +54,8 @@ export interface SearchCard {
   location: string;
   /** When LinkedIn listed it, from the card's "2 hours ago" (or its date); null when the card shows no time. */
   listedAt: string | null;
+  /** True when the card gave only a date, so `listedAt` is that day's start and the job may be up to a day newer. */
+  listedDayOnly: boolean;
   salary: string | null;
   easyApply: boolean;
 }
@@ -121,7 +123,7 @@ export function toSearchCard(raw: RawSearchCard, now: string): SearchCard | null
     title,
     company,
     location: cut(oneLine(raw.metadata[0] ?? ''), LIMITS.location),
-    listedAt: listedAt(raw, now),
+    ...listedAt(raw, now),
     salary: salaryFrom(raw.metadata.slice(1)),
     easyApply: raw.footer.some((item) => /^easy apply$/i.test(oneLine(item))),
   };
@@ -183,11 +185,13 @@ function jobIdFrom(jobId: string | null, href: string | null): string | null {
   return link === null ? null : (canonicalizeJobUrl(link.href)?.jobId ?? null);
 }
 
-function listedAt(raw: RawSearchCard, now: string): string | null {
+function listedAt(raw: RawSearchCard, now: string): Pick<SearchCard, 'listedAt' | 'listedDayOnly'> {
   const relative = raw.listedText === null ? null : relativeTimeToIso(raw.listedText, now);
-  if (relative !== null) return relative;
+  if (relative !== null) return { listedAt: relative, listedDayOnly: false };
   const date = raw.listedDate?.trim() ?? '';
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00Z`).toISOString() : null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? { listedAt: new Date(`${date}T00:00:00Z`).toISOString(), listedDayOnly: true }
+    : { listedAt: null, listedDayOnly: false };
 }
 
 /** The description as plain text, without the pane's own "About the job" heading. */

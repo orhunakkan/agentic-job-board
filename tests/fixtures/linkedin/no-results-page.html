@@ -1,0 +1,39 @@
+<!doctype html>
+<!--
+  A sanitized copy of LinkedIn's search page when no job matches (PLAN.md Phase 11 task 12, §8.2), saved 2026-10-24
+  and cut down. LinkedIn shows a banner and then suggests other jobs, which scripts/search-linkedin.ts must ignore.
+  The suggested job is made up.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Jobs | LinkedIn</title>
+  </head>
+  <body>
+    <main class="scaffold-layout__list">
+      <div class="jobs-search-no-results-banner">
+        <h2 class="jobs-search-no-results-banner__header">No matching jobs found.</h2>
+        <p>Try changing your search terms or filters.</p>
+      </div>
+      <h3>Jobs you may be interested in</h3>
+      <ul class="scaffold-layout__list-container">
+        <li
+          class="ember-view occludable-update p0 relative scaffold-layout__list-item"
+          data-occludable-job-id="4490000099"
+        >
+          <div data-job-id="4490000099" class="job-card-container">
+            <div class="artdeco-entity-lockup__title">
+              <a class="job-card-container__link" href="/jobs/view/4490000099/" aria-label="Barista"
+                ><strong>Barista</strong></a
+              >
+            </div>
+            <div class="artdeco-entity-lockup__subtitle"><span>Sample Coffee</span></div>
+            <ul class="job-card-container__metadata-wrapper">
+              <li><span>Seattle, WA</span></li>
+            </ul>
+          </div>
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>

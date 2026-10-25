@@ -1,6 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
-import type { JobSource } from '../../domain/job-source.ts';
 
 // One row per run in which a feed or a LinkedIn search listed a job (FR-16, FR-18, shown on the job detail page).
 // A feed that lists the same job twice in one run, or two searches that find it, still count once.
@@ -16,8 +15,11 @@ export interface ListingSightingsRepository {
   /** False when the job already has a sighting in this run, which is then left as it was. */
   insert(jobId: number, runId: number, seenAt: string, searchName: string | null): boolean;
   listForJob(jobId: number): ListingSightingRecord[];
-  /** When a run last stored a sighting of a job from `source`, or null when none has (Phase 11, since-last-run). */
-  latestSeenAt(source: JobSource): string | null;
+  /**
+   * When a run last stored a job a LinkedIn search found, or null when none has: where `since-last-run` starts
+   * (Phase 11). A --backfill run names no search, so it doesn't count.
+   */
+  latestSearchAt(): string | null;
 }
 
 const Row = z.object({ runId: z.number().int(), seenAt: z.string(), searchName: z.string().nullable() });
@@ -32,9 +34,7 @@ export function createListingSightingsRepository(db: DatabaseSync): ListingSight
     `SELECT run_id AS runId, seen_at AS seenAt, search_name AS searchName FROM listing_sightings WHERE job_id = ?
      ORDER BY seen_at, run_id`,
   );
-  const latestStatement = db.prepare(
-    `SELECT max(s.seen_at) AS at FROM listing_sightings s JOIN jobs j ON j.id = s.job_id WHERE j.source = ?`,
-  );
+  const latestStatement = db.prepare('SELECT max(seen_at) AS at FROM listing_sightings WHERE search_name IS NOT NULL');
 
   return {
     insert(jobId, runId, seenAt, searchName) {
@@ -43,8 +43,8 @@ export function createListingSightingsRepository(db: DatabaseSync): ListingSight
     listForJob(jobId) {
       return listStatement.all(jobId).map((row) => Row.parse(row));
     },
-    latestSeenAt(source) {
-      return LatestRow.parse(latestStatement.get(source)).at;
+    latestSearchAt() {
+      return LatestRow.parse(latestStatement.get()).at;
     },
   };
 }
