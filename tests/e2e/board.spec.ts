@@ -43,7 +43,7 @@ test.describe('board', () => {
       { title: 'Possible QA', company: 'Mid Co', score: 60 },
       { title: 'Unscored QA', company: 'Plain Co' },
       // The company is unique too, so searching for it can't match other tests' jobs.
-      { title: 'Strong SDET', company: `Top Co ${tag}`, score: 91, activelyHiring: true },
+      { title: 'Strong SDET', company: `Top Co ${tag}`, score: 91, easyApply: true },
       { title: 'Weak Tester', company: 'Low Co', score: 20 },
     ]);
 
@@ -55,7 +55,7 @@ test.describe('board', () => {
       `Weak Tester ${tag}`,
       `Unscored QA ${tag}`,
     ]);
-    await expect(card(page, `Strong SDET ${tag}`)).toContainText('Actively hiring');
+    await expect(card(page, `Strong SDET ${tag}`)).toContainText('Easy Apply');
     await expect(card(page, `Unscored QA ${tag}`)).toContainText('Unscored');
 
     await page.getByLabel('Min score').selectOption('50');
@@ -245,6 +245,43 @@ test.describe('board', () => {
     await expect(page).toHaveURL(/\/\?origin=other&tab=new$/);
   });
 
+  test('FR-19, FR-20: a LinkedIn search job shows its workplace, the search that found it and its rubric', async ({
+    page,
+    request,
+  }) => {
+    const tag = uniqueTag();
+    const [job] = await seedJobs(request, tag, [
+      {
+        title: 'Found SDET',
+        company: 'Search Co',
+        location: 'United States (Remote)',
+        workplace: 'remote',
+        description: 'About the role\n\nOwn the Playwright suite.',
+        searchName: 'QA family',
+        score: 86,
+        rubricVersion: 'match-v1',
+      },
+    ]);
+
+    await page.goto(`/?q=${tag}`);
+    await expect(card(page, `Found SDET ${tag}`)).toContainText('Remote');
+    await expect(card(page, `Found SDET ${tag}`)).toContainText(/Posted (just now|\d+ min ago)/);
+
+    await page.getByRole('link', { name: `Found SDET ${tag}`, exact: true }).click();
+    const details = page.getByRole('region', { name: 'Details' });
+    await expect(details.getByRole('definition').filter({ hasText: 'Remote' })).toBeVisible();
+    await expect(details).toContainText('match-v1: scored on the full description');
+    await expect(page.getByRole('region', { name: 'Sightings' })).toContainText('Found by the search “QA family”');
+    await expect(page.locator('.description')).toHaveText('About the role\n\nOwn the Playwright suite.');
+    const { sourceJobId } = (await (await request.get(`/api/jobs/${String(job?.id)}`)).json()) as {
+      sourceJobId: string;
+    };
+    await expect(page.getByRole('link', { name: /Open on LinkedIn/ })).toHaveAttribute(
+      'href',
+      `https://www.linkedin.com/jobs/view/${sourceJobId}/`,
+    );
+  });
+
   test('FR-11, FR-01: the runs and profile pages open from the main navigation', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Runs' }).click();
@@ -280,7 +317,7 @@ test.describe('board', () => {
         company: 'Averyveryverylongcompanynamewithoutanyspacesatall Incorporated',
         location: 'San Francisco Bay Area, California, United States',
         score: 81,
-        activelyHiring: true,
+        easyApply: true,
       },
     ]);
 

@@ -26,7 +26,16 @@ test.describe('accessibility', () => {
   test.beforeEach(async ({ request }) => {
     tag = uniqueTag();
     const jobs = await seedJobs(request, tag, [
-      { title: 'Strong SDET', company: 'Top Co', score: 92, activelyHiring: true },
+      {
+        title: 'Strong SDET',
+        company: 'Top Co',
+        score: 92,
+        rubricVersion: 'match-v1',
+        easyApply: true,
+        workplace: 'remote',
+        description: 'About the role\n\nOwn the test platform.',
+        searchName: 'QA family',
+      },
       { title: 'Possible QA', company: 'Mid Co', score: 64 },
       { title: 'Weak Tester', company: 'Low Co', score: 21 },
       { title: 'Unscored QA', company: 'Plain Co' },
@@ -74,7 +83,7 @@ test.describe('accessibility', () => {
         await expectNoViolations(page);
       });
 
-      test('NFR-06: job detail', async ({ page }) => {
+      test('NFR-06: job detail from a LinkedIn search, with workplace, rubric and search name', async ({ page }) => {
         await page.goto(`/jobs/${String(jobId)}?notes=saved`);
         await expectNoViolations(page);
       });

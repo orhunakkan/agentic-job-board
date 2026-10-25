@@ -3,7 +3,9 @@ import type { ListingSightingRecord } from '../../db/repositories/listing-sighti
 import type { SightingRecord } from '../../db/repositories/sightings.ts';
 import type { StatusChange } from '../../db/repositories/status-history.ts';
 import { SOURCE_LABELS } from '../../domain/job-source.ts';
+import { MATCH_RUBRIC, TRIAGE_RUBRIC } from '../../domain/score.ts';
 import { nextStatuses } from '../../domain/status.ts';
+import { WORKPLACE_LABELS } from '../../domain/workplace.ts';
 import { flags, listingFacts, notice, scoreBadge, sourceLink } from '../components.ts';
 import { formatDateTime, STATUS_LABELS } from '../format.ts';
 import { html, type SafeHtml } from '../html.ts';
@@ -23,6 +25,12 @@ export interface JobDetailView {
 }
 
 export const NOTES_MAX = 5000;
+
+/** What each rubric read (FR-20, agent/scoring-rubric.md). */
+const RUBRIC_NOTES: Readonly<Record<string, string>> = {
+  [MATCH_RUBRIC]: ': scored on the full description',
+  [TRIAGE_RUBRIC]: ': scored on the title, company and location only',
+};
 
 export function jobDetailPage(view: JobDetailView): SafeHtml {
   const { job } = view;
@@ -114,7 +122,12 @@ export function jobDetailPage(view: JobDetailView): SafeHtml {
             (sighting) =>
               html`<li>
                 <time datetime="${sighting.seenAt}">${formatDateTime(sighting.seenAt)}</time>
-                Listed on ${SOURCE_LABELS[job.source]} · <a href="/runs">run ${sighting.runId}</a>
+                ${
+                  sighting.searchName === null
+                    ? html`Listed on ${SOURCE_LABELS[job.source]}`
+                    : html`Found by the search “${sighting.searchName}”`
+                }
+                · <a href="/runs">run ${sighting.runId}</a>
               </li>`,
           )}
         </ol>
@@ -138,6 +151,11 @@ export function jobDetailPage(view: JobDetailView): SafeHtml {
           html`<dt>Salary</dt>
             <dd>${job.salary}</dd>`
         }
+        ${
+          job.workplace !== null &&
+          html`<dt>Workplace</dt>
+            <dd>${WORKPLACE_LABELS[job.workplace]}</dd>`
+        }
         <dt>First seen</dt>
         <dd><time datetime="${job.firstSeenAt}">${formatDateTime(job.firstSeenAt)}</time></dd>
         <dt>Last seen</dt>
@@ -146,13 +164,13 @@ export function jobDetailPage(view: JobDetailView): SafeHtml {
         <dd>${job.seenCount}</dd>
         <dt>Scored</dt>
         <dd>
-          ${
-            job.scoredAt === null
-              ? 'Not yet'
-              : html`<time datetime="${job.scoredAt}">${formatDateTime(job.scoredAt)}</time> with rubric
-                  ${job.rubricVersion}`
-          }
+          ${job.scoredAt === null ? 'Not yet' : html`<time datetime="${job.scoredAt}">${formatDateTime(job.scoredAt)}</time>`}
         </dd>
+        ${
+          job.rubricVersion !== null &&
+          html`<dt>Rubric</dt>
+            <dd>${job.rubricVersion}${RUBRIC_NOTES[job.rubricVersion] ?? ''}</dd>`
+        }
       </dl>
     </section>
   `;
