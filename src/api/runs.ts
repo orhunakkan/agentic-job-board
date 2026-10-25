@@ -2,12 +2,11 @@ import { transaction } from '../db/database.ts';
 import type { RunRecord } from '../db/repositories/runs.ts';
 import { HttpError, ok, parseInput, queryObject } from '../http/respond.ts';
 import type { ApiRequest, Route } from '../http/router.ts';
-import { ingestEmails, RunFinishedError, RunNotFoundError } from '../ingest/ingest-service.ts';
 import { ingestListings } from '../ingest/listing-ingest.ts';
+import { RunFinishedError, RunNotFoundError } from '../ingest/run-errors.ts';
 import {
   EmptyRequestSchema,
   IdParamSchema,
-  IngestEmailsRequestSchema,
   IngestListingsRequestSchema,
   RunListQuerySchema,
   ScoresRequestSchema,
@@ -15,8 +14,8 @@ import {
 import type { AppContext } from './context.ts';
 import { toJobSummary, toRunSummary } from './views.ts';
 
-// The /find-jobs run lifecycle (PLAN.md §4.1 steps 1 and 3–7; FR-02, FR-05, FR-06, FR-11, FR-12, FR-15, FR-18):
-// where to resume, start a run, send emails and listings, store scores, finish, and list past runs.
+// The /find-jobs run lifecycle (PLAN.md §4.1; FR-06, FR-11, FR-15, FR-18): where LinkedIn searches resume, start a
+// run, send listings, store scores, finish, and list past runs. Alert emails are no longer taken (DEC-041).
 export function runRoutes(context: AppContext): Route[] {
   const { db, repos } = context;
 
@@ -47,16 +46,6 @@ export function runRoutes(context: AppContext): Route[] {
       handler: (request) => {
         parseInput(EmptyRequestSchema, request.body);
         return ok({ runId: repos.runs.create(context.now()) }, 201);
-      },
-    },
-    {
-      method: 'POST',
-      path: '/api/runs/:id/emails',
-      handler: (request) => {
-        const run = openRun(request);
-        const { emails } = parseInput(IngestEmailsRequestSchema, request.body);
-        const { results, newJobIds } = ingestEmails(db, repos, run.id, emails, context.now);
-        return ok({ results, newJobs: summaries(newJobIds) });
       },
     },
     {

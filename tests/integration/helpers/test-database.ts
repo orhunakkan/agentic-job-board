@@ -8,7 +8,7 @@ import { migrate } from '../../../src/db/migrate.ts';
 import { createRepositories, type Repositories } from '../../../src/db/repositories/index.ts';
 
 // PLAN.md §8.2: every test gets its own temporary SQLite file, deleted afterwards.
-export { fakeClock, fixtureEmail } from '../../helpers/fixtures.ts';
+export { fakeClock } from '../../helpers/fixtures.ts';
 
 export interface TestDatabase {
   db: DatabaseSync;

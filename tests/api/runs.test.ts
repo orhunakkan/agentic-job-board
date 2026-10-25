@@ -1,20 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  CreateRunResponseSchema,
-  IngestEmailsResponseSchema,
-  IngestStateResponseSchema,
-  RunSummarySchema,
-} from '../../src/schemas/api.ts';
-import { fixtureEmail } from '../helpers/fixtures.ts';
-import { jobAt, seedBoard, seedLinkedInListings, seedListings } from '../helpers/seed-board.ts';
+import { CreateRunResponseSchema, IngestStateResponseSchema, RunSummarySchema } from '../../src/schemas/api.ts';
+import { jobAt, LINKEDIN_LISTINGS, seedBoard, seedLinkedInListings, seedListings } from '../helpers/seed-board.ts';
 import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
-const UNRECOGNIZED = {
+// The alert email the old POST /api/runs/:id/emails took, before the Gmail track retired (DEC-041).
+const EMAIL = {
   gmailMessageId: 'msganniversary',
   receivedAt: '2026-10-23T09:00:00Z',
-  sender: 'jobs-noreply@linkedin.com',
-  subject: 'Happy work anniversary',
-  plainText: 'Congratulate your connection on their work anniversary!',
+  sender: 'jobalerts-noreply@linkedin.com',
+  subject: 'New jobs for you',
+  plainText: 'Your job alert for sdet in United States',
 };
 
 describe('the /find-jobs run API', () => {
@@ -40,10 +35,9 @@ describe('the /find-jobs run API', () => {
       expect(response.body).toEqual({ lastLinkedInSearchAt: null });
     });
 
-    it('FR-18: is when a run last stored a job a LinkedIn search found; the feeds and emails do not count', async () => {
-      const runId = await newRun();
+    it('FR-18: is when a run last stored a job a LinkedIn search found; the feeds and email years do not count', async () => {
+      const { runId } = await seedBoard(testApp);
       await seedListings(testApp, runId);
-      await testApp.post(`/api/runs/${String(runId)}/emails`, { emails: [fixtureEmail('digest-senior-qa.txt')] });
       expect((await testApp.get('/api/ingest/state')).body).toEqual({ lastLinkedInSearchAt: null });
 
       await seedLinkedInListings(testApp, runId);
@@ -69,92 +63,28 @@ describe('the /find-jobs run API', () => {
     });
   });
 
-  describe('POST /api/runs/:id/emails', () => {
-    it('FR-02: stores new emails and returns the new jobs', async () => {
+  describe('POST /api/runs/:id/emails (retired, DEC-041)', () => {
+    it('FR-18: the alert-email endpoint is gone: 404 for an open run, an unknown run and any body', async () => {
       const runId = await newRun();
 
-      const response = await testApp.post(`/api/runs/${String(runId)}/emails`, {
-        emails: [fixtureEmail('digest-test-automation.txt', 'msg1'), UNRECOGNIZED],
-      });
-
-      expect(response.status).toBe(200);
-      const body = IngestEmailsResponseSchema.parse(response.body);
-      expect(body.results).toEqual([
-        { gmailMessageId: 'msg1', outcome: 'new', jobsFound: 6 },
-        { gmailMessageId: 'msganniversary', outcome: 'unrecognized', jobsFound: 0 },
-      ]);
-      expect(body.newJobs.map((job) => job.company)).toEqual([
-        'Cboe Global Markets',
-        'Goosehead Insurance',
-        'Milliman IntelliScript',
-        'PDSSOFT INC.',
-        '3Pillar',
-        'AgileGrid Solutions',
-      ]);
-      expect(body.newJobs[0]).toMatchObject({
-        status: 'new',
-        score: null,
-        url: 'https://www.linkedin.com/jobs/view/4473592349/',
-        seenCount: 1,
-      });
+      for (const path of [`/api/runs/${String(runId)}/emails`, '/api/runs/99/emails']) {
+        const response = await testApp.post(path, { emails: [EMAIL] });
+        expect(response.status, path).toBe(404);
+        expect(response.body).toMatchObject({ error: { code: 'not_found' } });
+      }
+      expect((await testApp.get('/api/runs')).body).toMatchObject([{ id: runId, emailsSeen: 0, jobsNew: 0 }]);
     });
+  });
 
-    it('FR-05: sending the same email again reports a duplicate and returns no new jobs', async () => {
-      const runId = await newRun();
-      const batch = { emails: [fixtureEmail('digest-senior-qa.txt', 'msg1')] };
-      await testApp.post(`/api/runs/${String(runId)}/emails`, batch);
-
-      const again = await testApp.post(`/api/runs/${String(runId)}/emails`, batch);
-
-      expect(again.body).toEqual({
-        results: [{ gmailMessageId: 'msg1', outcome: 'duplicate', jobsFound: 0 }],
-        newJobs: [],
-      });
-    });
-
-    it.each<[string, unknown, string]>([
-      ['no emails', { emails: [] }, 'emails'],
-      [
-        'more than 50 emails',
-        {
-          emails: Array.from({ length: 51 }, (_, index) => ({ ...UNRECOGNIZED, gmailMessageId: `m${String(index)}` })),
-        },
-        'emails',
-      ],
-      [
-        'a receivedAt that is not a timestamp',
-        { emails: [{ ...UNRECOGNIZED, receivedAt: 'yesterday' }] },
-        'emails.0.receivedAt',
-      ],
-      [
-        'a Gmail ID with odd characters',
-        { emails: [{ ...UNRECOGNIZED, gmailMessageId: '../etc' }] },
-        'emails.0.gmailMessageId',
-      ],
-      ['a missing plainText', { emails: [{ ...UNRECOGNIZED, plainText: undefined }] }, 'emails.0.plainText'],
-      ['an unknown field', { emails: [{ ...UNRECOGNIZED, html: '<p>' }] }, 'emails.0'],
-      ['no emails key at all', {}, 'emails'],
-    ])('NFR-09: rejects %s with a 400 that points at the problem', async (_case, body, path) => {
-      const runId = await newRun();
-
-      const response = await testApp.post(`/api/runs/${String(runId)}/emails`, body);
-
-      expect(response.status).toBe(400);
-      expect(response.body).toMatchObject({
-        error: {
-          code: 'validation_failed',
-          details: expect.arrayContaining([expect.objectContaining({ path })]) as unknown,
-        },
-      });
-    });
+  describe('sending to a run', () => {
+    const listings = { listings: [LINKEDIN_LISTINGS[0]] };
 
     it('FR-11: an unknown run is 404 and a finished run is 409', async () => {
       const runId = await newRun();
       await testApp.post(`/api/runs/${String(runId)}/finish`);
-      const batch = { emails: [UNRECOGNIZED] };
 
-      const unknown = await testApp.post('/api/runs/99/emails', batch);
-      const finished = await testApp.post(`/api/runs/${String(runId)}/emails`, batch);
+      const unknown = await testApp.post('/api/runs/99/listings', listings);
+      const finished = await testApp.post(`/api/runs/${String(runId)}/listings`, listings);
 
       expect(unknown.status).toBe(404);
       expect(unknown.body).toEqual({ error: { code: 'not_found', message: 'run 99 does not exist' } });
@@ -165,7 +95,7 @@ describe('the /find-jobs run API', () => {
     });
 
     it.each(['abc', '0', '-1', '1.5', '99999999999999999'])('NFR-09: run ID "%s" is a 400', async (id) => {
-      const response = await testApp.post(`/api/runs/${id}/emails`, { emails: [UNRECOGNIZED] });
+      const response = await testApp.post(`/api/runs/${id}/listings`, listings);
 
       expect(response.status).toBe(400);
       expect(response.body).toMatchObject({ error: { code: 'validation_failed', message: 'The run ID is invalid' } });

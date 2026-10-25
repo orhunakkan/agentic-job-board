@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { EmailRecord } from '../../../src/db/repositories/emails.ts';
 import type { NewJob } from '../../../src/db/repositories/jobs.ts';
 import type { Profile } from '../../../src/schemas/profile.ts';
 import { createTestDatabase, type TestDatabase } from '../helpers/test-database.ts';
@@ -50,20 +49,21 @@ const LISTED_JOB: NewJob = {
   workplace: null,
 };
 
-function email(runId: number, overrides: Partial<EmailRecord> = {}): EmailRecord {
-  return {
-    gmailMessageId: 'msg-1',
-    runId,
-    receivedAt: '2026-10-22T14:10:48.000Z',
-    sender: 'jobalerts-noreply@linkedin.com',
-    subject: 'Alert',
-    savedSearch: 'qa in United States',
-    parseStatus: 'parsed',
-    unrecognizedReason: null,
-    jobsFound: 1,
-    processedAt: '2026-10-23T12:00:00.000Z',
-    ...overrides,
-  };
+// An alert email from before Phase 11 (DEC-041), written as the old email ingest wrote it.
+function insertEmail(testDb: TestDatabase, runId: number, gmailMessageId: string, receivedAt: string): void {
+  testDb.db
+    .prepare(
+      `INSERT INTO emails (gmail_message_id, run_id, received_at, sender, subject, saved_search, parse_status,
+                           jobs_found, processed_at)
+       VALUES (?, ?, ?, 'jobalerts-noreply@linkedin.com', 'Alert', 'qa in United States', 'parsed', 1, ?)`,
+    )
+    .run(gmailMessageId, runId, receivedAt, '2026-10-23T12:00:00.000Z');
+}
+
+function insertSighting(testDb: TestDatabase, jobId: number, gmailMessageId: string, savedSearch: string | null) {
+  testDb.db
+    .prepare('INSERT INTO sightings (job_id, gmail_message_id, saved_search) VALUES (?, ?, ?)')
+    .run(jobId, gmailMessageId, savedSearch);
 }
 
 describe('repositories', () => {
@@ -147,65 +147,6 @@ describe('repositories', () => {
 
     it('FR-11: returns null for an unknown run', () => {
       expect(testDb.repos.runs.get(999)).toBeNull();
-    });
-  });
-
-  describe('emails', () => {
-    it('FR-05: stores an email and reports that it exists', () => {
-      const runId = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
-
-      expect(testDb.repos.emails.exists('msg-1')).toBe(false);
-      testDb.repos.emails.insert(email(runId));
-
-      expect(testDb.repos.emails.exists('msg-1')).toBe(true);
-      expect(testDb.repos.emails.get('msg-1')).toEqual(email(runId));
-      expect(testDb.repos.emails.get('msg-2')).toBeNull();
-    });
-
-    it('FR-05: the same Gmail message can never be stored twice', () => {
-      const runId = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
-      testDb.repos.emails.insert(email(runId));
-
-      expect(() => {
-        testDb.repos.emails.insert(email(runId));
-      }).toThrow(/UNIQUE constraint failed/);
-    });
-
-    it('FR-12: an unrecognized email must carry its reason, and a parsed one must not', () => {
-      const runId = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
-
-      expect(() => {
-        testDb.repos.emails.insert(email(runId, { parseStatus: 'unrecognized', unrecognizedReason: null }));
-      }).toThrow(/CHECK constraint failed/);
-      expect(() => {
-        testDb.repos.emails.insert(email(runId, { unrecognizedReason: 'why' }));
-      }).toThrow(/CHECK constraint failed/);
-    });
-
-    it('FR-05: an email must belong to an existing run', () => {
-      expect(() => {
-        testDb.repos.emails.insert(email(999));
-      }).toThrow(/FOREIGN KEY constraint failed/);
-    });
-
-    it('FR-12: lists only unrecognized emails, newest first, up to the limit', () => {
-      const runId = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
-      const bad = (id: string, receivedAt: string) =>
-        email(runId, {
-          gmailMessageId: id,
-          receivedAt,
-          parseStatus: 'unrecognized',
-          unrecognizedReason: 'unknown email format',
-          savedSearch: null,
-          jobsFound: 0,
-        });
-      testDb.repos.emails.insert(email(runId, { gmailMessageId: 'ok', receivedAt: '2026-10-22T18:00:00.000Z' }));
-      testDb.repos.emails.insert(bad('old', '2026-10-20T10:00:00.000Z'));
-      testDb.repos.emails.insert(bad('new', '2026-10-22T10:00:00.000Z'));
-      testDb.repos.emails.insert(bad('mid', '2026-10-21T10:00:00.000Z'));
-
-      expect(testDb.repos.emails.listUnrecognized(10).map((row) => row.gmailMessageId)).toEqual(['new', 'mid', 'old']);
-      expect(testDb.repos.emails.listUnrecognized(1)).toEqual([bad('new', '2026-10-22T10:00:00.000Z')]);
     });
   });
 
@@ -542,18 +483,18 @@ describe('repositories', () => {
   });
 
   describe('sightings and status history', () => {
-    it('FR-10: lists a job’s sightings by email time, with their saved search', () => {
+    it('FR-10: lists a job’s email sightings from the email years by email time, with their saved search', () => {
       const runId = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
       const jobId = testDb.repos.jobs.insert(NEW_JOB, {
         runId: null,
         seenAt: '2026-10-22T14:00:00.000Z',
         createdAt: '2026-10-23T12:00:00.000Z',
       });
-      testDb.repos.emails.insert(email(runId, { gmailMessageId: 'later', receivedAt: '2026-10-23T08:00:00.000Z' }));
-      testDb.repos.emails.insert(email(runId, { gmailMessageId: 'earlier', receivedAt: '2026-10-21T08:00:00.000Z' }));
+      insertEmail(testDb, runId, 'later', '2026-10-23T08:00:00.000Z');
+      insertEmail(testDb, runId, 'earlier', '2026-10-21T08:00:00.000Z');
 
-      testDb.repos.sightings.insert(jobId, 'later', 'search B');
-      testDb.repos.sightings.insert(jobId, 'earlier', null);
+      insertSighting(testDb, jobId, 'later', 'search B');
+      insertSighting(testDb, jobId, 'earlier', null);
 
       expect(testDb.repos.sightings.listForJob(jobId)).toEqual([
         { gmailMessageId: 'earlier', savedSearch: null, receivedAt: '2026-10-21T08:00:00.000Z' },
@@ -564,7 +505,7 @@ describe('repositories', () => {
 
     it('FR-04: a sighting must point at a stored job and email', () => {
       expect(() => {
-        testDb.repos.sightings.insert(999, 'missing', null);
+        insertSighting(testDb, 999, 'missing', null);
       }).toThrow(/FOREIGN KEY constraint failed/);
     });
 

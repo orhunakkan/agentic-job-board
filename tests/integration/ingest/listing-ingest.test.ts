@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { RunFinishedError, RunNotFoundError } from '../../../src/ingest/ingest-service.ts';
+import { RunFinishedError, RunNotFoundError } from '../../../src/ingest/run-errors.ts';
 import { ingestListings, type IncomingListing } from '../../../src/ingest/listing-ingest.ts';
 import {
   countAll,

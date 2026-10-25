@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { InvalidEmailError, RunFinishedError, RunNotFoundError } from '../ingest/ingest-service.ts';
+import { RunFinishedError, RunNotFoundError } from '../ingest/run-errors.ts';
 import { InvalidTransitionError, JobNotFoundError } from '../jobs/status-service.ts';
 import type { Logger } from '../logger.ts';
 import { errorBody, HttpError, queryObject, type Reply } from './respond.ts';
@@ -193,9 +193,6 @@ function toFailure(error: unknown, logger: Logger, requestId: string): Failure {
   }
   if (error instanceof RunFinishedError) {
     return { status: 409, code: 'run_finished', message: error.message };
-  }
-  if (error instanceof InvalidEmailError) {
-    return { status: 400, code: 'validation_failed', message: error.message };
   }
 
   logger.error('unhandled error', { requestId, error });

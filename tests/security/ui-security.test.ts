@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { IngestEmailsResponseSchema } from '../../src/schemas/api.ts';
+import { IngestListingsResponseSchema } from '../../src/schemas/api.ts';
 import { seedBoard } from '../helpers/seed-board.ts';
 import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
-// PLAN.md §8.1 type 6 for the HTML pages (Phase 6): hostile text from emails and from the owner's own input is
-// escaped on every page, form posts from other sites are refused, and pages never carry script.
+// PLAN.md §8.1 type 6 for the HTML pages (Phase 6): hostile text from LinkedIn searches (every field of a job,
+// its description and the search name) and from the owner's own input is escaped on every page, form posts from
+// other sites are refused, and pages never carry script.
 
 const HOSTILE_TITLE = '<script>alert(1)</script>';
 const HOSTILE_COMPANY = '<img src=x onerror=alert(2)>';
@@ -16,25 +17,24 @@ describe('HTML page security', () => {
   beforeEach(async () => {
     testApp = await startTestApp();
     const { runId } = await seedBoard(testApp);
-    const response = await testApp.post(`/api/runs/${String(runId)}/emails`, {
-      emails: [
+    const response = await testApp.post(`/api/runs/${String(runId)}/listings`, {
+      listings: [
         {
-          gmailMessageId: 'msgxss',
-          receivedAt: '2026-10-23T10:00:00Z',
-          sender: 'jobalerts-noreply@linkedin.com',
-          subject: '"><svg onload=alert(3)>',
-          plainText: `Your job alert for <b>qa</b>\nNew jobs match your preferences.\n\n${HOSTILE_TITLE}\n${HOSTILE_COMPANY}\n" onmouseover="alert(4)\nView job: https://www.linkedin.com/comm/jobs/view/77/`,
-        },
-        {
-          gmailMessageId: 'msgodd',
-          receivedAt: '2026-10-23T11:00:00Z',
-          sender: 'jobs-noreply@linkedin.com',
-          subject: '<script>alert(5)</script>',
-          plainText: 'not an alert',
+          source: 'linkedin',
+          sourceJobId: '77',
+          title: HOSTILE_TITLE,
+          company: HOSTILE_COMPANY,
+          location: '" onmouseover="alert(4)',
+          url: 'https://www.linkedin.com/jobs/view/77/',
+          postedAt: '2026-10-23T10:00:00.000Z',
+          salary: '<i>$1</i>',
+          description: 'About the job\n<script>alert(5)</script>\n<b>Apply</b> now',
+          workplace: 'remote',
+          searchName: '"><svg onload=alert(3)>',
         },
       ],
     });
-    const [job] = IngestEmailsResponseSchema.parse(response.body).newJobs;
+    const [job] = IngestListingsResponseSchema.parse(response.body).newJobs;
     jobId = job?.id ?? 0;
     await testApp.post(`/api/runs/${String(runId)}/scores`, {
       rubricVersion: 'triage-v1',
@@ -67,7 +67,7 @@ describe('HTML page security', () => {
     '/profile',
   ];
 
-  it('NFR-07: hostile text from emails, scores, notes and the profile is escaped on every page', async () => {
+  it('NFR-07: hostile text from LinkedIn searches, scores, notes and the profile is escaped on every page', async () => {
     for (const path of pages()) {
       const { text } = await testApp.get(path);
 
@@ -77,7 +77,8 @@ describe('HTML page security', () => {
 
     expect((await testApp.get('/?q=script')).text).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect((await testApp.get(`/jobs/${String(jobId)}`)).text).toContain('&lt;/textarea&gt;&lt;script&gt;alert(6)');
-    expect((await testApp.get('/runs')).text).toContain('&lt;script&gt;alert(5)&lt;/script&gt;');
+    expect((await testApp.get(`/jobs/${String(jobId)}`)).text).toContain('&lt;script&gt;alert(5)&lt;/script&gt;');
+    expect((await testApp.get(`/jobs/${String(jobId)}`)).text).toContain('“&quot;&gt;&lt;svg onload=alert(3)&gt;”');
     expect((await testApp.get('/profile')).text).toContain('&quot;&gt;&lt;script&gt;alert(8)');
   });
 

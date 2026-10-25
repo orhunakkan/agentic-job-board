@@ -1,8 +1,8 @@
 // Fake data for performance tests and screenshots (PLAN.md Phase 7 task 1).
 //   node scripts/seed.ts --count 5000 --db data/perf.db [--seed 1]
-// Builds LinkedIn-style digest emails and loads them through the real ingest service, then scores jobs and
-// moves some through the status workflow with the real status service, so every counter, sighting and history
-// row follows the same rules as real data. The same --seed always gives the same database. Everything is
+// Builds pages of LinkedIn search results and loads them through the real listing ingest, as
+// scripts/search-linkedin.ts would, then scores jobs and moves some through the status workflow with the real status
+// service, so every counter, sighting and history row follows the same rules as real data. The same --seed always gives the same database. Everything is
 // made up: no real job, company or person. It refuses to write into a database that already has jobs, so it
 // can never mix fake jobs into the owner's board.
 import { z } from 'zod';
@@ -12,19 +12,19 @@ import { migrate } from '../src/db/migrate.ts';
 import { createRepositories, type Repositories } from '../src/db/repositories/index.ts';
 import { labelForScore } from '../src/domain/score.ts';
 import type { Status } from '../src/domain/status.ts';
-import { ingestEmails, type IncomingEmail } from '../src/ingest/ingest-service.ts';
+import { ingestListings, type IncomingListing } from '../src/ingest/listing-ingest.ts';
 import { changeJobStatus } from '../src/jobs/status-service.ts';
 
 export interface SeedOptions {
   count: number;
   seed: number;
-  /** The newest email arrives at this time; the others are spread over the 30 days before it. */
+  /** The newest search page is read at this time; the others are spread over the 30 days before it. */
   until: string;
 }
 
 export interface SeedSummary {
   runs: number;
-  emails: number;
+  pages: number;
   jobs: number;
   scored: number;
   byStatus: Record<string, number>;
@@ -34,12 +34,13 @@ export class SeedError extends Error {
   override name = 'SeedError';
 }
 
-/** A fake job: the same title, company and location every time an email lists it, and a rubric-like score. */
+/** A fake job: the same details every time a search lists it, and a rubric-like score. */
 interface FakeJob {
   linkedinId: string;
   title: string;
   company: string;
   location: string;
+  workplace: IncomingListing['workplace'];
   score: number;
   reason: string;
 }
@@ -68,19 +69,20 @@ const STACKS: readonly { suffix: string; bonus: number; reason: string }[] = [
   { suffix: ' (Selenium, Java)', bonus: 6, reason: 'Selenium and Java in the title' },
   { suffix: ' - API Testing', bonus: 8, reason: 'API testing in the title' },
 ];
-const LOCATIONS: readonly { name: string; adjust: number; reason: string }[] = [
-  { name: 'United States', adjust: 0, reason: 'US-wide' },
-  { name: 'United States', adjust: 0, reason: 'US-wide' },
-  { name: 'United States (Remote)', adjust: 8, reason: 'remote US' },
-  { name: 'Chicago, IL', adjust: -12, reason: 'Chicago-based, not marked remote' },
-  { name: 'Austin, TX', adjust: -12, reason: 'Austin-based, not marked remote' },
-  { name: 'New York, NY', adjust: -12, reason: 'New York-based, not marked remote' },
-  { name: 'Seattle, WA', adjust: -12, reason: 'Seattle-based, not marked remote' },
-  { name: 'Denver, CO', adjust: -12, reason: 'Denver-based, not marked remote' },
-];
+const LOCATIONS: readonly { name: string; workplace: IncomingListing['workplace']; adjust: number; reason: string }[] =
+  [
+    { name: 'United States', workplace: null, adjust: 0, reason: 'US-wide' },
+    { name: 'United States (Remote)', workplace: 'remote', adjust: 8, reason: 'remote US' },
+    { name: 'United States (Remote)', workplace: 'remote', adjust: 8, reason: 'remote US' },
+    { name: 'Chicago, IL (Hybrid)', workplace: 'hybrid', adjust: -12, reason: 'hybrid in Chicago' },
+    { name: 'Austin, TX (On-site)', workplace: 'on-site', adjust: -14, reason: 'on-site in Austin' },
+    { name: 'New York, NY (Hybrid)', workplace: 'hybrid', adjust: -12, reason: 'hybrid in New York' },
+    { name: 'Seattle, WA', workplace: null, adjust: -12, reason: 'Seattle-based, not marked remote' },
+    { name: 'Denver, CO (Remote)', workplace: 'remote', adjust: 8, reason: 'remote US' },
+  ];
 const COMPANY_A = ['Acme', 'Globex', 'Initech', 'Umbrella', 'Hooli', 'Vandelay', 'Stark', 'Wayne', 'Tyrell', 'Soylent'];
 const COMPANY_B = ['Labs', 'Systems', 'Health', 'Financial', 'Software', 'Analytics', 'Robotics', 'Media'];
-const SEARCHES = ['sdet in United States', 'senior quality assurance engineer in United States', 'test automation'];
+const SEARCHES = ['QA family', 'Senior QA', 'Software QA'];
 
 function fakeJob(linkedinId: string, nextRandom: () => number): FakeJob {
   const pick = <T>(items: readonly T[]): T => items[Math.floor(nextRandom() * items.length)] as T;
@@ -94,6 +96,7 @@ function fakeJob(linkedinId: string, nextRandom: () => number): FakeJob {
     title: `${role.title}${stack.suffix}`,
     company: `${pick(COMPANY_A)} ${pick(COMPANY_B)}`,
     location: location.name,
+    workplace: location.workplace,
     score: role.cap === undefined ? raw : Math.min(raw, 30),
     reason: role.cap ?? `${role.reason}, ${stack.reason}; ${location.reason}.`,
   };
@@ -111,8 +114,8 @@ const PATHS: readonly (readonly Status[])[] = [
   ...Array<Status[]>(9).fill(['dismissed']),
 ];
 
-const JOBS_PER_EMAIL = 6;
-const NEW_PER_EMAIL = 4; // the other two are repeats of earlier jobs, as in real alerts
+const JOBS_PER_PAGE = 6;
+const NEW_PER_PAGE = 4; // the other two are jobs an earlier page already listed, as searches repeat
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** mulberry32: a small, fast PRNG, so a seed always gives the same data. */
@@ -136,40 +139,36 @@ export function seedDatabase(db: DatabaseSync, repos: Repositories, options: See
   const nextRandom = random(options.seed);
   const pick = <T>(items: readonly T[]): T => items[Math.floor(nextRandom() * items.length)] as T;
   const until = Date.parse(options.until);
-  const emailCount = Math.ceil(options.count / NEW_PER_EMAIL);
-  const runCount = Math.min(30, emailCount);
+  const pageCount = Math.ceil(options.count / NEW_PER_PAGE);
+  const runCount = Math.min(30, pageCount);
   const runIds: number[] = [];
   let clock = until - 30 * DAY_MS;
   const tick = () => new Date((clock += 1000)).toISOString();
 
-  // 1. Emails, through the real ingest service: about one run per day, each with its share of the emails.
+  // 1. Search pages, through the real listing ingest: about one run per day, each with its share of the pages.
   const fakeJobs: FakeJob[] = [];
-  for (let emailIndex = 0; emailIndex < emailCount; emailIndex += 1) {
-    const run = Math.floor((emailIndex * runCount) / emailCount);
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    const run = Math.floor((pageIndex * runCount) / pageCount);
     const runId = (runIds[run] ??= repos.runs.create(tick()));
-    const receivedAt = new Date(until - ((emailCount - 1 - emailIndex) * 30 * DAY_MS) / emailCount).toISOString();
-    clock = Math.max(clock, Date.parse(receivedAt));
+    clock = Math.max(clock, until - ((pageCount - 1 - pageIndex) * 30 * DAY_MS) / pageCount);
+    const searchName = pick(SEARCHES);
 
-    const blocks: string[] = [];
-    for (let slot = 0; slot < NEW_PER_EMAIL && fakeJobs.length < options.count; slot += 1) {
+    const listed: FakeJob[] = [];
+    for (let slot = 0; slot < NEW_PER_PAGE && fakeJobs.length < options.count; slot += 1) {
       const job = fakeJob(String(4_400_000_000 + fakeJobs.length), nextRandom);
       fakeJobs.push(job);
-      blocks.push(block(job, nextRandom));
+      listed.push(job);
     }
-    const earlier = fakeJobs.slice(0, fakeJobs.length - blocks.length);
-    for (let slot = blocks.length; slot < JOBS_PER_EMAIL && earlier.length > 0; slot += 1) {
-      blocks.push(block(pick(earlier), nextRandom));
-    }
-    const email: IncomingEmail = {
-      gmailMessageId: `seed${String(options.seed)}e${String(emailIndex)}`,
-      receivedAt,
-      sender: 'jobalerts-noreply@linkedin.com',
-      subject: 'New jobs for your search',
-      plainText: `Your job alert for ${pick(SEARCHES)}\nNew jobs match your preferences.\n\n${blocks.join(
-        '\n\n---------------------------------------------------------\n\n',
-      )}\n\nThis email was intended for Test User (QA Engineer)\n`,
-    };
-    ingestEmails(db, repos, runId, [email], tick);
+    const earlier = fakeJobs.slice(0, fakeJobs.length - listed.length);
+    for (let slot = listed.length; slot < JOBS_PER_PAGE && earlier.length > 0; slot += 1) listed.push(pick(earlier));
+    const searchedAt = new Date(clock).toISOString();
+    ingestListings(
+      db,
+      repos,
+      runId,
+      listed.map((job) => listing(job, searchName, searchedAt, nextRandom)),
+      tick,
+    );
   }
 
   // 2. Scores, statuses and notes, in one transaction. About 1 job in 10 stays unscored.
@@ -209,20 +208,28 @@ export function seedDatabase(db: DatabaseSync, repos: Repositories, options: See
     for (const runId of runIds) repos.runs.finish(runId, tick());
   });
 
-  return { runs: runIds.length, emails: emailCount, jobs: fakeJobs.length, scored, byStatus };
+  return { runs: runIds.length, pages: pageCount, jobs: fakeJobs.length, scored, byStatus };
 }
 
-/** One job block; the two flags change from email to email, as LinkedIn's do. */
-function block(job: FakeJob, nextRandom: () => number): string {
-  const lines = [
-    job.title,
-    job.company,
-    job.location,
-    nextRandom() < 0.3 ? 'This company is actively hiring' : '',
-    nextRandom() < 0.4 ? 'Apply with resume & profile' : '',
-    `View job: https://www.linkedin.com/comm/jobs/view/${job.linkedinId}/`,
-  ];
-  return lines.filter((line) => line !== '').join('\n');
+/** One job as a search lists it; about half have a description from their job page, and Easy Apply comes and goes. */
+function listing(job: FakeJob, searchName: string, searchedAt: string, nextRandom: () => number): IncomingListing {
+  return {
+    source: 'linkedin',
+    sourceJobId: job.linkedinId,
+    title: job.title,
+    company: job.company,
+    location: job.location,
+    url: `https://www.linkedin.com/jobs/view/${job.linkedinId}/`,
+    postedAt: new Date(Date.parse(searchedAt) - Math.floor(nextRandom() * DAY_MS)).toISOString(),
+    salary: nextRandom() < 0.3 ? '$140K/yr - $170K/yr' : null,
+    description:
+      nextRandom() < 0.5
+        ? `About ${job.company}\n\nWe are hiring a ${job.title}.\n• Build and run automated tests\n• Work with the developers`
+        : null,
+    workplace: job.workplace,
+    easyApply: nextRandom() < 0.4,
+    searchName,
+  };
 }
 
 const ArgsSchema = z.object({
@@ -260,7 +267,7 @@ if (import.meta.main) {
           until: new Date().toISOString(),
         });
         console.log(`Seeded ${args.data.db} in ${String(Math.round(performance.now() - started))} ms`);
-        console.table({ runs: summary.runs, emails: summary.emails, jobs: summary.jobs, scored: summary.scored });
+        console.table({ runs: summary.runs, pages: summary.pages, jobs: summary.jobs, scored: summary.scored });
         console.table(summary.byStatus);
       } finally {
         db.close();

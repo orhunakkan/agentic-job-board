@@ -130,34 +130,6 @@ export const IngestStateResponseSchema = z.strictObject({ lastLinkedInSearchAt: 
 
 export const CreateRunResponseSchema = z.strictObject({ runId: Id });
 
-// --- POST /api/runs/:id/emails -----------------------------------------------------------------------------------
-
-export const IngestEmailsRequestSchema = z.strictObject({
-  emails: z
-    .array(
-      z.strictObject({
-        gmailMessageId: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/, 'must be a Gmail message ID'),
-        receivedAt: IsoTimestamp,
-        sender: z.string().trim().min(1).max(320),
-        subject: z.string().max(1000),
-        plainText: z.string().max(900_000),
-      }),
-    )
-    .min(1)
-    .max(50),
-});
-
-export const IngestEmailsResponseSchema = z.strictObject({
-  results: z.array(
-    z.strictObject({
-      gmailMessageId: z.string(),
-      outcome: z.enum(['new', 'duplicate', 'unrecognized']),
-      jobsFound: Count,
-    }),
-  ),
-  newJobs: z.array(JobSummarySchema),
-});
-
 // --- POST /api/runs/:id/listings ---------------------------------------------------------------------------------
 
 /** At most this many listings per call; with full descriptions a batch stays well under the 1 MB body limit. */

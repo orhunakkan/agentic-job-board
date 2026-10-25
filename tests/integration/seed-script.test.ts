@@ -10,7 +10,8 @@ import { isLabelConsistent } from '../../src/domain/score.ts';
 import { countAll, createTestDatabase } from './helpers/test-database.ts';
 
 // scripts/seed.ts (PLAN.md Phase 7 task 1): realistic fake data for the load test, loaded through the real
-// ingest and status services, so it obeys every rule real data obeys.
+// listing ingest and status services, as LinkedIn searches would bring it (Phase 11), so it obeys every rule real
+// data obeys.
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const UNTIL = '2026-10-23T12:00:00.000Z';
@@ -35,8 +36,9 @@ describe('scripts/seed.ts', () => {
   it('NFR-05: creates exactly the requested number of jobs, with repeat sightings', () => {
     expect(summary.jobs).toBe(400);
     expect(jobs).toHaveLength(400);
-    expect(countAll(testDb.db)).toMatchObject({ runs: 30, emails: 100, jobs: 400 });
-    expect(countAll(testDb.db).sightings).toBeGreaterThan(400);
+    expect(summary.pages).toBe(100);
+    expect(countAll(testDb.db)).toMatchObject({ runs: 30, emails: 0, sightings: 0, jobs: 400 });
+    expect(countAll(testDb.db).listing_sightings).toBeGreaterThan(400);
     expect(jobs.filter((job) => job.seenCount > 1).length).toBeGreaterThan(50);
   });
 

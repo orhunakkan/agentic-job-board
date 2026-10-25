@@ -1,24 +1,31 @@
 import type { IncomingListing } from '../../src/ingest/listing-ingest.ts';
 import {
   CreateRunResponseSchema,
-  IngestEmailsResponseSchema,
   IngestListingsResponseSchema,
+  JobSummarySchema,
   type JobSummary,
 } from '../../src/schemas/api.ts';
-import { fixtureEmail } from './fixtures.ts';
+import { seedEmailYears } from './email-years.ts';
 import type { TestApp } from './test-app.ts';
 
-// Loads the three sanitized fixtures through the API, as /find-jobs would: 18 new jobs in one open run.
+/**
+ * The 18 LinkedIn jobs of the alert-email years (tests/helpers/email-years.ts) in one open run, as the old email
+ * ingest left them; the app no longer takes emails (DEC-041). Returns the run and the jobs as the API shows them.
+ */
 export async function seedBoard(testApp: TestApp): Promise<{ runId: number; jobs: JobSummary[] }> {
   const { runId } = CreateRunResponseSchema.parse((await testApp.post('/api/runs')).body);
-  const response = await testApp.post(`/api/runs/${String(runId)}/emails`, {
-    emails: [
-      fixtureEmail('digest-test-automation.txt', 'msgdigestta'),
-      fixtureEmail('digest-senior-qa.txt', 'msgdigestsq'),
-      fixtureEmail('recommendations.txt', 'msgrecs'),
-    ],
-  });
-  return { runId, jobs: IngestEmailsResponseSchema.parse(response.body).newJobs };
+  const jobs: JobSummary[] = [];
+  for (const id of seedEmailYears(testApp.app.db, runId)) {
+    // The detail answer is a summary plus more; only the summary's fields are kept.
+    const { body } = await testApp.get(`/api/jobs/${String(id)}`);
+    jobs.push(JobSummarySchema.parse(pickSummary(body)));
+  }
+  return { runId, jobs };
+}
+
+function pickSummary(detail: unknown): Record<string, unknown> {
+  const fields = Object.keys(JobSummarySchema.shape);
+  return Object.fromEntries(Object.entries(detail as Record<string, unknown>).filter(([key]) => fields.includes(key)));
 }
 
 // Three made-up listings from the public feeds (PLAN.md Phase 10), as scripts/fetch-sources.ts sends them.

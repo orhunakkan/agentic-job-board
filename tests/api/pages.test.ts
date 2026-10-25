@@ -116,22 +116,21 @@ describe('the HTML pages', () => {
     });
 
     it('FR-07: pages through long lists', async () => {
-      const response = await testApp.post(`/api/runs/${String(runId)}/emails`, {
-        emails: [
-          {
-            gmailMessageId: 'many',
-            receivedAt: '2026-10-23T10:00:00Z',
-            sender: 'jobalerts-noreply@linkedin.com',
-            subject: 'many',
-            plainText: `Your job alert for qa\nNew jobs match your preferences.\n\n${Array.from(
-              { length: PAGE_SIZE },
-              (_, index) =>
-                `Job ${String(index)}\nCo\nRemote\nView job: https://www.linkedin.com/comm/jobs/view/${String(900 + index)}/\n`,
-            ).join('\n')}`,
-          },
-        ],
-      });
-      expect(response.status).toBe(200);
+      const listings = Array.from({ length: PAGE_SIZE }, (_, index) => ({
+        source: 'linkedin',
+        sourceJobId: String(900 + index),
+        title: `Job ${String(index)}`,
+        company: 'Co',
+        location: 'Remote',
+        url: `https://www.linkedin.com/jobs/view/${String(900 + index)}/`,
+        postedAt: null,
+        salary: null,
+        description: null,
+      }));
+      for (const batch of [listings.slice(0, 25), listings.slice(25)]) {
+        const response = await testApp.post(`/api/runs/${String(runId)}/listings`, { listings: batch });
+        expect(response.status).toBe(200);
+      }
 
       const first = await page('/');
       const second = await page('/?tab=new&sort=score&page=2');
@@ -377,24 +376,11 @@ describe('the HTML pages', () => {
       expect(await page('/runs')).toContain('Not finished');
     });
 
-    it('FR-12: lists unrecognized emails with their reason, and says when there are none', async () => {
-      expect(await page('/runs')).toContain('None. Every email so far was read.');
-
-      await testApp.post(`/api/runs/${String(runId)}/emails`, {
-        emails: [
-          {
-            gmailMessageId: 'odd',
-            receivedAt: '2026-10-23T10:00:00Z',
-            sender: 'jobs-noreply@linkedin.com',
-            subject: 'A new LinkedIn format',
-            plainText: 'Hello',
-          },
-        ],
-      });
-
+    it('FR-11: keeps the email counts of runs from the email years; the unrecognized-email list is gone (DEC-041)', async () => {
       const runs = await page('/runs');
-      expect(runs).toContain('<td>A new LinkedIn format</td>');
-      expect(runs).toContain('<td>unknown email format</td>');
+
+      expect(runs).toMatch(/<td class="num">3<\/td>\s*<td class="num">3<\/td>\s*<td class="num">0<\/td>/);
+      expect(runs).not.toContain('Unrecognized emails</h2>');
     });
 
     it('FR-01: the profile page explains how to load a profile until one exists', async () => {

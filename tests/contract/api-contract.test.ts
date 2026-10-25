@@ -4,7 +4,6 @@ import {
   CreateRunResponseSchema,
   ErrorResponseSchema,
   HealthResponseSchema,
-  IngestEmailsResponseSchema,
   IngestListingsResponseSchema,
   IngestStateResponseSchema,
   JobDetailSchema,
@@ -19,7 +18,7 @@ import {
 } from '../../src/schemas/api.ts';
 import { createLinkedInSessionFile, saveLinkedInSession } from '../../src/linkedin/session.ts';
 import { ProfileSchema } from '../../src/schemas/profile.ts';
-import { fakeLinkedInStorageState, fixtureEmail } from '../helpers/fixtures.ts';
+import { fakeLinkedInStorageState } from '../helpers/fixtures.ts';
 import { LINKEDIN_LISTINGS } from '../helpers/seed-board.ts';
 import { startTestApp, type ApiResponse, type TestApp } from '../helpers/test-app.ts';
 
@@ -64,7 +63,7 @@ describe('API responses match their schemas', () => {
     conforms(ProfileSchema, await testApp.get('/api/profile'), 200);
   });
 
-  it('FR-02: GET /api/ingest/state before and after ingest', async () => {
+  it('FR-18: GET /api/ingest/state before any LinkedIn search', async () => {
     conforms(IngestStateResponseSchema, await testApp.get('/api/ingest/state'), 200);
   });
 
@@ -74,18 +73,10 @@ describe('API responses match their schemas', () => {
     runId = CreateRunResponseSchema.parse(response.body).runId;
   });
 
-  it('FR-02: POST /api/runs/:id/emails', async () => {
-    const response = await testApp.post(`/api/runs/${String(runId)}/emails`, {
-      emails: [fixtureEmail('digest-test-automation.txt', 'msg1'), fixtureEmail('recommendations.txt', 'msg2')],
-    });
-    conforms(IngestEmailsResponseSchema, response, 200);
-    jobId = IngestEmailsResponseSchema.parse(response.body).newJobs[0]?.id ?? 0;
-    conforms(IngestStateResponseSchema, await testApp.get('/api/ingest/state'), 200);
-  });
-
   it('FR-18: POST /api/runs/:id/listings with jobs from LinkedIn searches, and the ingest state after it', async () => {
     const response = await testApp.post(`/api/runs/${String(runId)}/listings`, { listings: LINKEDIN_LISTINGS });
     conforms(IngestListingsResponseSchema, response, 200);
+    jobId = IngestListingsResponseSchema.parse(response.body).newJobs[0]?.id ?? 0;
     conforms(IngestStateResponseSchema, await testApp.get('/api/ingest/state'), 200);
   });
 

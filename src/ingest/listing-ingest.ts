@@ -4,7 +4,7 @@ import type { Repositories } from '../db/repositories/index.ts';
 import type { NewJob } from '../db/repositories/jobs.ts';
 import type { JobSource } from '../domain/job-source.ts';
 import type { Workplace } from '../domain/workplace.ts';
-import { RunFinishedError, RunNotFoundError } from './ingest-service.ts';
+import { RunFinishedError, RunNotFoundError } from './run-errors.ts';
 
 // Stores a batch of listings for a run (PLAN.md Phase 10 and 11, FR-15, FR-16, FR-18): jobs from the public feeds
 // (scripts/fetch-sources.ts) and from the owner's LinkedIn searches (scripts/search-linkedin.ts). The scripts read
