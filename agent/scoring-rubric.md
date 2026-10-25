@@ -46,16 +46,16 @@ Salary never changes the score; the board shows it on its own. Visa sponsorship 
 
 ### Calibration (`match-v1`, 2026-10-25)
 
-The §6.5 jobs, backfilled from their LinkedIn pages and scored with `match-v1`. Five land on their expected label. **Agilent's changes**: its title suggested a hardware/R&D test role, but the description is a remote software quality-engineering role, so it is no longer capped. The owner confirms these labels at CP-11.
+The §6.5 jobs, backfilled from their LinkedIn pages and scored with `match-v1`. All six land on their expected label. Agilent's title suggested a hardware/R&D test role, but its description is a remote software quality-engineering role, so it is no longer capped: the owner changed its expected label to `strong` at CP-11 (DEC-050).
 
-| Job                                                                                               | Expected (PLAN.md §6.5) | `triage-v1` gave | `match-v1` gives | On target                    |
-| ------------------------------------------------------------------------------------------------- | ----------------------- | ---------------- | ---------------- | ---------------------------- |
-| Senior Quality Assurance Engineer (Playwright, TypeScript, and Postman) · 3Pillar · United States | strong                  | 90 strong        | 96 strong        | ✅                           |
-| Senior QA Automation Test Engineer · Cboe Global Markets · Chicago, IL                            | possible (DEC-028)      | 70 possible      | 67 possible      | ✅                           |
-| AI Native, QA Engineer · ConsumerAffairs                                                          | strong / possible       | 77 strong        | 91 strong        | ✅                           |
-| QA Automation Engineer II – IntelliScript (Remote) · Milliman IntelliScript                       | possible                | 74 possible      | 58 possible      | ✅                           |
-| Senior Quality Assurance Engineer · Goosehead Insurance · Dallas-Fort Worth Metroplex             | possible / weak         | 67 possible      | 62 possible      | ✅                           |
-| R&D Test Engineer · Agilent Technologies · Harrisburg, PA                                         | weak                    | 30 weak          | 89 strong        | ❌ owner to confirm at CP-11 |
+| Job                                                                                               | Expected (PLAN.md §6.5) | `triage-v1` gave | `match-v1` gives | On target |
+| ------------------------------------------------------------------------------------------------- | ----------------------- | ---------------- | ---------------- | --------- |
+| Senior Quality Assurance Engineer (Playwright, TypeScript, and Postman) · 3Pillar · United States | strong                  | 90 strong        | 96 strong        | ✅        |
+| Senior QA Automation Test Engineer · Cboe Global Markets · Chicago, IL                            | possible (DEC-028)      | 70 possible      | 67 possible      | ✅        |
+| AI Native, QA Engineer · ConsumerAffairs                                                          | strong / possible       | 77 strong        | 91 strong        | ✅        |
+| QA Automation Engineer II – IntelliScript (Remote) · Milliman IntelliScript                       | possible                | 74 possible      | 58 possible      | ✅        |
+| Senior Quality Assurance Engineer · Goosehead Insurance · Dallas-Fort Worth Metroplex             | possible / weak         | 67 possible      | 62 possible      | ✅        |
+| R&D Test Engineer · Agilent Technologies · Harrisburg, PA                                         | strong (CP-11, DEC-050) | 30 weak          | 89 strong        | ✅        |
 
 ## `triage-v1`: scored on the title, company and location
 

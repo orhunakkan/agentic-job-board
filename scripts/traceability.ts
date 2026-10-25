@@ -58,7 +58,7 @@ export const REQUIREMENTS: readonly Requirement[] = [
   {
     id: 'FR-20',
     title: 'Scoring on the description',
-    also: 'Calibration set re-scored with match-v1 on 2026-10-25: 5/6 on the expected label, Agilent to confirm at CP-11',
+    also: 'Calibration set re-scored with match-v1 on 2026-10-25: 6/6 on the expected label (Agilent strong, DEC-050)',
   },
   { id: 'NFR-01', title: 'Localhost only' },
   { id: 'NFR-02', title: 'No new npm dependencies', also: '`npm run audit` in CI' },
