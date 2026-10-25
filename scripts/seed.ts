@@ -145,31 +145,34 @@ export function seedDatabase(db: DatabaseSync, repos: Repositories, options: See
   let clock = until - 30 * DAY_MS;
   const tick = () => new Date((clock += 1000)).toISOString();
 
-  // 1. Search pages, through the real listing ingest: about one run per day, each with its share of the pages.
+  // 1. Search pages, through the real listing ingest: about one run per day, each with its share of the pages, in one
+  // transaction (each listing's own transaction joins it), so seeding 5,000 jobs makes one commit, not thousands.
   const fakeJobs: FakeJob[] = [];
-  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
-    const run = Math.floor((pageIndex * runCount) / pageCount);
-    const runId = (runIds[run] ??= repos.runs.create(tick()));
-    clock = Math.max(clock, until - ((pageCount - 1 - pageIndex) * 30 * DAY_MS) / pageCount);
-    const searchName = pick(SEARCHES);
+  transaction(db, () => {
+    for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+      const run = Math.floor((pageIndex * runCount) / pageCount);
+      const runId = (runIds[run] ??= repos.runs.create(tick()));
+      clock = Math.max(clock, until - ((pageCount - 1 - pageIndex) * 30 * DAY_MS) / pageCount);
+      const searchName = pick(SEARCHES);
 
-    const listed: FakeJob[] = [];
-    for (let slot = 0; slot < NEW_PER_PAGE && fakeJobs.length < options.count; slot += 1) {
-      const job = fakeJob(String(4_400_000_000 + fakeJobs.length), nextRandom);
-      fakeJobs.push(job);
-      listed.push(job);
+      const listed: FakeJob[] = [];
+      for (let slot = 0; slot < NEW_PER_PAGE && fakeJobs.length < options.count; slot += 1) {
+        const job = fakeJob(String(4_400_000_000 + fakeJobs.length), nextRandom);
+        fakeJobs.push(job);
+        listed.push(job);
+      }
+      const earlier = fakeJobs.slice(0, fakeJobs.length - listed.length);
+      for (let slot = listed.length; slot < JOBS_PER_PAGE && earlier.length > 0; slot += 1) listed.push(pick(earlier));
+      const searchedAt = new Date(clock).toISOString();
+      ingestListings(
+        db,
+        repos,
+        runId,
+        listed.map((job) => listing(job, searchName, searchedAt, nextRandom)),
+        tick,
+      );
     }
-    const earlier = fakeJobs.slice(0, fakeJobs.length - listed.length);
-    for (let slot = listed.length; slot < JOBS_PER_PAGE && earlier.length > 0; slot += 1) listed.push(pick(earlier));
-    const searchedAt = new Date(clock).toISOString();
-    ingestListings(
-      db,
-      repos,
-      runId,
-      listed.map((job) => listing(job, searchName, searchedAt, nextRandom)),
-      tick,
-    );
-  }
+  });
 
   // 2. Scores, statuses and notes, in one transaction. About 1 job in 10 stays unscored.
   const byLinkedinId = new Map(fakeJobs.map((job) => [job.linkedinId, job]));
