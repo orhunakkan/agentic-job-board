@@ -11,21 +11,23 @@ export interface Requirement {
   title: string;
   /** How it is verified besides the named tests (shown in the matrix), or why it can only be checked by hand. */
   also?: string;
+  /** Why the requirement no longer applies; its tests went with the feature it covered. */
+  retired?: string;
 }
 
 export const REQUIREMENTS: readonly Requirement[] = [
   { id: 'FR-01', title: 'Candidate profile' },
-  { id: 'FR-02', title: 'Email ingestion', also: 'Live runs at CP-5 (14 emails)' },
-  { id: 'FR-03', title: 'Email parsing' },
+  { id: 'FR-02', title: 'Email ingestion', retired: 'Gmail track retired in Phase 11 (DEC-041)' },
+  { id: 'FR-03', title: 'Email parsing', retired: 'Gmail track retired in Phase 11 (DEC-041)' },
   { id: 'FR-04', title: 'Deduplication' },
-  { id: 'FR-05', title: 'Idempotency', also: 'Second live run at CP-5: 7 duplicates, 0 new' },
+  { id: 'FR-05', title: 'Idempotency', retired: 'Gmail track retired in Phase 11 (DEC-041)' },
   { id: 'FR-06', title: 'Triage scoring', also: 'Calibration set at CP-5: 6/6 on target' },
   { id: 'FR-07', title: 'Board' },
   { id: 'FR-08', title: 'Status workflow' },
   { id: 'FR-09', title: 'Notes' },
   { id: 'FR-10', title: 'Job detail' },
   { id: 'FR-11', title: 'Run history' },
-  { id: 'FR-12', title: 'Unrecognized emails' },
+  { id: 'FR-12', title: 'Unrecognized emails', retired: 'Gmail track retired in Phase 11 (DEC-041)' },
   {
     id: 'FR-13',
     title: 'Agent summary',
@@ -43,10 +45,29 @@ export const REQUIREMENTS: readonly Requirement[] = [
   },
   { id: 'FR-16', title: 'Listing deduplication' },
   { id: 'FR-17', title: 'LinkedIn and other sources apart' },
+  {
+    id: 'FR-18',
+    title: 'LinkedIn search',
+    also: "Live runs on 2026-10-25 with the owner's session: 4 searches, 13 pages, 301 cards; comparison with a week of alert emails",
+  },
+  {
+    id: 'FR-19',
+    title: 'LinkedIn job details',
+    also: 'Live job pages read on 2026-10-25 (description, salary, workplace, posted time, closed)',
+  },
+  {
+    id: 'FR-20',
+    title: 'Scoring on the description',
+    also: 'Calibration set re-scored with match-v1 on 2026-10-25: 6/6 on the expected label (Agilent strong, DEC-050)',
+  },
   { id: 'NFR-01', title: 'Localhost only' },
   { id: 'NFR-02', title: 'No new npm dependencies', also: '`npm run audit` in CI' },
   { id: 'NFR-03', title: 'The app server makes no outbound requests' },
-  { id: 'NFR-04', title: 'Gmail read-only', also: 'Only search_threads and get_thread were called in every live run' },
+  {
+    id: 'NFR-04',
+    title: 'Gmail read-only; from Phase 11 not used at all',
+    also: 'Only search_threads and get_thread were called in every live run, the last one the Phase 11 comparison',
+  },
   { id: 'NFR-05', title: 'Board and API p95 < 200 ms with 5,000 jobs', also: 'k6: `tests/perf/load.ts`' },
   { id: 'NFR-06', title: 'Accessibility: no axe violations (WCAG 2.2 AA)' },
   { id: 'NFR-07', title: 'HTML escaping and parameterized SQL' },
@@ -152,11 +173,17 @@ export function buildMatrix(cases: readonly TestCase[], generatedAt: string, k6:
     const files = [...new Set(tests.map((test) => `\`${test.file}\``))].join(', ');
     const result =
       tests.length === 0
-        ? '⚠️ no named test'
+        ? requirement.retired === undefined
+          ? '⚠️ no named test'
+          : '🗄️ retired'
         : passed === tests.length
           ? '✅ pass'
           : `❌ ${String(tests.length - passed)} failing`;
-    const also = [requirement.also, requirement.id === 'NFR-05' && k6 !== null ? `last run: ${k6}` : undefined]
+    const also = [
+      requirement.retired,
+      requirement.also,
+      requirement.id === 'NFR-05' && k6 !== null ? `last run: ${k6}` : undefined,
+    ]
       .filter((text) => text !== undefined)
       .join('; ');
     return `| ${requirement.id} | ${requirement.title} | ${String(passed)}/${String(tests.length)} | ${result} | ${files} | ${also} |`;
@@ -170,7 +197,9 @@ export function buildMatrix(cases: readonly TestCase[], generatedAt: string, k6:
     return [
       `<details><summary><b>${requirement.id}</b> ${requirement.title} (${String(tests.length)} tests)</summary>`,
       '',
-      ...(lines.length > 0 ? lines : ['- No named test.']),
+      ...(lines.length > 0
+        ? lines
+        : [requirement.retired === undefined ? '- No named test.' : `- ${requirement.retired}.`]),
       '',
       '</details>',
     ].join('\n');

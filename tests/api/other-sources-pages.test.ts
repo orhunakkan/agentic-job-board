@@ -100,7 +100,7 @@ describe('LinkedIn and other sources on the pages', () => {
     expect(detail).toContain(
       '<div class="description">About the role\n\nOwn the test platform.\n• Playwright\n• k6</div>',
     );
-    expect(detail).toContain(`Listed on Greenhouse · <a href="/runs">run ${String(runId)}</a>`);
+    expect(detail.replace(/\s+/g, ' ')).toContain(`Listed on Greenhouse · <a href="/runs">run ${String(runId)}</a>`);
   });
 
   it('FR-17: a job page without a description or salary leaves those out', async () => {

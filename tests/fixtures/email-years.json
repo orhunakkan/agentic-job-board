@@ -1,0 +1,383 @@
+{
+  "emails": [
+    {
+      "gmail_message_id": "msgdigestta",
+      "received_at": "2026-10-22T14:10:48.000Z",
+      "sender": "jobalerts-noreply@linkedin.com",
+      "subject": "You may be a fit for Cboe Global Markets’ Senior QA Automation Test Engineer role",
+      "saved_search": "Test Automation Engineer or Senior QA Engineer or SDET or Software QA Engineer or Quality Engineer or AI QA Engineer or AI Software Engineer or AI Assisted Development in United States",
+      "jobs_found": 6,
+      "processed_at": "2026-10-23T12:00:01.000Z"
+    },
+    {
+      "gmail_message_id": "msgdigestsq",
+      "received_at": "2026-10-21T18:10:47.000Z",
+      "sender": "jobalerts-noreply@linkedin.com",
+      "subject": "ConsumerAffairs AI Native, QA Engineer",
+      "saved_search": "senior quality assurance engineer in United States",
+      "jobs_found": 6,
+      "processed_at": "2026-10-23T12:00:02.000Z"
+    },
+    {
+      "gmail_message_id": "msgrecs",
+      "received_at": "2026-10-21T18:52:51.000Z",
+      "sender": "jobs-noreply@linkedin.com",
+      "subject": "Workiva is hiring for a Remote role",
+      "saved_search": null,
+      "jobs_found": 6,
+      "processed_at": "2026-10-23T12:00:03.000Z"
+    }
+  ],
+  "jobs": [
+    {
+      "id": 1,
+      "source_job_id": "4473592349",
+      "title": "Senior QA Automation Test Engineer",
+      "company": "Cboe Global Markets",
+      "location": "Chicago, IL",
+      "url": "https://www.linkedin.com/jobs/view/4473592349/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:01.000Z",
+      "first_seen_at": "2026-10-22T14:10:48.000Z",
+      "last_seen_at": "2026-10-22T14:10:48.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 2,
+      "source_job_id": "4481161620",
+      "title": "Senior Quality Assurance Engineer",
+      "company": "Goosehead Insurance",
+      "location": "Dallas-Fort Worth Metroplex",
+      "url": "https://www.linkedin.com/jobs/view/4481161620/",
+      "actively_hiring": 1,
+      "easy_apply": 1,
+      "status_changed_at": "2026-10-23T12:00:01.000Z",
+      "first_seen_at": "2026-10-22T14:10:48.000Z",
+      "last_seen_at": "2026-10-22T14:10:48.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 3,
+      "source_job_id": "4471786416",
+      "title": "QA Automation Engineer II - IntelliScript (Remote)",
+      "company": "Milliman IntelliScript",
+      "location": "Brookfield, WI",
+      "url": "https://www.linkedin.com/jobs/view/4471786416/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:01.000Z",
+      "first_seen_at": "2026-10-22T14:10:48.000Z",
+      "last_seen_at": "2026-10-22T14:10:48.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 4,
+      "source_job_id": "4478989563",
+      "title": "Quality Engineer/ QA Automation Engineer – Playwright & AI",
+      "company": "PDSSOFT INC.",
+      "location": "San Jose, CA",
+      "url": "https://www.linkedin.com/jobs/view/4478989563/",
+      "actively_hiring": 0,
+      "easy_apply": 1,
+      "status_changed_at": "2026-10-23T12:00:01.000Z",
+      "first_seen_at": "2026-10-22T14:10:48.000Z",
+      "last_seen_at": "2026-10-22T14:10:48.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 5,
+      "source_job_id": "4477836203",
+      "title": "Senior Quality Assurance Engineer (Playwright, TypeScript, and Postman) REQ_134",
+      "company": "3Pillar",
+      "location": "United States",
+      "url": "https://www.linkedin.com/jobs/view/4477836203/",
+      "actively_hiring": 1,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:01.000Z",
+      "first_seen_at": "2026-10-22T14:10:48.000Z",
+      "last_seen_at": "2026-10-22T14:10:48.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 6,
+      "source_job_id": "4482152646",
+      "title": "Senior QA Automation Engineer",
+      "company": "AgileGrid Solutions",
+      "location": "United States",
+      "url": "https://www.linkedin.com/jobs/view/4482152646/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:01.000Z",
+      "first_seen_at": "2026-10-22T14:10:48.000Z",
+      "last_seen_at": "2026-10-22T14:10:48.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 7,
+      "source_job_id": "4481581724",
+      "title": "AI Native, QA Engineer",
+      "company": "ConsumerAffairs",
+      "location": "United States",
+      "url": "https://www.linkedin.com/jobs/view/4481581724/",
+      "actively_hiring": 0,
+      "easy_apply": 1,
+      "status_changed_at": "2026-10-23T12:00:02.000Z",
+      "first_seen_at": "2026-10-21T18:10:47.000Z",
+      "last_seen_at": "2026-10-21T18:10:47.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 8,
+      "source_job_id": "4481768744",
+      "title": "Sr Software Developer Engineer in Test (SDET)",
+      "company": "BECU",
+      "location": "Washington, United States",
+      "url": "https://www.linkedin.com/jobs/view/4481768744/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:02.000Z",
+      "first_seen_at": "2026-10-21T18:10:47.000Z",
+      "last_seen_at": "2026-10-21T18:10:47.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 9,
+      "source_job_id": "4481791162",
+      "title": "Sr Software Developer Engineer in Test (SDET)",
+      "company": "BECU",
+      "location": "South Carolina, United States",
+      "url": "https://www.linkedin.com/jobs/view/4481791162/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:02.000Z",
+      "first_seen_at": "2026-10-21T18:10:47.000Z",
+      "last_seen_at": "2026-10-21T18:10:47.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 10,
+      "source_job_id": "4480444678",
+      "title": "Sr. Quality Automation Engineer",
+      "company": "Jobgether",
+      "location": "United States",
+      "url": "https://www.linkedin.com/jobs/view/4480444678/",
+      "actively_hiring": 0,
+      "easy_apply": 1,
+      "status_changed_at": "2026-10-23T12:00:02.000Z",
+      "first_seen_at": "2026-10-21T18:10:47.000Z",
+      "last_seen_at": "2026-10-21T18:10:47.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 11,
+      "source_job_id": "4480418689",
+      "title": "Senior Quality Engineer",
+      "company": "Jobgether",
+      "location": "United States",
+      "url": "https://www.linkedin.com/jobs/view/4480418689/",
+      "actively_hiring": 0,
+      "easy_apply": 1,
+      "status_changed_at": "2026-10-23T12:00:02.000Z",
+      "first_seen_at": "2026-10-21T18:10:47.000Z",
+      "last_seen_at": "2026-10-21T18:10:47.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 12,
+      "source_job_id": "4481782657",
+      "title": "Senior Quality Engineer",
+      "company": "Optum",
+      "location": "Draper, UT",
+      "url": "https://www.linkedin.com/jobs/view/4481782657/",
+      "actively_hiring": 1,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:02.000Z",
+      "first_seen_at": "2026-10-21T18:10:47.000Z",
+      "last_seen_at": "2026-10-21T18:10:47.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 13,
+      "source_job_id": "4475121134",
+      "title": "Staff Software Development Engineer in Test",
+      "company": "Workiva",
+      "location": "United States",
+      "url": "https://www.linkedin.com/jobs/view/4475121134/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:03.000Z",
+      "first_seen_at": "2026-10-21T18:52:51.000Z",
+      "last_seen_at": "2026-10-21T18:52:51.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 14,
+      "source_job_id": "4477919498",
+      "title": "Staff Engineer - QA Automation",
+      "company": "Nagarro",
+      "location": "United States",
+      "url": "https://www.linkedin.com/jobs/view/4477919498/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:03.000Z",
+      "first_seen_at": "2026-10-21T18:52:51.000Z",
+      "last_seen_at": "2026-10-21T18:52:51.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 15,
+      "source_job_id": "4457548570",
+      "title": "Senior Consultant-Digital Quality & Compliance",
+      "company": "Deloitte",
+      "location": "Chicago",
+      "url": "https://www.linkedin.com/jobs/view/4457548570/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:03.000Z",
+      "first_seen_at": "2026-10-21T18:52:51.000Z",
+      "last_seen_at": "2026-10-21T18:52:51.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 16,
+      "source_job_id": "4438746561",
+      "title": "Computer System Validation - Senior Consultant - Life Sciences",
+      "company": "EY",
+      "location": "60606",
+      "url": "https://www.linkedin.com/jobs/view/4438746561/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:03.000Z",
+      "first_seen_at": "2026-10-21T18:52:51.000Z",
+      "last_seen_at": "2026-10-21T18:52:51.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 17,
+      "source_job_id": "4471574799",
+      "title": "Automation Architect – Playwright/Python Modernization Lead",
+      "company": "Capgemini",
+      "location": "Chicago",
+      "url": "https://www.linkedin.com/jobs/view/4471574799/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:03.000Z",
+      "first_seen_at": "2026-10-21T18:52:51.000Z",
+      "last_seen_at": "2026-10-21T18:52:51.000Z",
+      "seen_count": 1
+    },
+    {
+      "id": 18,
+      "source_job_id": "4457051354",
+      "title": "Agentic Software Engineer III",
+      "company": "Deloitte",
+      "location": "Chicago",
+      "url": "https://www.linkedin.com/jobs/view/4457051354/",
+      "actively_hiring": 0,
+      "easy_apply": 0,
+      "status_changed_at": "2026-10-23T12:00:03.000Z",
+      "first_seen_at": "2026-10-21T18:52:51.000Z",
+      "last_seen_at": "2026-10-21T18:52:51.000Z",
+      "seen_count": 1
+    }
+  ],
+  "sightings": [
+    {
+      "job_id": 1,
+      "gmail_message_id": "msgdigestta",
+      "saved_search": "Test Automation Engineer or Senior QA Engineer or SDET or Software QA Engineer or Quality Engineer or AI QA Engineer or AI Software Engineer or AI Assisted Development in United States"
+    },
+    {
+      "job_id": 2,
+      "gmail_message_id": "msgdigestta",
+      "saved_search": "Test Automation Engineer or Senior QA Engineer or SDET or Software QA Engineer or Quality Engineer or AI QA Engineer or AI Software Engineer or AI Assisted Development in United States"
+    },
+    {
+      "job_id": 3,
+      "gmail_message_id": "msgdigestta",
+      "saved_search": "Test Automation Engineer or Senior QA Engineer or SDET or Software QA Engineer or Quality Engineer or AI QA Engineer or AI Software Engineer or AI Assisted Development in United States"
+    },
+    {
+      "job_id": 4,
+      "gmail_message_id": "msgdigestta",
+      "saved_search": "Test Automation Engineer or Senior QA Engineer or SDET or Software QA Engineer or Quality Engineer or AI QA Engineer or AI Software Engineer or AI Assisted Development in United States"
+    },
+    {
+      "job_id": 5,
+      "gmail_message_id": "msgdigestta",
+      "saved_search": "Test Automation Engineer or Senior QA Engineer or SDET or Software QA Engineer or Quality Engineer or AI QA Engineer or AI Software Engineer or AI Assisted Development in United States"
+    },
+    {
+      "job_id": 6,
+      "gmail_message_id": "msgdigestta",
+      "saved_search": "Test Automation Engineer or Senior QA Engineer or SDET or Software QA Engineer or Quality Engineer or AI QA Engineer or AI Software Engineer or AI Assisted Development in United States"
+    },
+    {
+      "job_id": 7,
+      "gmail_message_id": "msgdigestsq",
+      "saved_search": "senior quality assurance engineer in United States"
+    },
+    {
+      "job_id": 8,
+      "gmail_message_id": "msgdigestsq",
+      "saved_search": "senior quality assurance engineer in United States"
+    },
+    {
+      "job_id": 9,
+      "gmail_message_id": "msgdigestsq",
+      "saved_search": "senior quality assurance engineer in United States"
+    },
+    {
+      "job_id": 10,
+      "gmail_message_id": "msgdigestsq",
+      "saved_search": "senior quality assurance engineer in United States"
+    },
+    {
+      "job_id": 11,
+      "gmail_message_id": "msgdigestsq",
+      "saved_search": "senior quality assurance engineer in United States"
+    },
+    {
+      "job_id": 12,
+      "gmail_message_id": "msgdigestsq",
+      "saved_search": "senior quality assurance engineer in United States"
+    },
+    {
+      "job_id": 13,
+      "gmail_message_id": "msgrecs",
+      "saved_search": null
+    },
+    {
+      "job_id": 14,
+      "gmail_message_id": "msgrecs",
+      "saved_search": null
+    },
+    {
+      "job_id": 15,
+      "gmail_message_id": "msgrecs",
+      "saved_search": null
+    },
+    {
+      "job_id": 16,
+      "gmail_message_id": "msgrecs",
+      "saved_search": null
+    },
+    {
+      "job_id": 17,
+      "gmail_message_id": "msgrecs",
+      "saved_search": null
+    },
+    {
+      "job_id": 18,
+      "gmail_message_id": "msgrecs",
+      "saved_search": null
+    }
+  ],
+  "run": {
+    "emails_seen": 3,
+    "emails_new": 3,
+    "jobs_new": 18,
+    "jobs_seen_again": 0
+  }
+}

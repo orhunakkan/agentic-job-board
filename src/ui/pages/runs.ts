@@ -1,13 +1,12 @@
-import type { EmailRecord } from '../../db/repositories/emails.ts';
 import type { RunRecord } from '../../db/repositories/runs.ts';
 import { formatDateTime } from '../format.ts';
 import { html, type SafeHtml } from '../html.ts';
 
-// Run history and unrecognized emails (FR-11, FR-12). Listings are the jobs other sources sent (FR-15).
+// Run history (FR-11). Listings are the jobs the LinkedIn searches and the feeds sent (FR-15, FR-18); the email
+// columns keep the counts of runs from the alert-email years (DEC-041).
 
 export interface RunsView {
   runs: readonly RunRecord[];
-  unrecognized: readonly EmailRecord[];
 }
 
 export function runsPage(view: RunsView): SafeHtml {
@@ -62,44 +61,6 @@ export function runsPage(view: RunsView): SafeHtml {
               </tbody>
             </table>
           </div>`
-    }
-
-    <h2>Unrecognized emails</h2>
-    ${
-      view.unrecognized.length === 0
-        ? html`<p class="empty">None. Every email so far was read.</p>`
-        : html`<p>
-              The parser could not read these emails, so their jobs are missing. A LinkedIn format change is the usual
-              cause.
-            </p>
-            <div class="table-scroll" role="region" aria-labelledby="unrecognized-caption" tabindex="0">
-              <table>
-                <caption id="unrecognized-caption">
-                  Unrecognized emails, newest first
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Received</th>
-                    <th scope="col">From</th>
-                    <th scope="col">Subject</th>
-                    <th scope="col">Reason</th>
-                    <th scope="col" class="num">Run</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${view.unrecognized.map(
-                    (email) =>
-                      html`<tr>
-                        <td><time datetime="${email.receivedAt}">${formatDateTime(email.receivedAt)}</time></td>
-                        <td>${email.sender}</td>
-                        <td>${email.subject}</td>
-                        <td>${email.unrecognizedReason}</td>
-                        <td class="num">${email.runId}</td>
-                      </tr>`,
-                  )}
-                </tbody>
-              </table>
-            </div>`
     }
   `;
 }

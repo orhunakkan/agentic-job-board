@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { JobDetailSchema, JobListResponseSchema, type JobSummary } from '../../src/schemas/api.ts';
-import { fixtureEmail } from '../helpers/fixtures.ts';
 import { jobAt, seedBoard } from '../helpers/seed-board.ts';
 import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
@@ -144,12 +143,28 @@ describe('the jobs API', () => {
   });
 
   describe('GET /api/jobs/:id', () => {
-    it('FR-10: returns every field, with sightings and status history', async () => {
+    it('FR-10: returns every field, with its email sighting, its search sighting and status history', async () => {
       const job = jobAt(jobs, 'ConsumerAffairs');
       const again = await testApp.post('/api/runs');
       const secondRun = (again.body as { runId: number }).runId;
-      const later = { ...fixtureEmail('digest-senior-qa.txt', 'msglater'), receivedAt: '2026-10-24T09:00:00Z' };
-      await testApp.post(`/api/runs/${String(secondRun)}/emails`, { emails: [later] });
+      await testApp.post(`/api/runs/${String(secondRun)}/listings`, {
+        listings: [
+          {
+            source: 'linkedin',
+            sourceJobId: job.sourceJobId,
+            title: job.title,
+            company: job.company,
+            location: 'United States (Remote)',
+            url: job.url,
+            postedAt: null,
+            salary: null,
+            description: null,
+            workplace: 'remote',
+            easyApply: true,
+            searchName: 'QA family',
+          },
+        ],
+      });
 
       const response = await testApp.get(`/api/jobs/${String(job.id)}`);
 
@@ -159,22 +174,23 @@ describe('the jobs API', () => {
         id: job.id,
         title: 'AI Native, QA Engineer',
         company: 'ConsumerAffairs',
+        location: 'United States (Remote)',
+        workplace: 'remote',
         easyApply: true,
         notes: '',
         seenCount: 2,
-        lastSeenAt: '2026-10-24T09:00:00.000Z',
+        firstSeenAt: '2026-10-21T18:10:47.000Z',
       });
+      expect(detail.lastSeenAt > detail.firstSeenAt).toBe(true);
       expect(detail.sightings).toEqual([
         {
           gmailMessageId: 'msgdigestsq',
           savedSearch: 'senior quality assurance engineer in United States',
           receivedAt: '2026-10-21T18:10:47.000Z',
         },
-        {
-          gmailMessageId: 'msglater',
-          savedSearch: 'senior quality assurance engineer in United States',
-          receivedAt: '2026-10-24T09:00:00.000Z',
-        },
+      ]);
+      expect(detail.listingSightings).toEqual([
+        { runId: secondRun, seenAt: detail.lastSeenAt, searchName: 'QA family' },
       ]);
       expect(detail.history).toEqual([{ fromStatus: null, toStatus: 'new', changedAt: expect.any(String) as unknown }]);
     });

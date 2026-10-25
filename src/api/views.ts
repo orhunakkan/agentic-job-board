@@ -19,6 +19,7 @@ export function toJobSummary(job: JobRecord): JobSummary {
     easyApply: job.easyApply,
     postedAt: job.postedAt,
     salary: job.salary,
+    workplace: job.workplace,
     status: job.status,
     statusChangedAt: job.statusChangedAt,
     score: job.score,

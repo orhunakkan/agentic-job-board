@@ -18,6 +18,7 @@ import { chromium, type BrowserContext } from '@playwright/test';
 import { DEFAULT_LINKEDIN_SESSION_PATH } from '../src/config.ts';
 import {
   createLinkedInSessionFile,
+  isLinkedInSignInPage,
   LINKEDIN_AUTH_COOKIE,
   LINKEDIN_SESSION_LABELS,
   linkedInSessionStatus,
@@ -29,8 +30,6 @@ import { formatDateTime } from '../src/ui/format.ts';
 const SIGN_IN_URL = 'https://www.linkedin.com/login';
 const FEED_URL = 'https://www.linkedin.com/feed/';
 const SIGN_IN_TIMEOUT_MS = 10 * 60_000;
-// Pages LinkedIn shows to a visitor who is not signed in, or while a sign-in is in progress (password, 2FA, check).
-const SIGN_IN_PATHS = /^\/(?:login|checkpoint|uas|authwall)(?:\/|$)/;
 // Expiry dates are often a year away, so they carry the year. Declared before the CLI code below runs.
 const DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -170,7 +169,7 @@ async function openBrowser(
 async function signedIn(context: BrowserContext): Promise<boolean> {
   const cookies = await context.cookies('https://www.linkedin.com');
   if (!cookies.some((cookie) => cookie.name === LINKEDIN_AUTH_COOKIE)) return false;
-  return context.pages().every((page) => !SIGN_IN_PATHS.test(new URL(page.url()).pathname));
+  return context.pages().every((page) => !isLinkedInSignInPage(page.url()));
 }
 
 function save(options: LinkedInLoginOptions, storageState: unknown): void {

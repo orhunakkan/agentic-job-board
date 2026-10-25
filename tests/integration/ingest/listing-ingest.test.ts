@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { RunFinishedError, RunNotFoundError } from '../../../src/ingest/ingest-service.ts';
+import { RunFinishedError, RunNotFoundError } from '../../../src/ingest/run-errors.ts';
 import { ingestListings, type IncomingListing } from '../../../src/ingest/listing-ingest.ts';
-import { countAll, createTestDatabase, fakeClock, type TestDatabase } from '../helpers/test-database.ts';
+import {
+  countAll,
+  createTestDatabase,
+  fakeClock,
+  seedEmailYearsJob,
+  type TestDatabase,
+} from '../helpers/test-database.ts';
 
 // Fictional listings only, shaped like the ones scripts/fetch-sources.ts sends (PLAN.md Phase 10).
 function listing(overrides: Partial<IncomingListing> = {}): IncomingListing {
@@ -18,6 +24,36 @@ function listing(overrides: Partial<IncomingListing> = {}): IncomingListing {
     ...overrides,
   };
 }
+
+// A job one of the owner's LinkedIn searches found, as scripts/search-linkedin.ts sends it (PLAN.md Phase 11).
+function linkedInListing(overrides: Partial<IncomingListing> = {}): IncomingListing {
+  return {
+    source: 'linkedin',
+    sourceJobId: '4473592349',
+    title: 'Senior QA Automation Test Engineer (Playwright)',
+    company: 'Example Markets',
+    location: 'United States (Remote)',
+    url: 'https://www.linkedin.com/jobs/view/4473592349/',
+    postedAt: '2026-10-23T08:00:00.000Z',
+    salary: '$150K/yr - $170K/yr',
+    description: 'About the role\n\nOwn our Playwright suite.',
+    workplace: 'remote',
+    easyApply: true,
+    searchName: 'Senior QA',
+    ...overrides,
+  };
+}
+
+const LINKEDIN_JOBS = {
+  sources: ['linkedin'],
+  statuses: null,
+  minScore: null,
+  text: null,
+  unscoredOnly: false,
+  sort: 'recent',
+  limit: 10,
+  offset: 0,
+} as const;
 
 describe('ingestListings', () => {
   let testDb: TestDatabase;
@@ -60,7 +96,9 @@ describe('ingestListings', () => {
     expect(testDb.repos.statusHistory.listForJob(jobId)).toEqual([
       { fromStatus: null, toStatus: 'new', changedAt: '2026-10-23T12:00:00.000Z' },
     ]);
-    expect(testDb.repos.listingSightings.listForJob(jobId)).toEqual([{ runId, seenAt: '2026-10-23T12:00:00.000Z' }]);
+    expect(testDb.repos.listingSightings.listForJob(jobId)).toEqual([
+      { runId, seenAt: '2026-10-23T12:00:00.000Z', searchName: null },
+    ]);
     expect(testDb.repos.runs.get(runId)).toMatchObject({
       listingsSeen: 1,
       jobsNew: 1,
@@ -126,11 +164,89 @@ describe('ingestListings', () => {
         postedAt: null,
         salary: null,
         description: null,
+        workplace: null,
       },
       { runId: null, seenAt: '2026-10-22T00:00:00.000Z', createdAt: '2026-10-22T00:00:00.000Z' },
     );
 
     expect(ingest([listing()])).toMatchObject({ new: 1, seenAgain: 0 });
+  });
+
+  it('FR-18, FR-19: stores a LinkedIn search job with its workplace, Easy Apply and the search that found it', () => {
+    const [jobId = 0] = ingest([linkedInListing()]).newJobIds;
+
+    expect(testDb.repos.jobs.get(jobId)).toMatchObject({
+      source: 'linkedin',
+      sourceJobId: '4473592349',
+      url: 'https://www.linkedin.com/jobs/view/4473592349/',
+      workplace: 'remote',
+      easyApply: true,
+      activelyHiring: false,
+      postedAt: '2026-10-23T08:00:00.000Z',
+    });
+    expect(testDb.repos.jobs.descriptionOf(jobId)).toBe('About the role\n\nOwn our Playwright suite.');
+    expect(testDb.repos.listingSightings.listForJob(jobId)).toEqual([
+      { runId, seenAt: '2026-10-23T12:00:00.000Z', searchName: 'Senior QA' },
+    ]);
+  });
+
+  it('FR-18: a LinkedIn job the board has from an alert email is the same job; its email history stays', () => {
+    const jobId = seedEmailYearsJob(testDb.db, '4473592349');
+    const run = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
+
+    const result = ingest([linkedInListing()], run);
+
+    expect(result).toMatchObject({ new: 0, seenAgain: 1 });
+    expect(countAll(testDb.db)).toMatchObject({ jobs: 1, sightings: 1, listing_sightings: 1, emails: 1 });
+    expect(testDb.repos.jobs.get(jobId)).toMatchObject({
+      title: 'Senior QA Automation Test Engineer (Playwright)',
+      location: 'United States (Remote)',
+      workplace: 'remote',
+      status: 'saved',
+      notes: 'Call back',
+      score: 70,
+      rubricVersion: 'triage-v1',
+      seenCount: 2,
+      firstSeenAt: '2026-10-20T14:10:48.000Z',
+    });
+    expect(testDb.repos.jobs.descriptionOf(jobId)).toBe('About the role\n\nOwn our Playwright suite.');
+    expect(testDb.repos.sightings.listForJob(jobId)).toEqual([
+      {
+        gmailMessageId: 'msg-email-years',
+        savedSearch: 'senior quality assurance engineer in United States',
+        receivedAt: '2026-10-20T14:10:48.000Z',
+      },
+    ]);
+    expect(testDb.repos.statusHistory.listForJob(jobId)).toHaveLength(2);
+  });
+
+  it('FR-18: a job seen again from its search card alone keeps the details its job page gave', () => {
+    ingest([linkedInListing()]);
+    const later = testDb.repos.runs.create('2026-10-24T12:00:00.000Z');
+
+    const result = ingest(
+      [linkedInListing({ description: null, salary: null, workplace: null, postedAt: null, searchName: 'QA family' })],
+      later,
+      fakeClock('2026-10-24T12:00:00.000Z'),
+    );
+    const [job] = testDb.repos.jobs.list(LINKEDIN_JOBS);
+
+    expect(result).toMatchObject({ seenAgain: 1 });
+    expect(job).toMatchObject({ workplace: 'remote', salary: '$150K/yr - $170K/yr', seenCount: 2 });
+    expect(testDb.repos.jobs.descriptionOf(job?.id ?? 0)).toBe('About the role\n\nOwn our Playwright suite.');
+    expect(testDb.repos.listingSightings.listForJob(job?.id ?? 0).map((sighting) => sighting.searchName)).toEqual([
+      'Senior QA',
+      'QA family',
+    ]);
+  });
+
+  it('FR-18: two searches that find one job in one run count one sighting, under the first search', () => {
+    const result = ingest([linkedInListing(), linkedInListing({ searchName: 'QA family' })]);
+
+    expect(result).toMatchObject({ new: 1, repeated: 1 });
+    expect(testDb.repos.listingSightings.listForJob(result.newJobIds[0] ?? 0)).toEqual([
+      { runId, seenAt: '2026-10-23T12:00:00.000Z', searchName: 'Senior QA' },
+    ]);
   });
 
   it('FR-15: keeps a listing without a posted date, salary or description', () => {

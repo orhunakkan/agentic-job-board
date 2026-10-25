@@ -150,12 +150,7 @@ export function pageRoutes(context: AppContext): Route[] {
     {
       method: 'GET',
       path: '/runs',
-      handler: () =>
-        page(
-          'Runs',
-          'runs',
-          runsPage({ runs: repos.runs.list(RECENT), unrecognized: repos.emails.listUnrecognized(RECENT) }),
-        ),
+      handler: () => page('Runs', 'runs', runsPage({ runs: repos.runs.list(RECENT) })),
     },
     {
       method: 'GET',

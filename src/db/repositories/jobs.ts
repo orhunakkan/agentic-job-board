@@ -4,12 +4,13 @@ import type { BoardSort } from '../../domain/board-tabs.ts';
 import { JOB_SOURCES, type JobSource } from '../../domain/job-source.ts';
 import { SCORE_LABELS, type ScoreLabel } from '../../domain/score.ts';
 import { STATUSES, type Status } from '../../domain/status.ts';
+import { WORKPLACES, type Workplace } from '../../domain/workplace.ts';
 import { SqlBoolean, toId, toSqlBoolean } from './columns.ts';
 
 // One row per job ID within its source (FR-04, FR-16, DEC-037). Repeat sightings update the counters, never add
 // a row.
 
-/** A job as an email or a feed shows it: everything that comes from the source, nothing the owner sets. */
+/** A job as an email, a feed or a LinkedIn search shows it: everything from the source, nothing the owner sets. */
 export interface NewJob {
   source: JobSource;
   sourceJobId: string;
@@ -22,6 +23,7 @@ export interface NewJob {
   postedAt: string | null;
   salary: string | null;
   description: string | null;
+  workplace: Workplace | null;
 }
 
 /** A stored job. The description is left out because lists don't need it; `descriptionOf` reads it. */
@@ -37,6 +39,7 @@ export interface JobRecord {
   easyApply: boolean;
   postedAt: string | null;
   salary: string | null;
+  workplace: Workplace | null;
   status: Status;
   statusChangedAt: string;
   notes: string;
@@ -57,6 +60,11 @@ export interface JobScore {
   reason: string;
   rubricVersion: string;
   scoredAt: string;
+}
+
+/** A job waiting in the scoring queue, with the description the rubric reads. */
+export interface QueuedJob extends JobRecord {
+  description: string | null;
 }
 
 export interface JobFilter {
@@ -92,6 +100,13 @@ export interface JobsRepository {
   setScore(id: number, score: JobScore): void;
   /** The subset of `ids` that exist. */
   existingIds(ids: readonly number[]): Set<number>;
+  /** The subset of `sourceJobIds` the board has from `source`. */
+  knownSourceJobIds(source: JobSource, sourceJobIds: readonly string[]): Set<string>;
+  /**
+   * The jobs /find-jobs still has to score (FR-20, DEC-043, DEC-044): every unscored job, then every job in
+   * `rescoreStatuses` that has a description but was scored with another rubric than `rubric`. Newest first.
+   */
+  scoringQueue(rubric: string, rescoreStatuses: readonly Status[], limit: number): { jobs: QueuedJob[]; total: number };
   list(filter: JobFilter): JobRecord[];
   count(filter: Omit<JobFilter, 'sort' | 'limit' | 'offset'>): number;
   /** The jobs first ingested in a run, best score first (FR-13). */
@@ -110,6 +125,7 @@ const Row = z.object({
   easyApply: SqlBoolean,
   postedAt: z.string().nullable(),
   salary: z.string().nullable(),
+  workplace: z.enum(WORKPLACES).nullable(),
   status: z.enum(STATUSES),
   statusChangedAt: z.string(),
   notes: z.string(),
@@ -124,12 +140,14 @@ const Row = z.object({
   firstRunId: z.number().int().nullable(),
 });
 
+const QueuedRow = Row.extend({ description: z.string().nullable() });
 const IdRow = z.object({ id: z.number().int() });
 const CountRow = z.object({ n: z.number().int() });
 const DescriptionRow = z.object({ description: z.string().nullable() });
+const SourceJobIdRow = z.object({ sourceJobId: z.string() });
 
 const COLUMNS = `id, source, source_job_id AS sourceJobId, title, company, location, url,
-  actively_hiring AS activelyHiring, easy_apply AS easyApply, posted_at AS postedAt, salary,
+  actively_hiring AS activelyHiring, easy_apply AS easyApply, posted_at AS postedAt, salary, workplace,
   status, status_changed_at AS statusChangedAt, notes, score, score_label AS scoreLabel, score_reason AS scoreReason,
   rubric_version AS rubricVersion, scored_at AS scoredAt, first_seen_at AS firstSeenAt, last_seen_at AS lastSeenAt,
   seen_count AS seenCount, first_run_id AS firstRunId`;
@@ -156,9 +174,9 @@ function filterParams(filter: Omit<JobFilter, 'sort' | 'limit' | 'offset'>) {
 export function createJobsRepository(db: DatabaseSync): JobsRepository {
   const insertStatement = db.prepare(
     `INSERT INTO jobs (source, source_job_id, title, company, location, url, actively_hiring, easy_apply,
-                       posted_at, salary, description, status, status_changed_at, first_seen_at, last_seen_at,
-                       first_run_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?)`,
+                       posted_at, salary, description, workplace, status, status_changed_at, first_seen_at,
+                       last_seen_at, first_run_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?)`,
   );
   const findStatement = db.prepare('SELECT id FROM jobs WHERE source = ? AND source_job_id = ?');
   const selectStatement = db.prepare(`SELECT ${COLUMNS} FROM jobs WHERE id = ?`);
@@ -175,6 +193,7 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
        posted_at       = CASE WHEN ?1 > last_seen_at THEN coalesce(?9, posted_at) ELSE posted_at END,
        salary          = CASE WHEN ?1 > last_seen_at THEN coalesce(?10, salary) ELSE salary END,
        description     = CASE WHEN ?1 > last_seen_at THEN coalesce(?11, description) ELSE description END,
+       workplace       = CASE WHEN ?1 > last_seen_at THEN coalesce(?12, workplace) ELSE workplace END,
        seen_count      = seen_count + 1,
        first_seen_at   = min(first_seen_at, ?1),
        last_seen_at    = max(last_seen_at, ?1)
@@ -186,6 +205,17 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
     `UPDATE jobs SET score = ?, score_label = ?, score_reason = ?, rubric_version = ?, scored_at = ? WHERE id = ?`,
   );
   const existingStatement = db.prepare('SELECT id FROM jobs WHERE id IN (SELECT value FROM json_each(?))');
+  const knownStatement = db.prepare(
+    'SELECT source_job_id AS sourceJobId FROM jobs WHERE source = ? AND source_job_id IN (SELECT value FROM json_each(?))',
+  );
+  // ?1 the rubric that reads descriptions, ?2 the statuses whose jobs are scored again with it (JSON array).
+  const QUEUE = `score IS NULL OR (description IS NOT NULL AND coalesce(rubric_version, '') <> ?1
+    AND status IN (SELECT value FROM json_each(?2)))`;
+  const queueStatement = db.prepare(
+    `SELECT ${COLUMNS}, description FROM jobs WHERE ${QUEUE}
+     ORDER BY score IS NOT NULL, first_seen_at DESC, id DESC LIMIT ?3`,
+  );
+  const queueCountStatement = db.prepare(`SELECT count(*) AS n FROM jobs WHERE ${QUEUE}`);
   const listStatement = db.prepare(
     `SELECT ${COLUMNS} FROM jobs WHERE ${FILTER}
      ORDER BY CASE WHEN ?6 = 'score' THEN score END DESC NULLS LAST,
@@ -213,6 +243,7 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
         job.postedAt,
         job.salary,
         job.description,
+        job.workplace,
         at.createdAt,
         at.seenAt,
         at.seenAt,
@@ -245,6 +276,7 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
         job.postedAt,
         job.salary,
         job.description,
+        job.workplace,
       );
     },
     updateStatus(id, status, changedAt) {
@@ -258,6 +290,15 @@ export function createJobsRepository(db: DatabaseSync): JobsRepository {
     },
     existingIds(ids) {
       return new Set(existingStatement.all(JSON.stringify(ids)).map((row) => IdRow.parse(row).id));
+    },
+    knownSourceJobIds(source, sourceJobIds) {
+      const rows = knownStatement.all(source, JSON.stringify(sourceJobIds));
+      return new Set(rows.map((row) => SourceJobIdRow.parse(row).sourceJobId));
+    },
+    scoringQueue(rubric, rescoreStatuses, limit) {
+      const statuses = JSON.stringify(rescoreStatuses);
+      const jobs = queueStatement.all(rubric, statuses, limit).map((row) => QueuedRow.parse(row));
+      return { jobs, total: CountRow.parse(queueCountStatement.get(rubric, statuses)).n };
     },
     list(filter) {
       return listStatement

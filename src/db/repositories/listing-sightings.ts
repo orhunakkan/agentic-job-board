@@ -1,36 +1,50 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
 
-// One row per run in which a feed listed a job (FR-16, shown on the job detail page). A feed that lists the same
-// job twice in one run still counts once.
+// One row per run in which a feed or a LinkedIn search listed a job (FR-16, FR-18, shown on the job detail page).
+// A feed that lists the same job twice in one run, or two searches that find it, still count once.
 
 export interface ListingSightingRecord {
   runId: number;
   seenAt: string;
+  /** The LinkedIn search that found the job; null for the feeds. */
+  searchName: string | null;
 }
 
 export interface ListingSightingsRepository {
   /** False when the job already has a sighting in this run, which is then left as it was. */
-  insert(jobId: number, runId: number, seenAt: string): boolean;
+  insert(jobId: number, runId: number, seenAt: string, searchName: string | null): boolean;
   listForJob(jobId: number): ListingSightingRecord[];
+  /**
+   * When a run last stored a job a LinkedIn search found, or null when none has: where `since-last-run` starts
+   * (Phase 11). A --backfill run names no search, so it doesn't count.
+   */
+  latestSearchAt(): string | null;
 }
 
-const Row = z.object({ runId: z.number().int(), seenAt: z.string() });
+const Row = z.object({ runId: z.number().int(), seenAt: z.string(), searchName: z.string().nullable() });
+const LatestRow = z.object({ at: z.string().nullable() });
 
 export function createListingSightingsRepository(db: DatabaseSync): ListingSightingsRepository {
   const insertStatement = db.prepare(
-    'INSERT INTO listing_sightings (job_id, run_id, seen_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING',
+    `INSERT INTO listing_sightings (job_id, run_id, seen_at, search_name) VALUES (?, ?, ?, ?)
+     ON CONFLICT DO NOTHING`,
   );
   const listStatement = db.prepare(
-    'SELECT run_id AS runId, seen_at AS seenAt FROM listing_sightings WHERE job_id = ? ORDER BY seen_at, run_id',
+    `SELECT run_id AS runId, seen_at AS seenAt, search_name AS searchName FROM listing_sightings WHERE job_id = ?
+     ORDER BY seen_at, run_id`,
   );
+  const latestStatement = db.prepare('SELECT max(seen_at) AS at FROM listing_sightings WHERE search_name IS NOT NULL');
 
   return {
-    insert(jobId, runId, seenAt) {
-      return insertStatement.run(jobId, runId, seenAt).changes > 0;
+    insert(jobId, runId, seenAt, searchName) {
+      return insertStatement.run(jobId, runId, seenAt, searchName).changes > 0;
     },
     listForJob(jobId) {
       return listStatement.all(jobId).map((row) => Row.parse(row));
+    },
+    latestSearchAt() {
+      return LatestRow.parse(latestStatement.get()).at;
     },
   };
 }

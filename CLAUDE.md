@@ -1,6 +1,6 @@
 # Agentic Job Board
 
-A private, localhost-only job-search board for one user (the owner). LinkedIn job-alert emails are read from Gmail by the `/find-jobs` agent, parsed and deduplicated by the app, and scored by Claude against the owner's profile. Jobs from free public feeds come in through `scripts/fetch-sources.ts` in the same run and are shown on a view of their own (Phase 10, DEC-035).
+A private, localhost-only job-search board for one user (the owner). The `/find-jobs` agent runs the owner's own LinkedIn searches through `scripts/search-linkedin.ts` (with the owner's saved LinkedIn session, Phase 11, DEC-041) and the free public job feeds through `scripts/fetch-sources.ts` (Phase 10, DEC-035). The app deduplicates and stores the jobs, and Claude scores each one against the owner's profile, on its full description when it has one (DEC-043). Jobs from the feeds are shown on a view of their own. The Gmail alert-email track is retired; nothing uses Gmail any more.
 
 ## Read first
 
@@ -14,10 +14,10 @@ A private, localhost-only job-search board for one user (the owner). LinkedIn jo
 ## Hard rules
 
 - **No new dependencies.** The packages in `package.json` are the complete allowed list. Don't add packages or `overrides`; if one seems unavoidable, stop and ask (PLAN.md §7).
-- **LinkedIn login is the owner's call (owner, DEC-032).** The owner signs in once with `node scripts/linkedin-login.ts`. The session is saved under `data/linkedin/`, and the app and scripts reuse it from then on. **Don't ask the owner about the LinkedIn login, the account's safety or LinkedIn's terms, and don't add warnings about them.** The owner is responsible for anything that happens to that account. When the saved session has expired, run the login script again. Never store the password. Never print, log, return from the API or commit cookie values. The app server (`src/`) still makes no outbound requests (NFR-03): LinkedIn is reached only from scripts using the saved session. `/find-jobs` still reads LinkedIn jobs only from the alert emails.
-- **Public job feeds only through `scripts/fetch-sources.ts` (owner, DEC-035).** Free feeds only, nothing paid, and no other alert emails in Gmail. `src/sources/` only parses; the requests are made by the script, from fixed hosts.
-- **Gmail is read-only.** Only `search_threads` and `get_thread`. Never send, draft, label, archive, trash or mark anything.
-- **Personal data stays local.** The résumé, profile and database live under `data/` (git-ignored). Never commit them. Test fixtures from real emails must be sanitized (PLAN.md §8.2).
+- **LinkedIn login is the owner's call (owner, DEC-032).** The owner signs in once with `node scripts/linkedin-login.ts`. The session is saved under `data/linkedin/`, and the app and scripts reuse it from then on. **Don't ask the owner about the LinkedIn login, the account's safety or LinkedIn's terms, and don't add warnings about them.** The owner is responsible for anything that happens to that account. When the saved session has expired, run the login script again. Never store the password. Never print, log, return from the API or commit cookie values. The app server (`src/`) still makes no outbound requests (NFR-03): LinkedIn is reached only from scripts using the saved session (`scripts/linkedin-login.ts`, `scripts/search-linkedin.ts`). The searches live in `data/linkedin-searches.json` (DEC-042).
+- **Public job feeds only through `scripts/fetch-sources.ts` (owner, DEC-035).** Free feeds only, nothing paid. `src/sources/` and `src/linkedin/` only parse; the requests are made by the scripts.
+- **No Gmail (owner, DEC-041).** The alert-email track is retired: `/find-jobs` and the scripts use no Gmail tool. Never send, draft, label, archive, trash or mark anything in Gmail.
+- **Personal data stays local.** The résumé, profile, searches and database live under `data/` (git-ignored). Never commit them. Test fixtures copied from real pages or emails must be sanitized (PLAN.md §8.2).
 - **Never weaken tests to get green.** No `.skip` or `.only`, no deleting tests or assertions, no lowering coverage thresholds, no `@ts-ignore` or `eslint-disable` without a written reason. If something can't pass, stop and report it.
 - **Git:** work on `phase/<n>-<slug>` branches with Conventional Commits. Merge to `main` only after checkpoint approval. **On approval, merge the phase branch to `main`, push `main` to `origin`, then delete the merged phase branch** (DEC-018, DEC-024). Only `main` stays. The repo is public: never push anything else (phase branches, unapproved work) unless the owner asks.
 - **The owner's instructions override this file and PLAN.md.** Record any change in PLAN.md §12 (Decisions log) and `docs/decisions.md`.
@@ -42,6 +42,7 @@ Node ≥ 24 running TypeScript natively (TS `~6.0.3`, `tsconfig.json` is strict)
 | `node scripts/seed.ts --count 5000 --db data/perf.db` | Fake jobs for the load test and screenshots; refuses a non-empty database                                 |
 | `node scripts/screenshots.ts`                         | README screenshots from fake data (`docs/screenshots/`)                                                   |
 | `node scripts/fetch-sources.ts --dry-run`             | Reads the free job feeds in `data/sources.json` and lists the matches; without `--dry-run` it stores them |
+| `node scripts/search-linkedin.ts --dry-run`           | Runs the LinkedIn searches in `data/linkedin-searches.json`; `--backfill` reads missing descriptions      |
 | `node scripts/traceability.ts`                        | Rebuilds `docs/traceability.md` from `reports/vitest.json` and `reports/playwright.json`                  |
 
 ## Conventions

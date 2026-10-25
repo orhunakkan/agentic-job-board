@@ -130,7 +130,10 @@ function card(job: JobRecord, now: string, returnTo: string): SafeHtml {
         ${job.scoreReason !== null && html`<p class="card-reason">${job.scoreReason}</p>`}
         <div class="card-actions">
           ${statusButtons(job, returnTo)} ${sourceLink(job)}
-          <span class="card-seen">Seen ${job.seenCount}× · ${timeAgo(job.firstSeenAt, now)}</span>
+          <span class="card-seen"
+            >${job.postedAt !== null && html`Posted ${timeAgo(job.postedAt, now)} · `}Seen ${job.seenCount}× ·
+            ${timeAgo(job.firstSeenAt, now)}</span
+          >
         </div>
       </div>
     </article>

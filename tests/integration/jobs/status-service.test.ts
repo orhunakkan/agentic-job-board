@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { changeJobStatus, InvalidTransitionError, JobNotFoundError } from '../../../src/jobs/status-service.ts';
-import { ingestEmails } from '../../../src/ingest/ingest-service.ts';
-import { createTestDatabase, fakeClock, fixtureEmail, type TestDatabase } from '../helpers/test-database.ts';
+import { ingestListings } from '../../../src/ingest/listing-ingest.ts';
+import { LINKEDIN_LISTINGS } from '../../helpers/seed-board.ts';
+import { createTestDatabase, fakeClock, type TestDatabase } from '../helpers/test-database.ts';
 
 describe('changeJobStatus', () => {
   let testDb: TestDatabase;
@@ -11,7 +12,7 @@ describe('changeJobStatus', () => {
   beforeEach(() => {
     testDb = createTestDatabase();
     const runId = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
-    const { newJobIds } = ingestEmails(testDb.db, testDb.repos, runId, [fixtureEmail('digest-senior-qa.txt')]);
+    const { newJobIds } = ingestListings(testDb.db, testDb.repos, runId, LINKEDIN_LISTINGS);
     jobId = newJobIds[0] ?? 0;
   });
   afterEach(() => {

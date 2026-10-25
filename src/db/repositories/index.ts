@@ -1,5 +1,4 @@
 import type { DatabaseSync } from 'node:sqlite';
-import { createEmailsRepository, type EmailsRepository } from './emails.ts';
 import { createJobsRepository, type JobsRepository } from './jobs.ts';
 import { createListingSightingsRepository, type ListingSightingsRepository } from './listing-sightings.ts';
 import { createProfileRepository, type ProfileRepository } from './profile.ts';
@@ -10,7 +9,6 @@ import { createStatusHistoryRepository, type StatusHistoryRepository } from './s
 export interface Repositories {
   profile: ProfileRepository;
   runs: RunsRepository;
-  emails: EmailsRepository;
   jobs: JobsRepository;
   sightings: SightingsRepository;
   listingSightings: ListingSightingsRepository;
@@ -22,7 +20,6 @@ export function createRepositories(db: DatabaseSync): Repositories {
   return {
     profile: createProfileRepository(db),
     runs: createRunsRepository(db),
-    emails: createEmailsRepository(db),
     jobs: createJobsRepository(db),
     sightings: createSightingsRepository(db),
     listingSightings: createListingSightingsRepository(db),

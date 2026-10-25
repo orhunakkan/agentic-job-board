@@ -160,18 +160,21 @@ describe('HTTP security', () => {
     });
   });
 
-  describe('hostile text from emails and users', () => {
+  describe('hostile text from job sources and users', () => {
     it('NFR-07: a <script> job title is only ever served as a JSON string, never as markup', async () => {
       const { runId } = await seedBoard(testApp);
-      await testApp.post(`/api/runs/${String(runId)}/emails`, {
-        emails: [
+      await testApp.post(`/api/runs/${String(runId)}/listings`, {
+        listings: [
           {
-            gmailMessageId: 'msgxss',
-            receivedAt: '2026-10-23T10:00:00Z',
-            sender: 'jobalerts-noreply@linkedin.com',
-            subject: 'x',
-            plainText:
-              'Your job alert for qa\nNew jobs match your preferences.\n\n<script>alert(1)</script>\n<img src=x onerror=alert(2)>\nRemote\nView job: https://www.linkedin.com/comm/jobs/view/77/',
+            source: 'linkedin',
+            sourceJobId: '77',
+            title: '<script>alert(1)</script>',
+            company: '<img src=x onerror=alert(2)>',
+            location: 'Remote',
+            url: 'https://www.linkedin.com/jobs/view/77/',
+            postedAt: null,
+            salary: null,
+            description: null,
           },
         ],
       });
@@ -208,30 +211,35 @@ describe('HTTP security', () => {
       expect(response.items[0]?.title).toContain('REQ_134');
     });
 
-    it('NFR-07: tracking parameters and one-time tokens never reach the database or the API', async () => {
+    it('NFR-07: a LinkedIn link with tracking parameters or one-time tokens is refused and never stored', async () => {
       const { runId } = await seedBoard(testApp);
-      await testApp.post(`/api/runs/${String(runId)}/emails`, {
-        emails: [
+      const response = await testApp.post(`/api/runs/${String(runId)}/listings`, {
+        listings: [
           {
-            gmailMessageId: 'msgtoken',
-            receivedAt: '2026-10-23T10:00:00Z',
-            sender: 'jobalerts-noreply@linkedin.com',
-            subject: 'x',
-            plainText:
-              'Your job alert for qa\nNew jobs match your preferences.\n\nSDET\nExample Co\nRemote\nView job: https://www.linkedin.com/comm/jobs/view/88/?trackingId=T&otpToken=ONE-TIME-SECRET&midToken=M',
+            source: 'linkedin',
+            sourceJobId: '88',
+            title: 'SDET',
+            company: 'Example Co',
+            location: 'Remote',
+            url: 'https://www.linkedin.com/jobs/view/88/?trackingId=T&otpToken=ONE-TIME-SECRET&midToken=M',
+            postedAt: null,
+            salary: null,
+            description: null,
           },
         ],
       });
 
+      expect(response.status).toBe(400);
       const stored = JSON.stringify(
-        ['emails', 'jobs', 'sightings'].map((table) => testApp.app.db.prepare(`SELECT * FROM ${table}`).all()),
+        ['emails', 'jobs', 'sightings', 'listing_sightings'].map((table) =>
+          testApp.app.db.prepare(`SELECT * FROM ${table}`).all(),
+        ),
       );
       const served = (await testApp.get('/api/jobs?limit=100')).text;
-
       for (const text of [stored, served]) {
         expect(text).not.toMatch(/ONE-TIME-SECRET|otpToken|midToken|trackingId/);
       }
-      expect(served).toContain('https://www.linkedin.com/jobs/view/88/');
+      expect(served).not.toContain('https://www.linkedin.com/jobs/view/88/');
     });
   });
 

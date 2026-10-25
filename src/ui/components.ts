@@ -1,6 +1,7 @@
 import type { JobRecord } from '../db/repositories/jobs.ts';
 import { SOURCE_LABELS } from '../domain/job-source.ts';
 import { nextStatuses } from '../domain/status.ts';
+import { WORKPLACE_LABELS } from '../domain/workplace.ts';
 import { ACTION_LABELS } from './format.ts';
 import { html, type SafeHtml } from './html.ts';
 
@@ -27,12 +28,14 @@ export function sourceLink(job: Pick<JobRecord, 'url' | 'title' | 'source'>): Sa
   >`;
 }
 
-/** Where a job from another source came from, and its salary when the feed gives one (FR-17). */
-export function listingFacts(job: Pick<JobRecord, 'source' | 'salary'>): SafeHtml | false {
-  if (job.source === 'linkedin') return false;
-  return html` <span class="flag">${SOURCE_LABELS[job.source]}</span>${
-      job.salary !== null && html` <span class="salary">${job.salary}</span>`
-    }`;
+/**
+ * Where a job from another source came from (FR-17), and the workplace and salary when its source gives them
+ * (FR-19: LinkedIn's job page does).
+ */
+export function listingFacts(job: Pick<JobRecord, 'source' | 'salary' | 'workplace'>): SafeHtml {
+  return html`${job.source !== 'linkedin' && html` <span class="flag">${SOURCE_LABELS[job.source]}</span>`}${
+    job.workplace !== null && html` <span class="flag">${WORKPLACE_LABELS[job.workplace]}</span>`
+  }${job.salary !== null && html` <span class="salary">${job.salary}</span>`}`;
 }
 
 export function flags(job: Pick<JobRecord, 'activelyHiring' | 'easyApply'>): SafeHtml {

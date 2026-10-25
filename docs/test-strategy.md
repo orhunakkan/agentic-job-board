@@ -2,9 +2,9 @@
 
 |                      |                                                                                                                                     |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Product**          | Agentic Job Board: a private, localhost-only tracker for LinkedIn job alerts, with AI triage scoring                                |
+| **Product**          | Agentic Job Board: a private, localhost-only tracker for the owner's LinkedIn searches and free job feeds, with AI scoring          |
 | **Owner / approver** | Orhun Akkan                                                                                                                         |
-| **Status**           | v1.0, written in Phase 0 (CP-0)                                                                                                     |
+| **Status**           | v1.1: written in Phase 0 (CP-0), updated in Phase 11 when LinkedIn searches replaced the alert emails (DEC-041)                     |
 | **Related**          | [`PLAN.md`](../PLAN.md) (requirements §3, testing §8), [`decisions.md`](decisions.md), `traceability.md` and `defects.md` (Phase 8) |
 
 ## 1. Purpose
@@ -15,41 +15,41 @@ This document explains how the Agentic Job Board is tested, why each layer exist
 
 ### 2.1 In scope
 
-| Area                          | What we verify                                                                                                                                                  |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Email parsing                 | LinkedIn alert emails become structured jobs: title, company, location, job ID, canonical URL, flags and saved search (FR-03)                                   |
-| Deduplication and idempotency | One job per LinkedIn job ID; re-sending an email changes nothing (FR-04, FR-05, FR-12)                                                                          |
-| Domain rules                  | Status workflow (all 49 from/to pairs), score-to-label bands, URL canonicalization (FR-06, FR-08)                                                               |
-| Persistence                   | Migrations, repositories, transactions and rollback on `node:sqlite`                                                                                            |
-| JSON API                      | Every endpoint and status code: 200/201, 400, 404, 409, 413, 415 (FR-02, FR-06, FR-11, NFR-09)                                                                  |
-| Agent ↔ app contract          | The payloads `/find-jobs` sends match the API's Zod request schemas                                                                                             |
-| Security                      | Loopback binding, DNS-rebinding guard, same-origin form posts, output escaping, parameterized SQL, security headers, no stored tracking tokens (NFR-01, NFR-07) |
-| UI                            | Board, job detail, runs and profile pages: flows, responsiveness and accessibility (FR-07, FR-09, FR-10, NFR-06, NFR-11)                                        |
-| Performance                   | p95 latency and error rate with 5,000 jobs (NFR-05)                                                                                                             |
+| Area                 | What we verify                                                                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LinkedIn searches    | Search options become LinkedIn's URL parameters; search cards and job pages become jobs with description, salary, workplace and posted time (FR-18, FR-19)      |
+| Deduplication        | One job per source and job ID; a LinkedIn job found again, or known from an alert email, is the same job (FR-04, FR-16, FR-18)                                  |
+| Domain rules         | Status workflow (all 49 from/to pairs), score-to-label bands, URL canonicalization (FR-06, FR-08)                                                               |
+| Persistence          | Migrations, repositories, transactions and rollback on `node:sqlite`                                                                                            |
+| JSON API             | Every endpoint and status code: 200/201, 400, 404, 409, 413, 415 (FR-06, FR-11, FR-20, NFR-09)                                                                  |
+| Agent ↔ app contract | The payloads `/find-jobs` sends and the answers it reads (scripts' summaries, scoring queue) match their Zod schemas                                            |
+| Security             | Loopback binding, DNS-rebinding guard, same-origin form posts, output escaping, parameterized SQL, security headers, no stored tracking tokens (NFR-01, NFR-07) |
+| UI                   | Board, job detail, runs and profile pages: flows, responsiveness and accessibility (FR-07, FR-09, FR-10, NFR-06, NFR-11)                                        |
+| Performance          | p95 latency and error rate with 5,000 jobs (NFR-05)                                                                                                             |
 
 ### 2.2 Out of scope
 
-| Item                                               | Reason                                                                                                 |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Quality of Claude's scores (AI evals, red-teaming) | Post-MVP R4. In the MVP, scores are checked by hand against a six-job calibration set at CP-5.         |
-| Gmail and LinkedIn themselves                      | Third-party systems. We test against sanitized copies of real emails, never against the live services. |
-| Multi-user, authentication, hosting                | Not part of the MVP (R6).                                                                              |
-| Browsers older than the current Playwright builds  | Single owner on current browsers.                                                                      |
+| Item                                               | Reason                                                                                                                                                           |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality of Claude's scores (AI evals, red-teaming) | Post-MVP R4. In the MVP, scores are checked by hand against a six-job calibration set at CP-5.                                                                   |
+| LinkedIn and the job feeds themselves              | Third-party systems. We test against sanitized copies of their pages and answers, never against the live services; the live check is by hand at each checkpoint. |
+| Multi-user, authentication, hosting                | Not part of the MVP (R6).                                                                                                                                        |
+| Browsers older than the current Playwright builds  | Single owner on current browsers.                                                                                                                                |
 
 ## 3. Risks and how they are tested
 
-| #    | Risk                                                                              | Likelihood                 | Impact | Mitigation (test type)                                                                                                                          |
-| ---- | --------------------------------------------------------------------------------- | -------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| R-01 | LinkedIn changes its email format and jobs are silently lost                      | Medium                     | High   | Parser unit tests on real-email fixtures; unknown formats are stored as `unrecognized` and shown on `/runs` (FR-12), never dropped              |
-| R-02 | Duplicate jobs flood the board                                                    | High (alerts repeat a lot) | Medium | Integration tests for dedupe by job ID, sightings and idempotent re-ingest                                                                      |
-| R-03 | Tracking tokens (`otpToken`, `midToken`) or personal data get stored or committed | Medium                     | High   | URL canonicalizer unit tests; a security test that no stored URL has a query string; `.gitignore` test; fixture review at CP-2                  |
-| R-04 | Email content injects HTML or script into the board                               | Low                        | High   | Escaping unit tests; security tests with `<script>` titles on every page                                                                        |
-| R-05 | A web page in the owner's browser drives the local API (CSRF, DNS rebinding)      | Low                        | High   | Security tests: wrong `Host` → 421, cross-site post → 403                                                                                       |
-| R-06 | Prompt injection in an email changes the agent's behavior                         | Low                        | Medium | The agent prompt treats email text as data; the app validates every score with Zod and rejects inconsistent labels                              |
-| R-07 | Invalid status changes corrupt the history                                        | Medium                     | Medium | Table-driven unit test on all 49 pairs; API test for 409; E2E checks that invalid transitions are not offered                                   |
-| R-08 | The board becomes slow as jobs pile up                                            | Low                        | Medium | k6 with 5,000 seeded jobs, p95 < 200 ms                                                                                                         |
-| R-09 | Pages are unusable with a keyboard or screen reader                               | Medium                     | Medium | axe on every page and tab, plus keyboard-focus checks in E2E                                                                                    |
-| R-10 | Tests are weakened to get to green                                                | Medium                     | High   | Written rules (CLAUDE.md, PLAN.md §8.4); `forbidOnly` / `allowOnly: false`; coverage thresholds that may only go up; review at every checkpoint |
+| #    | Risk                                                                              | Likelihood                   | Impact | Mitigation (test type)                                                                                                                                                              |
+| ---- | --------------------------------------------------------------------------------- | ---------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R-01 | LinkedIn changes its search page and jobs are silently lost                       | Medium                       | High   | Script tests on saved, sanitized copies of the pages in Chromium; a search whose cards can't be read is reported in the run summary, never silently empty                           |
+| R-02 | Duplicate jobs flood the board                                                    | High (searches repeat a lot) | Medium | Integration tests for dedupe by source and job ID, one sighting per run, and jobs from the email years matched by their LinkedIn ID                                                 |
+| R-03 | Tracking tokens (`otpToken`, `midToken`) or personal data get stored or committed | Medium                       | High   | URL canonicalizer unit tests; a security test that no stored URL has a query string; `.gitignore` test; fixture review at CP-2                                                      |
+| R-04 | Job text (titles, descriptions) injects HTML or script into the board             | Low                          | High   | Escaping unit tests; security tests with `<script>` titles, descriptions and search names on every page                                                                             |
+| R-05 | A web page in the owner's browser drives the local API (CSRF, DNS rebinding)      | Low                          | High   | Security tests: wrong `Host` → 421, cross-site post → 403                                                                                                                           |
+| R-06 | Prompt injection in a job description changes the agent's behavior                | Medium                       | Medium | The agent reads descriptions as data, never instructions (procedure and rubric, checked by a security test); the app validates every score with Zod and rejects inconsistent labels |
+| R-07 | Invalid status changes corrupt the history                                        | Medium                       | Medium | Table-driven unit test on all 49 pairs; API test for 409; E2E checks that invalid transitions are not offered                                                                       |
+| R-08 | The board becomes slow as jobs pile up                                            | Low                          | Medium | k6 with 5,000 seeded jobs, p95 < 200 ms                                                                                                                                             |
+| R-09 | Pages are unusable with a keyboard or screen reader                               | Medium                       | Medium | axe on every page and tab, plus keyboard-focus checks in E2E                                                                                                                        |
+| R-10 | Tests are weakened to get to green                                                | Medium                       | High   | Written rules (CLAUDE.md, PLAN.md §8.4); `forbidOnly` / `allowOnly: false`; coverage thresholds that may only go up; review at every checkpoint                                     |
 
 ## 4. Test levels
 
@@ -58,8 +58,8 @@ The pyramid runs from many fast, isolated tests at the bottom to a few slow, bro
 | #   | Type          | Tool                                                 | Location                 | What it proves                                                                                                    | From phase                   |
 | --- | ------------- | ---------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------- | ---------------------------- |
 | 1   | Static        | `tsc` (strict), ESLint `strictTypeChecked`, Prettier | whole repo               | Types are sound, risky patterns are banned (floating promises, non-exhaustive switches, `any`), code is formatted | 0                            |
-| 2   | Unit          | Vitest + v8 coverage                                 | `tests/unit`             | Pure logic: parser, URL canonicalizer, status machine, score bands, HTML escaping, router, config                 | 1                            |
-| 3   | Integration   | Vitest + `node:sqlite` (temp file per test)          | `tests/integration`      | Migrations, repositories, ingest service, transactions                                                            | 3                            |
+| 2   | Unit          | Vitest + v8 coverage                                 | `tests/unit`             | Pure logic: search URLs, page readers, feed parsers, URL canonicalizer, status machine, score bands, escaping     | 1                            |
+| 3   | Integration   | Vitest + `node:sqlite`, Chromium for saved pages     | `tests/integration`      | Migrations, repositories, listing ingest, transactions, both scripts against a real app                           | 3                            |
 | 4   | API           | Vitest + built-in `fetch` against a real server      | `tests/api`              | Every endpoint and error code                                                                                     | 4                            |
 | 5   | Contract      | Vitest + Zod                                         | `tests/contract`         | Every response matches its schema; the agent's example payloads match the request schemas                         | 4                            |
 | 6   | Security      | Vitest + `fetch`                                     | `tests/security`         | Threat-model checks (see R-03, R-04, R-05) and `npm audit`                                                        | 0 (`.gitignore`), 4 (server) |
@@ -68,15 +68,16 @@ The pyramid runs from many fast, isolated tests at the bottom to a few slow, bro
 | 9   | Accessibility | `@axe-core/playwright`                               | `tests/e2e/a11y.spec.ts` | Zero WCAG 2.2 AA violations on every page and tab                                                                 | 6                            |
 | 10  | Performance   | k6 (TypeScript scripts)                              | `tests/perf`             | p95 < 200 ms and < 1 % errors with 5,000 jobs                                                                     | 7                            |
 
-**Design principle:** deterministic code is tested deterministically. Parsing, deduplication, storage and validation are app code with full test coverage. Claude does only the scoring, and the app still validates every score it receives.
+**Design principle:** deterministic code is tested deterministically. Reading pages, deduplication, storage and validation are code with full test coverage. Claude does only the scoring, and the app still validates every score it receives.
 
 ## 5. Test data
 
-- **Email fixtures** are real LinkedIn alert emails, one per format, **sanitized** before commit: URL query strings removed, the recipient line replaced with `Test User (QA Engineer)`, and email addresses replaced with `test@example.com`. The owner reviews each fixture at CP-2.
-- **Hand-written edge cases:** an empty alert, a single-job alert, a `<script>` title, non-ASCII company names, a missing location and an unknown format.
+- **Saved LinkedIn pages** (`tests/fixtures/linkedin/`) are copies of a live search page, job pane, closed job pane and no-results page, cut down to what the script reads and **sanitized**: made-up companies, jobs and tracking values; no logos, scripts, header or member links. A security test checks them.
+- **The email years** (`tests/fixtures/email-years.json`): the rows the retired email ingest stored for three sanitized alert emails (reviewed at CP-2), so tests can check that old jobs keep their history.
+- **Hand-written edge cases:** cards that never fill in, unreadable pages, a page past the last result, closed jobs, `<script>` in every field, and LinkedIn refusing requests.
 - **Databases:** every test file gets its own temporary SQLite file and deletes it afterwards. E2E uses a separate server on port 3100 with a temporary database. No test ever reads or writes `data/`.
 - **E2E isolation:** all Playwright projects share one E2E server, so every test seeds its own jobs through the JSON API (`tests/e2e/seed.ts`), with a unique tag in each title and company, unique LinkedIn IDs, and the board filtered by that tag. Tests then run fully parallel without seeing each other's jobs.
-- **Performance data:** `scripts/seed.ts` generates 5,000 realistic fake jobs through the real ingest and status services, the same every time for a given `--seed`. No real data is used, and it refuses to write into a database that already has jobs. To run the load test:
+- **Performance data:** `scripts/seed.ts` generates 5,000 realistic fake jobs through the real listing ingest and status services, as LinkedIn searches would bring them, the same every time for a given `--seed`. No real data is used, and it refuses to write into a database that already has jobs. To run the load test:
 
   ```bash
   node scripts/seed.ts --count 5000 --db data/perf.db
