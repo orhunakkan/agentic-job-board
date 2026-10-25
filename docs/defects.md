@@ -152,4 +152,4 @@ Open defects: none.
 - **Steps:** start Claude Code with the command's tools as `--allowedTools`, as Find Now does.
 - **Expected:** writing payload files under `data/find-jobs/` is pre-approved.
 - **Actual:** Claude Code warns that `Write(/data/find-jobs/**)` "is not matched by file permission checks — only Edit(path) rules are". Under `--permission-mode dontAsk` every payload write would be refused.
-- **Fix:** the command pre-approves `Edit(/data/find-jobs/**)`, which covers every file-writing tool for the same folder; Find Now passes the same rule, and the security test expects it. Found by a check of the real CLI with the exact flags in Phase 12. **Status:** Fixed in Phase 12.
+- **Fix:** the command pre-approves `Edit(/data/find-jobs/**)`, which covers every file-writing tool for the same folder; Find Now passes the same rule, and the security test expects it. Found by a check of the real CLI with the exact flags in Phase 12. **Status:** Fixed in `ed0daab`.
