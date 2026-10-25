@@ -4,7 +4,12 @@ import {
   isLabelConsistent,
   isValidScore,
   labelForScore,
+  MATCH_RUBRIC,
+  RESCORE_STATUSES,
+  RUBRICS,
+  rubricFor,
   SCORE_LABELS,
+  TRIAGE_RUBRIC,
   type ScoreLabel,
 } from '../../../src/domain/score.ts';
 
@@ -55,5 +60,17 @@ describe('score labels', () => {
 
   it('FR-06: labels are strong, possible and weak', () => {
     expect(SCORE_LABELS).toEqual(['strong', 'possible', 'weak']);
+  });
+});
+
+describe('rubrics', () => {
+  it('FR-20: a job with a description is scored with match-v1, one without it with triage-v1', () => {
+    expect(rubricFor('About the job…')).toBe(MATCH_RUBRIC);
+    expect(rubricFor(null)).toBe(TRIAGE_RUBRIC);
+    expect(RUBRICS).toEqual(['match-v1', 'triage-v1']);
+  });
+
+  it('FR-20: jobs in New and Saved are scored again once they have a description (DEC-044)', () => {
+    expect(RESCORE_STATUSES).toEqual(['new', 'saved']);
   });
 });

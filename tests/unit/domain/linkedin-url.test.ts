@@ -23,6 +23,25 @@ describe('canonicalizeJobUrl', () => {
     expect(canonicalizeJobUrl(link)).toEqual(CANONICAL);
   });
 
+  it.each([
+    'https://www.linkedin.com/jobs/search/?currentJobId=4473592349&keywords=sdet&f_TPR=r86400',
+    'https://www.linkedin.com/jobs/collections/recommended/?currentJobId=4473592349',
+    'https://www.linkedin.com/jobs/?currentJobId=4473592349',
+    'https://www.linkedin.com/jobs/view/4473592349/?alternateChannel=search&trackingId=x',
+  ])('FR-18: accepts a search-page link that names the open job: %s', (link) => {
+    expect(canonicalizeJobUrl(link)).toEqual(CANONICAL);
+  });
+
+  it.each([
+    ['currentJobId off the jobs pages', 'https://www.linkedin.com/feed/?currentJobId=4473592349'],
+    ['a non-numeric currentJobId', 'https://www.linkedin.com/jobs/search/?currentJobId=abc'],
+    ['an empty currentJobId', 'https://www.linkedin.com/jobs/search/?currentJobId='],
+    ['currentJobId on a look-alike path', 'https://www.linkedin.com/jobsearch/?currentJobId=4473592349'],
+    ['currentJobId on another domain', 'https://example.com/jobs/search/?currentJobId=4473592349'],
+  ])('FR-18: returns null for %s', (_case, link) => {
+    expect(canonicalizeJobUrl(link)).toBeNull();
+  });
+
   it('NFR-07: drops every query parameter, including one-time tokens', () => {
     const link =
       'https://www.linkedin.com/comm/jobs/view/4473592349/?trackingId=h%2FW&refId=sp&midToken=AQER&midSig=2-e7&otpToken=OTJh%3D%3D#top';
@@ -34,7 +53,7 @@ describe('canonicalizeJobUrl', () => {
   });
 
   it.each([
-    ['a job search link', 'https://www.linkedin.com/comm/jobs/search-results/?keywords=qa'],
+    ['a job search link without an open job', 'https://www.linkedin.com/comm/jobs/search-results/?keywords=qa'],
     ['the job alerts page', 'https://www.linkedin.com/comm/jobs/alerts'],
     ['a help article', 'https://www.linkedin.com/help/linkedin/answer/4788'],
     ['a profile link', 'https://www.linkedin.com/in/someone/'],

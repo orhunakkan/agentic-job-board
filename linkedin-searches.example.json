@@ -1,0 +1,28 @@
+{
+  "defaults": {
+    "location": "United States",
+    "workplace": ["remote"],
+    "jobType": ["full-time", "contract"],
+    "postedWithin": "since-last-run",
+    "sort": "recent",
+    "maxPages": 4
+  },
+  "excludeKeywords": ["intern", "internship", "junior", "entry level", "manual"],
+  "searches": [
+    { "name": "SDET", "keywords": "SDET OR \"Software Engineer in Test\"" },
+    {
+      "name": "Test automation, senior",
+      "keywords": "\"test automation engineer\"",
+      "experience": ["mid-senior", "director"]
+    },
+    {
+      "name": "Quality engineer, weekly",
+      "keywords": "\"quality engineer\"",
+      "postedWithin": "week",
+      "workplace": ["remote", "hybrid"],
+      "salaryMin": 140000,
+      "easyApply": true,
+      "maxPages": 2
+    }
+  ]
+}

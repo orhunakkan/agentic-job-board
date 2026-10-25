@@ -1,3 +1,5 @@
+import type { Status } from './status.ts';
+
 // Triage score bands (PLAN.md FR-06): strong ≥ 75, possible 50–74, weak < 50.
 
 export const SCORE_LABELS = ['strong', 'possible', 'weak'] as const;
@@ -28,4 +30,23 @@ export function labelForScore(score: number): ScoreLabel {
 
 export function isLabelConsistent(score: number, label: ScoreLabel): boolean {
   return isValidScore(score) && labelForScore(score) === label;
+}
+
+// Rubrics (agent/scoring-rubric.md, FR-20, DEC-043): a job with a description is scored on it with match-v1; a job
+// without one only on its title, company and location with triage-v1.
+
+export const TRIAGE_RUBRIC = 'triage-v1';
+export const MATCH_RUBRIC = 'match-v1';
+export const RUBRICS = [MATCH_RUBRIC, TRIAGE_RUBRIC] as const;
+
+export type Rubric = (typeof RUBRICS)[number];
+
+/**
+ * A job in one of these statuses that has a description but was scored without it (for example before --backfill
+ * added it) is scored again with match-v1 (DEC-044). Jobs the owner has moved on from keep their score.
+ */
+export const RESCORE_STATUSES: readonly Status[] = ['new', 'saved'];
+
+export function rubricFor(description: string | null): Rubric {
+  return description === null ? TRIAGE_RUBRIC : MATCH_RUBRIC;
 }
