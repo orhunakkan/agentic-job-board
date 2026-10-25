@@ -20,6 +20,7 @@ Every defect found while building the Agentic Job Board (PLAN.md Phase 8 task 2)
 | DEF-016 | Most LinkedIn jobs are stored without their description               | High     | Live dry run (Phase 11)          | Fixed  | `11d0c37`  |
 | DEF-017 | One job page that won't load stops the whole LinkedIn run             | Medium   | Integration test (Phase 11)      | Fixed  | `11d0c37`  |
 | DEF-018 | A Chromium page test times out when the whole suite runs              | Low      | `npm run check` (Phase 11)       | Fixed  | `9fd2dee`  |
+| DEF-019 | Seeding fake jobs is slow enough to time out its test                 | Low      | `npm run check` (Phase 11)       | Fixed  | `0bc72c8`  |
 
 Open defects: none.
 
@@ -136,3 +137,11 @@ Open defects: none.
 - **Expected:** the sign-in redirect test passes every time.
 - **Actual:** it failed once in a full run with a timeout instead of "sign in again": the saved-page tests gave a page 3 s, too little on a busy machine. Three further full runs passed.
 - **Fix:** the saved-page tests give a page 8 s and the two whole-script tests 30 s. **Status:** Fixed in `9fd2dee`.
+
+### DEF-019: Seeding fake jobs is slow enough to time out its test
+
+- **Severity:** Low (a test timeout and a slower load-test setup, no wrong data)
+- **Steps:** `npm run check`; `node scripts/seed.ts --count 5000 --db data/perf.db`.
+- **Expected:** the seed test finishes well inside 5 s; 5,000 jobs seed in under a second.
+- **Actual:** the test timed out once in a full run, and 5,000 jobs took 13 s. Since Phase 11 the seed brings its jobs in as LinkedIn listings, and each listing was its own transaction and commit.
+- **Fix:** all search pages are seeded in one transaction, which each listing's transaction joins; 5,000 jobs take 0.24 s. **Status:** Fixed in `0bc72c8`.
