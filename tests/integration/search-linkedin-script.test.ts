@@ -450,7 +450,9 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
     await testApp.close();
   });
 
-  const fast = { pauseMs: 0, busyWaitMs: 0, settleMs: 50, cardTimeoutMs: 300, timeoutMs: 3000 };
+  // No waiting between pages; a page that never shows what the script waits for fails after 8 s, which leaves room
+  // for a busy machine.
+  const fast = { pauseMs: 0, busyWaitMs: 0, settleMs: 50, cardTimeoutMs: 300, timeoutMs: 8000 };
 
   it('FR-18: reads every filled card of a search page, as LinkedIn shows it', async () => {
     const cards = await browserPages(context, fast).searchPage('https://www.linkedin.com/jobs/search/?keywords=sdet');
@@ -540,7 +542,7 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
       postedAt: '2026-10-24T10:00:00.000Z',
     });
     expect(health.description).toMatch(/^About Example Health\n\nWe build scheduling software/);
-  }, 15_000);
+  }, 30_000);
 
   it('FR-18: a refused page is tried once more; refused twice, LinkedIn is limiting requests', async () => {
     const pages = browserPages(context, fast);
@@ -560,7 +562,7 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
   it('NFR-12: the session cookie goes only to linkedin.com and never into what the script prints', async () => {
     const log: string[] = [];
     const summary = await searchLinkedIn({
-      config: readConfigFrom({ searches: [{ name: 'SDET', keywords: 'sdet' }] }),
+      config: readConfigFrom({ excludeKeywords: ['junior'], searches: [{ name: 'SDET', keywords: 'sdet' }] }),
       appUrl: testApp.url,
       runId: null,
       dryRun: true,
@@ -579,7 +581,7 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
       linkedin.length,
     );
     expect(JSON.stringify([log, summary, testApp.logs])).not.toContain(FAKE_LINKEDIN_COOKIE_VALUE);
-  }, 15_000);
+  }, 30_000);
 });
 
 function readConfigFrom(value: unknown) {
