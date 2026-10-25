@@ -76,8 +76,12 @@ export function pageRoutes(context: AppContext): Route[] {
         const counts = Object.fromEntries(
           TABS.map((tab) => [tab, repos.jobs.count({ ...everyJob, sources, statuses: statusesForTab(tab) })]),
         ) as Record<Tab, number>;
+        // The LinkedIn | Other sources switch counts each view's New jobs only (DEC-054).
         const originCounts = Object.fromEntries(
-          ORIGINS.map((origin) => [origin, repos.jobs.count({ ...everyJob, sources: sourcesForOrigin(origin) })]),
+          ORIGINS.map((origin) => [
+            origin,
+            repos.jobs.count({ ...everyJob, sources: sourcesForOrigin(origin), statuses: statusesForTab('new') }),
+          ]),
         ) as Record<Origin, number>;
 
         // A page past the end (the last job on it was just moved away, or an old bookmark) shows the last page.

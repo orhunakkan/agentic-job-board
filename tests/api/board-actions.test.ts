@@ -76,6 +76,23 @@ describe('Clear All', () => {
     ]);
   });
 
+  it('FR-17, FR-21: the LinkedIn | Other sources switch counts New jobs only, so a cleared view shows 0', async () => {
+    const switchCount = (board: string, label: string) =>
+      new RegExp(`>${label}\\s*<span class="count">(\\d+)<span class="visually-hidden"> new</span>`).exec(board)?.[1];
+    const [saved] = linkedinJobs;
+    await testApp.call('PATCH', `/api/jobs/${String(saved?.id)}`, { status: 'saved' });
+
+    await testApp.form('/board/clear', { origin: 'linkedin' });
+    const linkedin = (await testApp.get('/?tab=dismissed')).text;
+
+    expect(switchCount(linkedin, 'LinkedIn')).toBe('0'); // 17 dismissed and 1 saved don't count
+    expect(switchCount(linkedin, 'Other sources')).toBe('3');
+    expect(linkedin).toContain('>Dismissed <span class="count">17</span>');
+
+    await testApp.form('/board/clear', { origin: 'other' });
+    expect(switchCount((await testApp.get('/?origin=other')).text, 'Other sources')).toBe('0');
+  });
+
   it('FR-21: on Other sources it dismisses only the jobs from the feeds', async () => {
     const response = await testApp.form('/board/clear', { origin: 'other' });
 

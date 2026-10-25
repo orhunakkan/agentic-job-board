@@ -35,8 +35,12 @@ describe('LinkedIn and other sources on the pages', () => {
     const board = await page('/');
 
     expect(cardIds(board).sort()).toEqual(linkedinJobs.map((job) => job.id).sort());
-    expect(board).toMatch(/<a href="\/" aria-current="page"\s*>LinkedIn <span class="count">18<\/span><\/a/);
-    expect(board).toMatch(/<a href="\/\?origin=other"\s*>Other sources <span class="count">3<\/span><\/a/);
+    expect(board).toMatch(
+      /<a href="\/" aria-current="page"\s*>LinkedIn\s*<span class="count">18<span class="visually-hidden"> new<\/span><\/span><\/a/,
+    );
+    expect(board).toMatch(
+      /<a href="\/\?origin=other"\s*>Other sources\s*<span class="count">3<span class="visually-hidden"> new<\/span><\/span><\/a/,
+    );
     expect(board).toContain('href="/?tab=saved"');
     expect(board).not.toContain('Open on Greenhouse');
   });

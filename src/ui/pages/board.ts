@@ -13,7 +13,7 @@ import { CURRENT } from '../layout.ts';
 
 export interface BoardView {
   origin: Origin;
-  originCounts: Readonly<Record<Origin, number>>;
+  originCounts: Readonly<Record<Origin, number>>; // New jobs per view (DEC-054)
   tab: Tab;
   minScore: number | undefined;
   q: string | undefined;
@@ -57,7 +57,8 @@ export function boardPage(view: BoardView): SafeHtml {
           (origin) =>
             html`<li>
               <a href="${originHref(origin)}" ${origin === view.origin && CURRENT}
-                >${ORIGIN_LABELS[origin]} <span class="count">${view.originCounts[origin]}</span></a
+                >${ORIGIN_LABELS[origin]}
+                <span class="count">${view.originCounts[origin]}<span class="visually-hidden"> new</span></span></a
               >
             </li>`,
         )}
