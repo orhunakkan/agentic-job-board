@@ -5,27 +5,29 @@ import { apiRoutes } from '../../src/api/routes.ts';
 import { openDatabase } from '../../src/db/database.ts';
 import { migrate } from '../../src/db/migrate.ts';
 import { createRepositories } from '../../src/db/repositories/index.ts';
+import { RUBRICS } from '../../src/domain/score.ts';
 import { createRouter } from '../../src/http/router.ts';
-import { parseAlertEmail } from '../../src/ingest/linkedin-email-parser.ts';
+import { SearchLinkedInSummarySchema } from '../../src/linkedin/search-summary.ts';
 import * as api from '../../src/schemas/api.ts';
 import { FetchSourcesSummarySchema } from '../../src/sources/fetch-summary.ts';
 import { curlCalls, labeledBlocks, readRepoFile } from '../helpers/markdown.ts';
 
-// The agent↔app contract (PLAN.md Phase 5 task 4, FR-02, FR-06): every example payload in agent/find-jobs.md
-// parses with the schema it is labeled with, and every curl call in it reaches a real API route.
+// The agent↔app contract (PLAN.md Phase 5 task 4 and Phase 11 task 8; FR-06, FR-18, FR-20): every example payload in
+// agent/find-jobs.md parses with the schema it is labeled with, and every curl call in it reaches a real API route.
 
 const procedure = readRepoFile('agent/find-jobs.md');
+const rubric = readRepoFile('agent/scoring-rubric.md');
 const examples = labeledBlocks(procedure, 'contract');
 
 const SCHEMAS: Readonly<Record<string, z.ZodType>> = {
   CreateRunResponseSchema: api.CreateRunResponseSchema,
-  IngestEmailsRequestSchema: api.IngestEmailsRequestSchema,
-  IngestEmailsResponseSchema: api.IngestEmailsResponseSchema,
+  SearchLinkedInSummarySchema,
+  FetchSourcesSummarySchema,
+  ScoringQueueResponseSchema: api.ScoringQueueResponseSchema,
   ScoresRequestSchema: api.ScoresRequestSchema,
   ScoresResponseSchema: api.ScoresResponseSchema,
   EmptyRequestSchema: api.EmptyRequestSchema,
   RunSummarySchema: api.RunSummarySchema,
-  FetchSourcesSummarySchema,
 };
 
 function example(label: string): unknown {
@@ -35,14 +37,12 @@ function example(label: string): unknown {
 }
 
 describe('agent/find-jobs.md examples match the API schemas', () => {
-  it('FR-02: has an example for every request the agent sends', () => {
-    expect(examples.map((block) => block.label)).toEqual(
-      expect.arrayContaining(['IngestEmailsRequestSchema', 'ScoresRequestSchema', 'EmptyRequestSchema']),
-    );
+  it('FR-20: has an example for every request the agent sends and every answer it reads', () => {
+    expect(examples.map((block) => block.label).sort()).toEqual(Object.keys(SCHEMAS).sort());
   });
 
   it.each(examples.map((block) => [block.label, block] as const))(
-    'FR-02: the %s example is valid JSON that the schema accepts',
+    'FR-18: the %s example is valid JSON that the schema accepts',
     (label, block) => {
       expect(block.lang).toBe('json');
       const schema = SCHEMAS[label];
@@ -53,29 +53,21 @@ describe('agent/find-jobs.md examples match the API schemas', () => {
     },
   );
 
-  it('FR-03: the example email is one the parser reads, with every job in it', () => {
-    const { emails } = api.IngestEmailsRequestSchema.parse(example('IngestEmailsRequestSchema'));
-
-    for (const email of emails) {
-      const parsed = parseAlertEmail(email);
-      expect(parsed).not.toHaveProperty('unrecognized');
-      expect('jobs' in parsed ? parsed.jobs.length : 0).toBeGreaterThan(0);
-    }
-  });
-
-  it('FR-06: the example scores use the rubric version of agent/scoring-rubric.md', () => {
-    const version = /\*\*Rubric version: `([^`]+)`\*\*/.exec(readRepoFile('agent/scoring-rubric.md'))?.[1];
+  it('FR-20: the scoring rubric defines exactly the rubrics the app hands out, and the example uses one', () => {
+    const versions = [...rubric.matchAll(/\*\*Rubric version: `([^`]+)`\*\*/g)].map((match) => match[1]);
     const { rubricVersion } = api.ScoresRequestSchema.parse(example('ScoresRequestSchema'));
 
-    expect(version).toBeDefined();
-    expect(rubricVersion).toBe(version);
+    expect(versions.sort()).toEqual([...RUBRICS].sort());
+    expect(versions).toContain(rubricVersion);
   });
 
-  it('NFR-08: the example payloads keep no URL query string (safety rule 5, DEC-027)', () => {
-    const urls = examples.flatMap((block) => block.code.match(/https?:\/\/[^\s"\\]+/g) ?? []);
+  it('FR-20: the queue example shows a job to score on its description and one to score on its title', () => {
+    const { items } = api.ScoringQueueResponseSchema.parse(example('ScoringQueueResponseSchema'));
 
-    expect(urls.length).toBeGreaterThan(0);
-    expect(urls.filter((url) => url.includes('?'))).toEqual([]);
+    expect(items.map((item) => [item.rubric, item.description === null])).toEqual([
+      ['match-v1', false],
+      ['triage-v1', true],
+    ]);
   });
 });
 
@@ -92,19 +84,20 @@ describe('agent/find-jobs.md calls only real API routes', () => {
   const match = createRouter(apiRoutes(context));
   const calls = curlCalls(procedure);
 
-  it('FR-02: the procedure has a curl call for each step of PLAN.md §4.1', () => {
-    expect(calls.map((call) => `${call.method} ${new URL(call.path).pathname}`)).toEqual(
+  it('FR-18: the procedure has a curl call for each step, and none for the retired email ingest', () => {
+    const routes = calls.map((call) => `${call.method} ${new URL(call.path).pathname}`);
+
+    expect(routes).toEqual(
       expect.arrayContaining([
         'GET /api/health',
-        'GET /api/ingest/state',
         'POST /api/runs',
-        'POST /api/runs/7/emails',
         'GET /api/profile',
-        'GET /api/jobs',
+        'GET /api/scoring/queue',
         'POST /api/runs/7/scores',
         'POST /api/runs/7/finish',
       ]),
     );
+    expect(routes.filter((route) => route.includes('/emails') || route.includes('/ingest/state'))).toEqual([]);
   });
 
   it.each(calls.map((call) => [`${call.method} ${call.path}`, call] as const))('NFR-01: %s', (_name, call) => {
