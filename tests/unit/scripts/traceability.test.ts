@@ -19,7 +19,7 @@ describe('scripts/traceability.ts', () => {
     const ids = REQUIREMENTS.map((requirement) => requirement.id);
 
     expect(ids).toEqual([
-      ...Array.from({ length: 17 }, (_, index) => `FR-${String(index + 1).padStart(2, '0')}`),
+      ...Array.from({ length: 20 }, (_, index) => `FR-${String(index + 1).padStart(2, '0')}`),
       ...Array.from({ length: 12 }, (_, index) => `NFR-${String(index + 1).padStart(2, '0')}`),
     ]);
   });
@@ -70,11 +70,11 @@ describe('scripts/traceability.ts', () => {
     ]);
   });
 
-  it('NFR-09: marks passing, failing and untested requirements in the matrix', () => {
+  it('NFR-09: marks passing, failing, untested and retired requirements in the matrix', () => {
     const markdown = buildMatrix(
       [
         { file: 'tests/a.test.ts', name: 'FR-01: ok', passed: true },
-        { file: 'tests/a.test.ts', name: 'FR-02: broken | piped', passed: false },
+        { file: 'tests/a.test.ts', name: 'FR-04: broken | piped', passed: false },
         { file: 'tests/a.test.ts', name: 'helper', passed: true },
       ],
       '2026-10-23',
@@ -83,9 +83,13 @@ describe('scripts/traceability.ts', () => {
 
     expect(markdown).toContain('**3 tests, 1 failing.** 1 tests check supporting rules');
     expect(markdown).toContain('| FR-01 | Candidate profile | 1/1 | ✅ pass | `tests/a.test.ts` |');
-    expect(markdown).toContain('| FR-02 | Email ingestion | 0/1 | ❌ 1 failing |');
-    expect(markdown).toContain('| FR-03 | Email parsing | 0/0 | ⚠️ no named test |');
+    expect(markdown).toContain('| FR-04 | Deduplication | 0/1 | ❌ 1 failing |');
+    expect(markdown).toContain('| FR-07 | Board | 0/0 | ⚠️ no named test |');
+    expect(markdown).toContain(
+      '| FR-03 | Email parsing | 0/0 | 🗄️ retired |  | Gmail track retired in Phase 11 (DEC-041) |',
+    );
+    expect(markdown).toContain('- Gmail track retired in Phase 11 (DEC-041).');
     expect(markdown).toContain('last run: p95 20 ms');
-    expect(markdown).toContain('❌ `tests/a.test.ts`: FR-02: broken \\| piped');
+    expect(markdown).toContain('❌ `tests/a.test.ts`: FR-04: broken \\| piped');
   });
 });

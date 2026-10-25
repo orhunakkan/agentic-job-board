@@ -16,6 +16,10 @@ Every defect found while building the Agentic Job Board (PLAN.md Phase 8 task 2)
 | DEF-012 | Status notices are not announced, and focus is lost after a form post | Low      | Code review (Phase 6)            | Fixed  | `5767497`  |
 | DEF-013 | Every card's buttons and LinkedIn link have the same accessible name  | Low      | Code review (Phase 6)            | Fixed  | `5767497`  |
 | DEF-014 | The CI browser job times out while installing browsers                | High     | First CI run on GitHub (Phase 7) | Fixed  | see below  |
+| DEF-015 | A LinkedIn search reads only 7 of the 25 jobs on a page               | High     | Live dry run (Phase 11)          | Fixed  | `11d0c37`  |
+| DEF-016 | Most LinkedIn jobs are stored without their description               | High     | Live dry run (Phase 11)          | Fixed  | `11d0c37`  |
+| DEF-017 | One job page that won't load stops the whole LinkedIn run             | Medium   | Integration test (Phase 11)      | Fixed  | `11d0c37`  |
+| DEF-018 | A Chromium page test times out when the whole suite runs              | Low      | `npm run check` (Phase 11)       | Fixed  | `9fd2dee`  |
 
 Open defects: none.
 
@@ -100,3 +104,35 @@ Open defects: none.
 - **Expected:** browsers install in a minute or two, then the tests run.
 - **Actual:** `npx playwright install --with-deps` spent 20 minutes downloading WebKit's media libraries from the runner's Ubuntu mirror at a few KB/s, and the job hit its timeout. Nothing in the app was at fault; the job depended on a slow external mirror.
 - **Fix:** the job runs in the official `mcr.microsoft.com/playwright` image, which has the browsers and their libraries preinstalled, so there is no apt step. A unit test keeps the image tag equal to the installed `@playwright/test` version. **Status:** Fixed on `main` (merge of `phase/7-ci-fix`).
+
+### DEF-015: A LinkedIn search reads only 7 of the 25 jobs on a page
+
+- **Severity:** High (most jobs a search finds never reach the board)
+- **Steps:** `node scripts/search-linkedin.ts --dry-run --no-details --search "Senior QA"` with the live session.
+- **Expected:** 25 jobs per full page, up to `maxPages`.
+- **Actual:** "page 1: 7 jobs", and the search stopped, since a page under 25 counts as the last. LinkedIn shows the first 7 cards and adds the other 18 about a second later; the script counted after half a second of no change.
+- **Fix:** the list counts as loaded only when the number of cards has stayed the same for 2 s (DEC-045). The saved pages can't reproduce LinkedIn's staged loading, so the live run is the check: 4 pages, 100 jobs. **Status:** Fixed in `11d0c37`.
+
+### DEF-016: Most LinkedIn jobs are stored without their description
+
+- **Severity:** High (jobs without a description are scored on their title only, FR-20)
+- **Steps:** a live dry run reading job pages for one search page.
+- **Expected:** every open job comes with its description.
+- **Actual:** 21 of 25 jobs had none, and others had only the short "Desired skills" part. The description's box appears before its text, and its parts arrive one after another.
+- **Fix:** the script waits for text in the box, then until its length stops changing. The live re-check read 3,313 to 5,380 characters for the jobs that had come back empty or short. **Status:** Fixed in `11d0c37`.
+
+### DEF-017: One job page that won't load stops the whole LinkedIn run
+
+- **Severity:** Medium
+- **Steps:** a search whose second new job answers with HTTP 404.
+- **Expected:** that job is sent from its search card and reported; the other job pages are still read.
+- **Actual:** any error status counted as LinkedIn limiting requests, so the script stopped reading LinkedIn for the rest of the run.
+- **Fix:** only 429, 999 and 5xx answers (or an empty error page) count as LinkedIn limiting requests; any other page that doesn't show the job fails that job only. The saved-pages test now includes a job without a page. **Status:** Fixed in `11d0c37`.
+
+### DEF-018: A Chromium page test times out when the whole suite runs
+
+- **Severity:** Low (a flaky test, no product defect)
+- **Steps:** `npm run check`, which runs every Vitest project at once.
+- **Expected:** the sign-in redirect test passes every time.
+- **Actual:** it failed once in a full run with a timeout instead of "sign in again": the saved-page tests gave a page 3 s, too little on a busy machine. Three further full runs passed.
+- **Fix:** the saved-page tests give a page 8 s and the two whole-script tests 30 s. **Status:** Fixed in `9fd2dee`.

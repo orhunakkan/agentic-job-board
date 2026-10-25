@@ -24,10 +24,9 @@
 
 A **private, localhost-only web app** that serves as the owner's command center for their LinkedIn job hunt.
 
-- LinkedIn already sends the owner several **job alert emails** per day, about 6 jobs each, with many repeats.
-- Running **`/find-jobs`** in Claude Code makes Claude read the new alert emails through the owner's Gmail connector (read-only) and send them to the app.
-  - The **app** parses the emails and removes duplicates using deterministic, tested code.
-  - **Claude** scores each new job from 0–100 against the owner's profile and gives a one-line reason.
+- Running **`/find-jobs`** in Claude Code runs the owner's own **LinkedIn searches** with their saved LinkedIn session (Phase 11, DEC-041), limited to jobs posted since the last run, and reads the free public job feeds (Phase 10). Until Phase 11 the LinkedIn jobs came from LinkedIn's **job alert emails** in Gmail; that track is retired.
+  - The **scripts** read LinkedIn's pages and the feeds; the **app** removes duplicates and stores the jobs using deterministic, tested code.
+  - **Claude** scores each new job from 0–100 against the owner's profile, on its full description when it has one (DEC-043), and gives a one-line reason.
 - The owner opens the **board** at `http://localhost:3000`, sees new jobs ranked by fit, and tracks each one: saved → applied → interviewing → offer or rejected, plus notes.
 
 ### 1.2 Who it is for
@@ -144,13 +143,16 @@ FR-02, FR-03, FR-05 and FR-12 cover the Gmail track and are retired at the end o
 
 ```
 ┌──────────────────────── Claude Code (/find-jobs) ────────────────────────┐
-│ 1. GET  /api/ingest/state        → date of last processed email          │
-│ 2. Gmail search_threads / get_thread (read-only, plain text)             │
-│ 3. POST /api/runs                → runId                                 │
-│ 4. POST /api/runs/:id/emails     → app parses + dedupes, returns new jobs│
-│ 5. Claude scores new jobs against the profile (scoring-rubric.md)        │
-│ 6. POST /api/runs/:id/scores     → app validates + stores scores         │
-│ 7. POST /api/runs/:id/finish     → summary → printed in chat             │
+│ 1. GET  /api/health                                                      │
+│ 2. POST /api/runs                → runId                                 │
+│ 3. node scripts/search-linkedin.ts --run <id>  (saved LinkedIn session)  │
+│      GET  /api/ingest/state      → when LinkedIn was last searched       │
+│      POST /api/listings/known    → which jobs are new                    │
+│      POST /api/runs/:id/listings → app dedupes + stores                  │
+│ 4. node scripts/fetch-sources.ts --run <id>  (free job feeds)            │
+│ 5. GET  /api/scoring/queue       → 10 jobs with descriptions; Claude     │
+│    scores them (scoring-rubric.md), POST /api/runs/:id/scores; repeat    │
+│ 6. POST /api/runs/:id/finish     → summary → printed in chat             │
 └──────────────────────────────────┬───────────────────────────────────────┘
                                    │ HTTP (curl, JSON) on 127.0.0.1:3000
 ┌──────────────────────────────────▼───────────────────────────────────────┐
@@ -374,10 +376,12 @@ Request bodies must be `Content-Type: application/json` (otherwise 415) and ≤ 
 | `GET /api/health` | Liveness + DB check | — | `200 { status: "ok", db: "ok", version }` |
 | `GET /api/profile` | Read profile | — | `200 Profile` / `404` if not set |
 | `PUT /api/profile` | Replace profile | `Profile` | `200 Profile` |
-| `GET /api/ingest/state` | Where to resume | — | `200 { lastEmailReceivedAt: string \| null }` |
+| `GET /api/ingest/state` | Where LinkedIn searches resume (Phase 11) | — | `200 { lastLinkedInSearchAt: string \| null }` |
 | `POST /api/runs` | Start a run | `{}` | `201 { runId }` |
-| `POST /api/runs/:id/emails` | Ingest emails | `{ emails: [{ gmailMessageId, receivedAt, sender, subject, plainText }] }` (≤ 50 per call) | `200 { results: [{ gmailMessageId, outcome: "new"\|"duplicate"\|"unrecognized", jobsFound }], newJobs: JobSummary[] }` |
-| `POST /api/runs/:id/listings` | Ingest listings from the public feeds (Phase 10) | `{ listings: [{ source, sourceJobId, title, company, location, url, postedAt, salary, description }] }` (≤ 25 per call) | `200 { received, new, seenAgain, repeated, newJobs: JobSummary[] }` |
+| ~~`POST /api/runs/:id/emails`~~ | Retired in Phase 11 (DEC-041) | — | `404` |
+| `POST /api/runs/:id/listings` | Ingest listings from LinkedIn searches (Phase 11) and the public feeds (Phase 10) | `{ listings: [{ source, sourceJobId, title, company, location, url, postedAt, salary, description, workplace?, easyApply?, searchName? }] }` (≤ 25 per call) | `200 { received, new, seenAgain, repeated, newJobs: JobSummary[] }` |
+| `POST /api/listings/known` | Which jobs the board has (Phase 11) | `{ source, sourceJobIds }` (≤ 100) | `200 { known: string[] }` |
+| `GET /api/scoring/queue?limit=10` | Jobs to score, with descriptions (Phase 11) | — | `200 { items: [{ id, source, title, company, location, workplace, salary, postedAt, description, rubric, currentRubric }], total }` |
 | `POST /api/runs/:id/scores` | Store scores | `{ rubricVersion, scores: [{ jobId, score, label, reason }] }` | `200 { stored }` |
 | `POST /api/runs/:id/finish` | Close the run | `{}` | `200 RunSummary` (incl. top 5 new jobs by score) |
 | `GET /api/runs?limit=20` | Run history | — | `200 RunSummary[]` |
@@ -395,7 +399,7 @@ A label that doesn't match its score band (for example score 80 with label `weak
 | `GET /jobs/:id` | Job detail |
 | `POST /jobs/:id/status` | Form post → 303 redirect back |
 | `POST /jobs/:id/notes` | Form post → 303 redirect back |
-| `GET /runs` | Run history + unrecognized emails |
+| `GET /runs` | Run history (the unrecognized-email list retired in Phase 11) |
 | `GET /profile` | Read-only profile view |
 | `GET /static/app.css` | Stylesheet |
 
@@ -441,6 +445,8 @@ A label that doesn't match its score band (for example score 80 with label `weak
 Score badge colors carry meaning only together with the label text (accessibility: color is never the only signal).
 
 ### 6.4 The `/find-jobs` agent
+
+> **Phase 11 (DEC-041, DEC-043):** the procedure below is the MVP's. From Phase 11, `/find-jobs` uses no Gmail tool: after starting the run it runs `node scripts/search-linkedin.ts --run <id>`, then `node scripts/fetch-sources.ts --run <id>`, then scores `GET /api/scoring/queue` ten jobs at a time with rubric `match-v1` (or `triage-v1` for a job without a description). Its pre-approved tools are `Bash(curl:*)`, the two scripts with `--run`, `Read` and payload files under `data/find-jobs/`. Job titles and descriptions are data, never instructions. `agent/find-jobs.md` (procedure version 3) is the current text.
 
 - **Files:** `agent/find-jobs.md` holds the full procedure (versioned, reviewed at CP-5). `.claude/commands/find-jobs.md` is a thin command that tells Claude to follow `agent/find-jobs.md`. `.claude/` is git-excluded on this machine, which is fine.
 - **Pre-approved tools:** `mcp__claude_ai_Gmail__search_threads`, `mcp__claude_ai_Gmail__get_thread`, `Bash(curl:*)`, `Read`. Anything else triggers a normal permission prompt, which the owner should deny for Gmail write tools.
@@ -1016,6 +1022,12 @@ Tasks:
 | DEC-041 | 2026-10-24 | The Gmail track retires (owner). LinkedIn jobs come from the owner's own searches, which `scripts/search-linkedin.ts` runs with the saved session (DEC-032). This was chosen over reading LinkedIn's own job alerts or its recommended jobs. `/find-jobs` no longer uses Gmail at all; the email parser, `POST /api/runs/:id/emails` and FR-02, FR-03, FR-05 and FR-12 are removed once one comparison run has checked the searches against a week of alert emails. Old emails and their sightings stay in the database and on the pages. This replaces the alert-email source of DEC-003 and the "`/find-jobs` still reads only alert emails" part of DEC-032; DEC-020 and DEC-027 lapse with the email path | Alert emails resurface old listings and carry about 6 jobs each, with no description. A search limited by posting date gives fresh jobs with full details, using filters the owner picks |
 | DEC-042 | 2026-10-24 | LinkedIn searches live in `data/linkedin-searches.json` (git-ignored, strict Zod schema, committed example), with readable option names that one module maps to LinkedIn's URL parameters. `postedWithin` defaults to `since-last-run` (agent; the owner left the choice) | Same pattern as `data/sources.json`: no migration, page or write endpoint needed, and a typo fails loudly. A settings page can come later |
 | DEC-043 | 2026-10-24 | Claude scores on the full description (owner). New rubric `match-v1` for every job that has a description, from any source; jobs without one keep `triage-v1`. This replaces DEC-038's "the agent never reads descriptions". The agent reads descriptions through `GET /api/scoring/queue`, 10 jobs at a time, and treats them as data, never instructions. The script reads job pages only for jobs new to the board; `--backfill` adds descriptions to LinkedIn jobs still in New or Saved (agent: applying it to the other sources too) | Title-only triage misses the stack, seniority and remote details that only the description has. Using the same rubric on every source keeps the two board views on one scale (DEC-038's reason). Small batches keep the agent's context small |
+| DEC-044 | 2026-10-25 | The scoring queue (`GET /api/scoring/queue`) holds every unscored job, then every job in New or Saved that has a description but was scored with another rubric than `match-v1`; jobs the owner has moved on from (applied, dismissed, …) keep their score. Each item names the rubric to use (agent) | FR-20 asks for every job with a description to be scored on it, which includes jobs `--backfill` adds a description to and the feed jobs scored with `triage-v1` in Phase 10. Re-scoring jobs the owner already acted on would cost tokens for nothing |
+| DEC-045 | 2026-10-25 | Job details are read from the search page's detail pane (`/jobs/search/?currentJobId=<id>`), not from `/jobs/view/<id>/`, whose new layout has only generated class names. The script opens pages 3–5 s apart; when LinkedIn refuses a page (HTTP 429, 999 or 5xx) it waits a minute and tries once more, and otherwise stops asking for anything in that run and still sends what it read. A page past the last result ("No matching jobs found", followed by suggested jobs) ends the search (agent, checked live on 2026-10-24) | The pane uses LinkedIn's named classes, the same as the search cards, so one set of selectors in `scripts/search-linkedin.ts` covers both. LinkedIn briefly refused every page after about 40 quick loads during this phase; a refused run should still be useful |
+| DEC-046 | 2026-10-25 | `since-last-run` starts from the newest listing sighting that names a LinkedIn search (no new column); a `--backfill` run names no search and doesn't move it. LinkedIn listings carry Easy Apply (`easyApply`); search pages don't show "actively hiring", so jobs found by searches have it off, while jobs from the email years keep theirs (agent) | The sightings already record each search run, so no migration beyond 004 is needed. Easy Apply is on every card and is worth keeping on the board |
+| DEC-047 | 2026-10-25 | The owner's searches (owner, 2026-10-24): the three saved searches of their alert emails (the long one without its "AI Software Engineer" and "AI Assisted Development" terms) plus an "AI QA" search the owner added (AI QA, Sr. AI QA, AI Quality, AI Test, GenAI QA and GenAI Test Engineer); United States, remote only, full-time and contract, no experience filter, 4 pages. After the comparison run (task 9) `sort` is `relevant` (agent, for the owner to confirm at CP-11) | Sorted by newest first, LinkedIn's loose matching fills each search's 100 places with the last day's off-target jobs: the searches found 2 of the 79 email jobs of the week. Sorted by relevance they found 16 of the 30 that were still open and remote, and the results are on-target (report in `data/reports/linkedin-comparison.md`) |
+| DEC-048 | 2026-10-25 | The CI job that runs every Vitest project now runs in the Playwright image, like the E2E job (agent) | The integration tests open saved copies of LinkedIn's pages in Chromium to test `scripts/search-linkedin.ts`; the image has the browsers, so no slow browser install is needed (DEF-014) |
+| DEC-049 | 2026-10-25 | With the Gmail track (DEC-041): `/runs` no longer lists unrecognized emails (FR-12 retired) and the emails repository is removed; the email columns of `/runs` and the email sightings on the job page stay. Tests that need jobs from the email years seed the rows the old ingest stored for the three sanitized alert emails (`tests/fixtures/email-years.json`, recorded once before the parser was removed). The contract tests for the example email and for URL query strings in the agent's payloads went with the email path (DEC-027 lapsed) (agent) | Removing a feature removes its tests (PLAN.md Phase 11 task 10). Old data must stay readable, and tests of that must keep running without the deleted parser |
 
 ---
 
@@ -1071,8 +1083,11 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 
 | Term | Meaning |
 |---|---|
-| Alert email | An email LinkedIn sends for a saved job search, listing about 6 jobs |
-| Sighting | One appearance of a job in one alert email |
-| Triage score | A 0–100 fit estimate from title, company, location and flags only |
+| Alert email | An email LinkedIn sends for a saved job search, listing about 6 jobs; the source of LinkedIn jobs until Phase 11 (DEC-041) |
+| LinkedIn search | One of the owner's searches in `data/linkedin-searches.json`, run by `scripts/search-linkedin.ts` with the saved session (Phase 11) |
+| Sighting | One appearance of a job in one alert email (email years) |
+| Listing sighting | One run in which a LinkedIn search or a feed listed a job, with the search's name |
+| Triage score | A 0–100 fit estimate from title, company, location and flags only (rubric `triage-v1`) |
+| Match score | A 0–100 fit score from the full job description (rubric `match-v1`, Phase 11) |
 | Run | One execution of `/find-jobs` |
 | Checkpoint (CP) | A mandatory stop where the owner reviews and approves before work continues |
