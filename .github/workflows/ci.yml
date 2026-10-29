@@ -2,7 +2,10 @@
 #   static (typecheck, lint, format, audit, unit) → vitest (every Vitest project with coverage thresholds:
 #   integration, API, contract, security, DEC-021) → browsers (Playwright E2E on 4 projects, then smoke) and, next
 #   to it, bdd (the Cucumber scenarios: integration, API, E2E on 4 browsers, then smoke; DEC-056)
-#   → perf (k6 load test against 5,000 seeded jobs, DEC-040).
+#   → perf (k6 load test against 5,000 seeded jobs, DEC-040)
+#   → board-report (every job's results in one report, PLAN.md Phase 14, DEC-058).
+# Every job runs its tests through scripts/board-report.ts with BOARD_REPORT_APPEND=1, so it only keeps its results in
+# reports/test-results/ and uploads them, even after a failure; the last job builds the report from all of them.
 # Jobs run on the owner's self-hosted runner when the repository variable CI_RUNNER names its label (DEC-039),
 # otherwise on GitHub's ubuntu-26.04, pinned rather than ubuntu-latest so an image migration never changes CI unannounced.
 # Pull requests from forks always go to GitHub's runners, so code from outside never runs on the owner's laptop.
@@ -23,6 +26,7 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
+  BOARD_REPORT_APPEND: '1'
 
 jobs:
   static:
@@ -36,11 +40,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run format:check
-      - run: npm run audit
+      # typecheck, lint, format and audit, each as results of its own (PLAN.md Phase 14 task 12).
+      - run: npm run test:static
       - run: npm run test:unit
+        if: ${{ !cancelled() }}
+      - name: Upload the test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-static
+          path: reports/test-results/
+          retention-days: 14
 
   vitest:
     name: Integration, API, contract and security tests (with coverage)
@@ -67,6 +77,13 @@ jobs:
         with:
           name: coverage
           path: coverage/
+          retention-days: 14
+      - name: Upload the test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-vitest
+          path: reports/test-results/
           retention-days: 14
 
   browsers:
@@ -97,6 +114,13 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+      - name: Upload the test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-browsers
+          path: reports/test-results/
+          retention-days: 14
 
   bdd:
     name: Cucumber BDD (integration, API, E2E, smoke)
@@ -125,6 +149,13 @@ jobs:
           name: cucumber-report
           path: reports/cucumber/
           retention-days: 14
+      - name: Upload the test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-bdd
+          path: reports/test-results/
+          retention-days: 14
 
   perf:
     name: Load test (k6)
@@ -152,3 +183,52 @@ jobs:
           cat app.log
           exit 1
       - run: npm run test:perf
+      - name: Upload the test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-perf
+          path: reports/test-results/
+          retention-days: 14
+
+  board-report:
+    name: board-report (every test type)
+    # After every other job, and even when one failed or was skipped, so a failure is in the report too.
+    needs: [static, vitest, browsers, bdd, perf]
+    if: ${{ !cancelled() }}
+    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      # Only so the report's environment names the k6 version the perf job used.
+      - uses: grafana/setup-k6-action@v1
+      - name: Download every job's test results
+        uses: actions/download-artifact@v8
+        with:
+          pattern: test-results-*
+          path: reports/test-results/
+          merge-multiple: true
+      - name: Restore the history behind the trends
+        uses: actions/cache/restore@v6
+        with:
+          path: reports/board-report-history.jsonl
+          key: board-report-history-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: board-report-history-
+      # Builds reports/board-report/ and writes the totals by type and the failures to this run's summary page.
+      - run: node scripts/board-report.ts build
+      - name: Upload board-report
+        uses: actions/upload-artifact@v7
+        with:
+          name: board-report
+          path: reports/board-report/
+          retention-days: 14
+      - name: Save the history
+        uses: actions/cache/save@v6
+        with:
+          path: reports/board-report-history.jsonl
+          key: board-report-history-${{ github.run_id }}-${{ github.run_attempt }}

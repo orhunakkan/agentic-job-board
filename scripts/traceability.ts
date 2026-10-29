@@ -91,6 +91,7 @@ export const REQUIREMENTS: readonly Requirement[] = [
   },
   { id: 'NFR-11', title: 'Responsive down to 375 px', also: 'Every E2E test also runs on the Pixel 7 project' },
   { id: 'NFR-12', title: 'The saved LinkedIn session stays local and secret' },
+  { id: 'NFR-13', title: 'Every test command writes one board-report of that run' },
 ];
 
 export interface TestCase {
@@ -197,6 +198,11 @@ const BROWSER_OF_PROFILE: Readonly<Record<string, string>> = {
 
 const REQUIREMENT_TAG = /^@(N?FR-\d{2})$/;
 
+/** The requirements a scenario's tags name (`@FR-21`); board-report reads tags by the same rule. */
+export function requirementTagIds(tags: readonly string[]): string[] {
+  return tags.flatMap((tag) => REQUIREMENT_TAG.exec(tag)?.[1] ?? []);
+}
+
 /**
  * One case per scenario in a profile's JSON report. A scenario passes when every step and hook passed, so an
  * undefined, pending or skipped step counts as failing, as `strict` has it.
@@ -209,7 +215,7 @@ export function cucumberCases(report: unknown, profile: string): ScenarioCase[] 
       name: scenario.name,
       suite: /^tests\/features\/([^/]+)\//.exec(path)?.[1] ?? 'unknown',
       browser: BROWSER_OF_PROFILE[profile] ?? null,
-      requirements: scenario.tags.flatMap((tag) => REQUIREMENT_TAG.exec(tag.name)?.[1] ?? []),
+      requirements: requirementTagIds(scenario.tags.map((tag) => tag.name)),
       passed: scenario.steps.every((step) => step.result.status === 'passed'),
     }));
   });

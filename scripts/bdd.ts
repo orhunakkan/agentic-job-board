@@ -1,9 +1,11 @@
 // Runs the Cucumber suites behind the test:bdd scripts (PLAN.md Phase 13): every profile of the suites named, one
 // after another, and every one of them even when one fails, so a run always reports on each suite. Each profile's old
 // report is removed before it runs, so every report in reports/cucumber/ comes from the latest run of its profile.
+// Run by scripts/board-report.ts, each profile also writes Cucumber's messages to its own results folder (Phase 14).
 //   node scripts/bdd.ts [integration] [api] [e2e] [smoke]     (none named: integration, api and e2e)
 import { spawn } from 'node:child_process';
 import { rmSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SUITES: Readonly<Record<string, readonly string[]>> = {
@@ -48,6 +50,18 @@ export async function runProfiles(profiles: readonly string[], runner: ProfileRu
 }
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+
+/**
+ * The extra formatter board-report reads (PLAN.md Phase 14 task 9): Cucumber's messages, in the profile's own folder
+ * under the step's results folder. The path is relative to the repository, so no Windows drive-letter colon is read as
+ * the end of the formatter's name. The profile's own formats (progress, JSON, HTML) stay as cucumber.json has them.
+ */
+export function messageFormat(profile: string, resultsDir: string | undefined, base = root): string[] {
+  if (resultsDir === undefined || resultsDir === '') return [];
+  const path = relative(base, join(resultsDir, profile, 'messages.ndjson')).replaceAll('\\', '/');
+  return ['--format', `message:${path}`];
+}
+
 const CUCUMBER = fileURLToPath(new URL('../node_modules/@cucumber/cucumber/bin/cucumber.js', import.meta.url));
 
 const cucumber: ProfileRunner = {
@@ -59,7 +73,8 @@ const cucumber: ProfileRunner = {
   run(profile) {
     console.log(`\n▶ cucumber-js --profile ${profile}`);
     return new Promise((resolve, reject) => {
-      const child = spawn(process.execPath, [CUCUMBER, '--profile', profile], { cwd: root, stdio: 'inherit' });
+      const args = [CUCUMBER, '--profile', profile, ...messageFormat(profile, process.env['BOARD_REPORT_RESULTS'])];
+      const child = spawn(process.execPath, args, { cwd: root, stdio: 'inherit' });
       child.on('error', reject);
       child.on('close', (code) => {
         resolve(code ?? 1);

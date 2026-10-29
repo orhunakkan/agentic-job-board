@@ -1,5 +1,7 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { profilesFor, runProfiles, UnknownSuiteError } from '../../../scripts/bdd.ts';
+import { messageFormat, profilesFor, runProfiles, UnknownSuiteError } from '../../../scripts/bdd.ts';
 
 // scripts/bdd.ts runs the Cucumber suites behind the test:bdd scripts (PLAN.md Phase 13).
 
@@ -43,5 +45,15 @@ describe('scripts/bdd.ts', () => {
     const result = await runProfiles(['api'], { removeReports: () => undefined, run: () => Promise.resolve(0) });
 
     expect(result).toEqual({ failed: [] });
+  });
+
+  it('NFR-13: adds Cucumber’s messages in the profile’s own results folder only when board-report runs it', () => {
+    const base = join(tmpdir(), 'repo');
+    expect(messageFormat('e2e-webkit', join(base, 'reports', 'test-results', 'bdd-e2e'), base)).toEqual([
+      '--format',
+      'message:reports/test-results/bdd-e2e/e2e-webkit/messages.ndjson',
+    ]);
+    expect(messageFormat('api', undefined)).toEqual([]);
+    expect(messageFormat('api', '')).toEqual([]);
   });
 });
