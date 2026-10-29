@@ -3,6 +3,7 @@ import { DataTable, Given, Then, When } from '@cucumber/cucumber';
 import type { Tab } from '../../../../src/domain/board-tabs.ts';
 import type { Origin } from '../../../../src/domain/job-source.ts';
 import type { Status } from '../../../../src/domain/status.ts';
+import { z } from 'zod';
 import { JobDetailSchema, JobListResponseSchema } from '../../../../src/schemas/api.ts';
 import { changeStatus, jobDetail, putOnBoard } from '../../support/board-api.ts';
 import { jobRow, jobRows } from '../../support/board-data.ts';
@@ -113,9 +114,11 @@ Then('it has {int} sighting(s), by the searches {titles}', function (this: Board
 });
 
 Then('its status history is:', function (this: BoardWorld, table: DataTable) {
-  const expected = table.hashes().map((row) => ({
-    fromStatus: row['from'] === '' || row['from'] === undefined ? null : statusNamed(row['from']),
-    toStatus: statusNamed(row['to'] ?? ''),
+  // Strict, so a column this step doesn't check fails instead of passing unread.
+  const rows = z.array(z.strictObject({ from: z.string(), to: z.string() })).parse(table.hashes());
+  const expected = rows.map(({ from, to }) => ({
+    fromStatus: from === '' ? null : statusNamed(from),
+    toStatus: statusNamed(to),
   }));
   assert.deepEqual(
     lookedAt(this).history.map(({ fromStatus, toStatus }) => ({ fromStatus, toStatus })),

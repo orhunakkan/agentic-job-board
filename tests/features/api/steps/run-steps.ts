@@ -187,7 +187,8 @@ When('I ask which jobs need a score', async function (this: BoardWorld) {
 
 Then('the queue holds:', function (this: BoardWorld, table: DataTable) {
   const { items } = ScoringQueueResponseSchema.parse(lastResponse(this).body);
-  const expected = z.array(z.object({ job: z.string(), rubric: z.string() })).parse(table.hashes());
+  // Strict, so a column this step doesn't check fails instead of passing unread.
+  const expected = z.array(z.strictObject({ job: z.string(), rubric: z.string() })).parse(table.hashes());
   assert.deepEqual(
     items.map((item) => ({ job: item.title, rubric: item.rubric })).toSorted((a, b) => a.job.localeCompare(b.job)),
     expected.toSorted((a, b) => a.job.localeCompare(b.job)),

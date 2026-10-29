@@ -114,8 +114,10 @@ Then('{int} job(s) is/are dismissed', function (this: BoardWorld, count: number)
 });
 
 Then('the jobs have these statuses:', function (this: BoardWorld, table: DataTable) {
-  const expected = table.hashes().map((row) => [row['title'] ?? '', statusNamed(row['status'] ?? '')]);
-  const stored = expected.map(([title = '']) => [title, statusOf(this, this.jobId(title))]);
+  // Strict, so a column this step doesn't check fails instead of passing unread.
+  const rows = z.array(z.strictObject({ title: z.string(), status: z.string() })).parse(table.hashes());
+  const expected = rows.map(({ title, status }) => [title, statusNamed(status)]);
+  const stored = rows.map(({ title }) => [title, statusOf(this, this.jobId(title))]);
   assert.deepEqual(stored, expected);
 });
 
