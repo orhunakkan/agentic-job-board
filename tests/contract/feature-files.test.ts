@@ -33,7 +33,14 @@ function featureFiles(dir: string): string[] {
   });
 }
 
-/** Just enough of Gherkin for these checks: the tags above `Feature:` and above each scenario. */
+// Every keyword Gherkin starts a scenario with; `Example:` is one, `Examples:` (below an outline) is not.
+const SCENARIO = /^(?:Scenario(?: Outline| Template)?|Example):\s*/;
+const EXAMPLES = /^(?:Examples|Scenarios):/;
+
+/**
+ * Just enough of Gherkin for these checks: the tags above `Feature:`, above each scenario, and above an outline's
+ * `Examples:`, which apply to that outline's rows. Comment lines between tags and their keyword are skipped.
+ */
 function parse(path: string): FeatureFile {
   // Read the same however the working tree spells line endings.
   const text = readFileSync(path, 'utf8').replaceAll('\r\n', '\n');
@@ -42,13 +49,17 @@ function parse(path: string): FeatureFile {
   let featureTags: string[] = [];
   let pending: string[] = [];
   for (const line of text.split('\n').map((raw) => raw.trim())) {
+    if (line.startsWith('#')) continue;
     if (line.startsWith('@')) {
       pending.push(...line.split(/\s+/));
     } else if (line.startsWith('Feature:')) {
       featureTags = pending;
       pending = [];
-    } else if (/^Scenario(?: Outline)?:/.test(line)) {
-      scenarios.push({ name: line.replace(/^Scenario(?: Outline)?:\s*/, ''), tags: [...featureTags, ...pending] });
+    } else if (SCENARIO.test(line)) {
+      scenarios.push({ name: line.replace(SCENARIO, ''), tags: [...featureTags, ...pending] });
+      pending = [];
+    } else if (EXAMPLES.test(line)) {
+      scenarios.at(-1)?.tags.push(...pending);
       pending = [];
     } else if (line !== '') {
       pending = [];
