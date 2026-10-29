@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildMatrix,
+  cucumberCases,
   playwrightCases,
   REQUIREMENTS,
   requirementIds,
@@ -91,5 +92,93 @@ describe('scripts/traceability.ts', () => {
     expect(markdown).toContain('- Gmail track retired in Phase 11 (DEC-041).');
     expect(markdown).toContain('last run: p95 20 ms');
     expect(markdown).toContain('❌ `tests/a.test.ts`: FR-04: broken \\| piped');
+  });
+});
+
+describe('scripts/traceability.ts: the BDD scenarios (Phase 13)', () => {
+  // A Cucumber JSON report as the json formatter writes it: tags include the feature's, hooks are hidden steps.
+  const passed = { result: { status: 'passed' } };
+  const report = [
+    {
+      uri: 'tests\\features\\e2e\\notes.feature',
+      name: 'Notes on a job',
+      tags: [{ name: '@FR-09' }],
+      elements: [
+        {
+          type: 'scenario',
+          name: 'Notes are still there after a reload',
+          tags: [{ name: '@FR-09' }, { name: '@smoke' }, { name: '@FR-10' }],
+          steps: [passed, { hidden: true, ...passed }],
+        },
+        {
+          type: 'scenario',
+          name: 'A note | with a pipe',
+          tags: [{ name: '@FR-09' }],
+          steps: [passed, { result: { status: 'undefined' } }, { result: { status: 'skipped' } }],
+        },
+      ],
+    },
+  ];
+
+  it('NFR-09: reads a Cucumber JSON report: one case per scenario, its requirement tags, suite and browser', () => {
+    expect(cucumberCases(report, 'e2e-firefox')).toEqual([
+      {
+        feature: 'tests/features/e2e/notes.feature',
+        name: 'Notes are still there after a reload',
+        suite: 'e2e',
+        browser: 'Firefox',
+        requirements: ['FR-09', 'FR-10'],
+        passed: true,
+      },
+      {
+        feature: 'tests/features/e2e/notes.feature',
+        name: 'A note | with a pipe',
+        suite: 'e2e',
+        browser: 'Firefox',
+        requirements: ['FR-09'],
+        passed: false,
+      },
+    ]);
+    expect(cucumberCases(report, 'e2e-mobile')[0]?.browser).toBe('Pixel 7');
+    expect(
+      cucumberCases([{ ...report[0], uri: 'tests/features/api/notes.feature' }], 'api').map((test) => [
+        test.suite,
+        test.browser,
+      ]),
+    ).toEqual([
+      ['api', null],
+      ['api', null],
+    ]);
+  });
+
+  it('NFR-09: lists the BDD scenarios under their requirements, below the matrix, which stays as it was', () => {
+    const cases = [{ file: 'tests/a.test.ts', name: 'FR-09: ok', passed: true }];
+    const matrix = buildMatrix(cases, '2026-10-29', null);
+    const markdown = buildMatrix(cases, '2026-10-29', null, [
+      ...cucumberCases(report, 'e2e-chromium'),
+      ...cucumberCases(report, 'e2e-webkit'),
+    ]);
+
+    expect(markdown.startsWith(matrix)).toBe(true);
+    expect(markdown).toContain('## BDD scenarios');
+    expect(markdown).toContain('**4 scenario runs, 2 failing.**');
+    expect(markdown).toContain('| FR-09 | Notes | 4 | 2 | ❌ 2 failing |');
+    expect(markdown).toContain('| FR-10 | Job detail | 2 | 2 | ✅ pass |');
+    // A requirement without scenarios is left out of the BDD table.
+    expect(markdown.slice(matrix.length)).not.toContain('| FR-01 |');
+    expect(markdown).toContain(
+      '- ✅ `tests/features/e2e/notes.feature`: Notes are still there after a reload [Chromium]',
+    );
+    expect(markdown).toContain('- ❌ `tests/features/e2e/notes.feature`: A note \\| with a pipe [WebKit]');
+  });
+
+  it('NFR-09: says so when there is no Cucumber report', () => {
+    expect(buildMatrix([], '2026-10-29', null, [])).toContain('No Cucumber report was found');
+  });
+
+  it('NFR-02: the requirement reads as PLAN.md §3.2 has it since DEC-055', () => {
+    expect(REQUIREMENTS.find((requirement) => requirement.id === 'NFR-02')?.title).toBe(
+      'Every npm dependency listed in PLAN.md §7, no overrides, npm audit passes',
+    );
   });
 });
