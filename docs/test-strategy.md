@@ -124,7 +124,6 @@ The pyramid runs from many fast, isolated tests at the bottom to a few slow, bro
 Work stops and the owner is asked when:
 
 - a test can't pass without weakening it
-- a new dependency seems unavoidable
 - a requirement turns out to be wrong or impossible
 
 ## 8. Coverage targets
