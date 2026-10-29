@@ -1,6 +1,7 @@
 # CI for the Agentic Job Board (PLAN.md Phase 7 task 4), staged fast to slow:
 #   static (typecheck, lint, format, audit, unit) → vitest (every Vitest project with coverage thresholds:
-#   integration, API, contract, security, DEC-021) → browsers (Playwright E2E on 4 projects, then smoke)
+#   integration, API, contract, security, DEC-021) → browsers (Playwright E2E on 4 projects, then smoke) and, next
+#   to it, bdd (the Cucumber scenarios: integration, API, E2E on 4 browsers, then smoke; DEC-056)
 #   → perf (k6 load test against 5,000 seeded jobs, DEC-040).
 # Jobs run on the owner's self-hosted runner when the repository variable CI_RUNNER names its label (DEC-039),
 # otherwise on GitHub's ubuntu-26.04, pinned rather than ubuntu-latest so an image migration never changes CI unannounced.
@@ -97,10 +98,36 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
+  bdd:
+    name: Cucumber BDD (integration, API, E2E, smoke)
+    needs: vitest
+    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
+    timeout-minutes: 20
+    # The E2E scenarios drive the same Playwright browsers as the job above, so they run in the same image and user.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test:bdd
+      - run: npm run test:bdd:smoke
+      - name: Upload the Cucumber reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: cucumber-report
+          path: reports/cucumber/
+          retention-days: 14
+
   perf:
     name: Load test (k6)
     # Last, so a functional failure is reported before the two minutes the load test takes.
-    needs: browsers
+    needs: [browsers, bdd]
     runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
     timeout-minutes: 15
     env:
