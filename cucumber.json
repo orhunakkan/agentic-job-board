@@ -1,0 +1,57 @@
+{
+  "integration": {
+    "paths": ["tests/features/integration/**/*.feature"],
+    "import": ["tests/features/support/**/*.ts", "tests/features/integration/steps/**/*.ts"],
+    "format": ["progress", "json:reports/cucumber/integration.json", "html:reports/cucumber/integration.html"],
+    "strict": true,
+    "parallel": 0
+  },
+  "api": {
+    "paths": ["tests/features/api/**/*.feature"],
+    "import": ["tests/features/support/**/*.ts", "tests/features/api/steps/**/*.ts"],
+    "format": ["progress", "json:reports/cucumber/api.json", "html:reports/cucumber/api.html"],
+    "strict": true,
+    "parallel": 0
+  },
+  "e2e-chromium": {
+    "paths": ["tests/features/e2e/**/*.feature"],
+    "import": ["tests/features/support/**/*.ts", "tests/features/e2e/steps/**/*.ts", "tests/features/e2e/hooks.ts"],
+    "format": ["progress", "json:reports/cucumber/e2e-chromium.json", "html:reports/cucumber/e2e-chromium.html"],
+    "worldParameters": { "browser": "chromium" },
+    "strict": true,
+    "parallel": 0
+  },
+  "e2e-firefox": {
+    "paths": ["tests/features/e2e/**/*.feature"],
+    "import": ["tests/features/support/**/*.ts", "tests/features/e2e/steps/**/*.ts", "tests/features/e2e/hooks.ts"],
+    "format": ["progress", "json:reports/cucumber/e2e-firefox.json", "html:reports/cucumber/e2e-firefox.html"],
+    "worldParameters": { "browser": "firefox" },
+    "strict": true,
+    "parallel": 0
+  },
+  "e2e-webkit": {
+    "paths": ["tests/features/e2e/**/*.feature"],
+    "import": ["tests/features/support/**/*.ts", "tests/features/e2e/steps/**/*.ts", "tests/features/e2e/hooks.ts"],
+    "format": ["progress", "json:reports/cucumber/e2e-webkit.json", "html:reports/cucumber/e2e-webkit.html"],
+    "worldParameters": { "browser": "webkit" },
+    "strict": true,
+    "parallel": 0
+  },
+  "e2e-mobile": {
+    "paths": ["tests/features/e2e/**/*.feature"],
+    "import": ["tests/features/support/**/*.ts", "tests/features/e2e/steps/**/*.ts", "tests/features/e2e/hooks.ts"],
+    "format": ["progress", "json:reports/cucumber/e2e-mobile.json", "html:reports/cucumber/e2e-mobile.html"],
+    "worldParameters": { "browser": "mobile" },
+    "strict": true,
+    "parallel": 0
+  },
+  "smoke": {
+    "paths": ["tests/features/e2e/**/*.feature"],
+    "import": ["tests/features/support/**/*.ts", "tests/features/e2e/steps/**/*.ts", "tests/features/e2e/hooks.ts"],
+    "format": ["progress", "json:reports/cucumber/smoke.json", "html:reports/cucumber/smoke.html"],
+    "worldParameters": { "browser": "chromium" },
+    "tags": "@smoke",
+    "strict": true,
+    "parallel": 0
+  }
+}
