@@ -30,7 +30,7 @@ Then('the New tab is empty', async function (this: BoardWorld) {
 
 Given('a Find Now run takes a few seconds', function (this: BoardWorld) {
   assert.ok(!this.appStarted, "Find Now's stand-in must be set before the app starts");
-  this.claudeCommand = fakeClaudeCommand(3000);
+  this.claudeCommand = fakeClaudeCommand(8000);
 });
 
 When('I press Find Now', async function (this: BoardWorld) {

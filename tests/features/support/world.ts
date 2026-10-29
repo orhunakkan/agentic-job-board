@@ -27,6 +27,8 @@ export class BoardWorld extends World<BoardParameters> {
   readonly listings = new Map<string, IncomingListing>();
   /** The run the scenario is working in, if one is open. */
   runId: number | undefined;
+  /** The note the scenario last wrote on a job (API steps). */
+  note: string | undefined;
   /** The last answer from the app (API steps). */
   response: ApiResponse | undefined;
   /** What the last service call threw, if it threw (integration steps). */
@@ -101,10 +103,15 @@ export class BoardWorld extends World<BoardParameters> {
     return listing;
   }
 
+  /** Closes all three even when one fails, so no app keeps the run alive; the first failure is rethrown. */
   async cleanUp(): Promise<void> {
-    await this.#page?.context().close();
-    await this.#app?.close();
-    this.#database?.close();
+    const results = await Promise.allSettled([
+      this.#page?.context().close(),
+      this.#app?.close(),
+      Promise.resolve().then(() => this.#database?.close()),
+    ]);
+    const failed = results.find((result) => result.status === 'rejected');
+    if (failed !== undefined) throw failed.reason;
   }
 }
 

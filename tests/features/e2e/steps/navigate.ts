@@ -12,6 +12,8 @@ export async function open(world: BoardWorld, path: string): Promise<void> {
  */
 export async function submit(world: BoardWorld, button: Locator): Promise<void> {
   const loaded = world.page.waitForEvent('load');
+  // When the button is missing, the click's error names it; the wait for a page that never comes stays quiet.
+  void loaded.catch(() => undefined);
   await button.click();
   await loaded;
 }

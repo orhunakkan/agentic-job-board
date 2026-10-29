@@ -94,7 +94,6 @@ When('the run stores scores for {titles}', function (this: BoardWorld, titles: s
       scoredAt: this.clock(),
     });
   }
-  repos.runs.addCounts(openRun(this), { jobsScored: titles.length });
 });
 
 When('the run finishes', function (this: BoardWorld) {
@@ -146,7 +145,6 @@ const RUN_COUNTS: Readonly<Record<string, string>> = {
   'listings received': 'listings_seen',
   'new jobs': 'jobs_new',
   'jobs seen again': 'jobs_seen_again',
-  'jobs scored': 'jobs_scored',
 };
 
 Then("the run's counts are:", function (this: BoardWorld, table: DataTable) {
@@ -175,3 +173,18 @@ Then('the run has a finish time', function (this: BoardWorld) {
   );
   assert.ok(run.finishedAt !== null, 'the run has not finished');
 });
+
+Then(
+  '{titles} have a score, and {titles} have none',
+  function (this: BoardWorld, scored: string[], unscored: string[]) {
+    const scoreOf = (title: string) =>
+      sqlRow(
+        this.database.db,
+        z.object({ score: z.number().nullable(), rubric: z.string().nullable() }),
+        'SELECT score, rubric_version AS rubric FROM jobs WHERE id = ?',
+        this.jobId(title),
+      );
+    for (const title of scored) assert.deepEqual(scoreOf(title), { score: 80, rubric: 'match-v1' }, title);
+    for (const title of unscored) assert.deepEqual(scoreOf(title), { score: null, rubric: null }, title);
+  },
+);

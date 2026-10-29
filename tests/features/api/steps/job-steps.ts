@@ -51,6 +51,7 @@ Then('the job is (still ){status}', async function (this: BoardWorld, status: St
 
 async function writeNote(world: BoardWorld, title: string, notes: string): Promise<void> {
   world.current = title;
+  world.note = notes;
   world.response = await (await world.app()).call('PATCH', `/api/jobs/${String(world.jobId(title))}`, { notes });
 }
 
@@ -68,9 +69,9 @@ When(
 Then('the note is saved', async function (this: BoardWorld) {
   const response = lastResponse(this);
   assert.equal(response.status, 200, response.text);
-  const written = JobDetailSchema.parse(response.body).notes;
-  assert.ok(written.length > 0);
-  assert.equal((await jobDetail(await this.app(), this.theJob())).notes, written);
+  // The whole note, as the scenario wrote it: none of it cut off.
+  assert.equal(JobDetailSchema.parse(response.body).notes, this.note);
+  assert.equal((await jobDetail(await this.app(), this.theJob())).notes, this.note);
 });
 
 Then('the note is refused', async function (this: BoardWorld) {
