@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from '@playwright/test';
 
 // NFR-06: the WCAG 2.2 AA rules every page is checked against (PLAN.md §8.1 type 9).
 
