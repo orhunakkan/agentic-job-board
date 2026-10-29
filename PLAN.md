@@ -1183,12 +1183,12 @@ reports/board-report-history.jsonl    ← the history behind the trends
 Definition of done: every quality gate in §8.4 is green, and also as one `npm run test:all`. Its report holds every test type in the table of task 3. The CI report job is green and holds every job's results. `package.json` gains no dependency, `git diff main -- src/` is empty, and in the existing test files lines were only added.
 
 **🛑 CP-14. The owner checks:**
-- [ ] `npm run test:unit`, then `npm run report`: board-report shows only the unit tests, each with its requirement
-- [ ] `npm run test:all`, then `npm run report`: one report with every test type (static, unit, integration, API, contract, security, coverage, E2E on four browsers, accessibility, smoke, BDD, performance), by type and by requirement; after a second run, the trends show both runs
-- [ ] The report looks modern and colourful in light and in dark, and works at phone width
-- [ ] In a run the agent makes fail on purpose (not committed): the command fails, the report is still built, and the failed test shows its error, its steps and its screenshot
-- [ ] The `board-report` artifact of one CI run holds the results of every job and opens from disk after download
-- [ ] `package.json` gains no dependency, only the scripts of task 10; `git diff main -- src` is empty; the existing test files show 0 deleted lines
+- [x] `npm run test:unit`, then `npm run report`: board-report shows only the unit tests, each with its requirement
+- [x] `npm run test:all`, then `npm run report`: one report with every test type (static, unit, integration, API, contract, security, coverage, E2E on four browsers, accessibility, smoke, BDD, performance), by type and by requirement; after a second run, the trends show both runs
+- [x] The report looks modern and colourful in light and in dark, and works at phone width
+- [x] In a run the agent makes fail on purpose (not committed): the command fails, the report is still built, and the failed test shows its error, its steps and its screenshot
+- [x] The `board-report` artifact of one CI run holds the results of every job and opens from disk after download
+- [x] `package.json` gains no dependency, only the scripts of task 10; `git diff main -- src` is empty; the existing test files show 0 deleted lines
 
 ---
 
@@ -1291,7 +1291,7 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 | CP-11 | LinkedIn search; Gmail track retired (DEC-041) | Approved | 2026-10-24 | scripts/search-linkedin.ts runs the owner's four searches (three mirrored alerts plus AI QA) with the saved session: last 7 days, newest first, remote, full-time and contract, 10 pages (DEC-047); parameter codes checked live. Gmail track removed, email endpoint 404, old email data still shown. Rubric match-v1 scores on descriptions; calibration 6/6 with Agilent changed to strong (DEC-050). Comparison with a week of alerts: 2/79 found newest-first, 16 of 30 open remote jobs with relevance (report in data/reports/). DEC-044 to DEC-050, DEF-015 to DEF-019. 1,297 tests green (1,145 Vitest, 152 Playwright); k6 p95 44.0 ms |
 | CP-12 | Find Now and Clear All (DEC-051) | Approved | 2026-10-25 | Clear All dismisses a view's New jobs after asking; Find Now runs `/find-jobs linkedin|other` headless (dontAsk, no MCP server, the command's tools only, no shell, one run at a time, log in data/find-now/). NFR-03 allows that one process (DEC-052). The view switch counts New jobs only (DEC-054). DEF-020 fixed (the command's write rule never matched; now `Edit(/data/find-jobs/**)`). E2E for the two actions on a server of their own (DEC-053). 1,343 tests green (1,189 Vitest, 154 Playwright); k6 p95 44.0 ms |
 | CP-13 | Cucumber BDD layer (DEC-056) | Approved | 2026-10-29 | @cucumber/cucumber 13.3.0 runs TypeScript steps natively; DEC-055 (dependencies may be added, listed in §7), DEC-057 (an app per scenario, smoke profile, Playwright timeouts). 21 integration, 46 API and 16 E2E scenarios on Chromium, Firefox, WebKit and Pixel 7, plus 4 @smoke: 131 scenario runs green; scripts/bdd.ts runs every profile even after a failure; traceability lists the scenarios per requirement. Independent review: 11 findings, all fixed. 1,482 tests green (1,328 Vitest, 154 Playwright); k6 p95 42.7 ms |
-| CP-14 | board-report for every test type (DEC-058) | Not started | — | Planned 2026-10-29: board-report, a report built in this repository with no new package, of the latest run for all ten test types and the BDD layer; `test:all` runs everything; CI builds one report per commit |
+| CP-14 | board-report for every test type (DEC-058) | Approved | 2026-10-29 | board-report built in this repository with no new package (DEC-059): one result format (Zod), Vitest and Playwright reporters, converters for Cucumber messages, tsc, ESLint, Prettier, npm audit, coverage thresholds and k6; every test:* script runs through scripts/board-report.ts; test:all, test:static and report added; NFR-13. The report opens from file:// under a strict CSP, light and dark, 375 px. `npm run test:all` twice: 2,006 tests green across 15 types, k6 p95 39.5 and 37.1 ms. CI run 40969564713 on the branch: 6 jobs green, the board-report artifact holds the same 2,006 results. One existing test line changed (traceability.test.ts, 12 → 13 NFRs) |
 
 ---
 
