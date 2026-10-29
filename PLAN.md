@@ -1196,11 +1196,11 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
   "test:e2e": "playwright test",
   "test:smoke": "playwright test --grep @smoke --project chromium",
   "test:perf": "k6 run tests/perf/load.ts",
-  "test:bdd": "npm run test:bdd:integration && npm run test:bdd:api && npm run test:bdd:e2e",      // Phase 13
-  "test:bdd:integration": "cucumber-js --profile integration",
-  "test:bdd:api": "cucumber-js --profile api",
-  "test:bdd:e2e": "cucumber-js --profile e2e-chromium && cucumber-js --profile e2e-firefox && cucumber-js --profile e2e-webkit && cucumber-js --profile e2e-mobile",
-  "test:bdd:smoke": "cucumber-js --profile smoke",
+  "test:bdd": "node scripts/bdd.ts",                                           // Phase 13: every profile, even after a failure
+  "test:bdd:integration": "node scripts/bdd.ts integration",
+  "test:bdd:api": "node scripts/bdd.ts api",
+  "test:bdd:e2e": "node scripts/bdd.ts e2e",                                   // the four browser profiles one after another
+  "test:bdd:smoke": "node scripts/bdd.ts smoke",
 
   "check": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage"   // DEC-021
 }

@@ -36,7 +36,7 @@ Node ≥ 24 running TypeScript natively (TS `~6.0.3`, `tsconfig.json` is strict)
 | `npm run test:coverage`                               | All Vitest projects at once, with the coverage thresholds (DEC-021)                                       |
 | `npm run test:e2e` / `test:smoke`                     | Playwright on chromium, firefox, webkit, mobile / `@smoke` on chromium                                    |
 | `npm run test:perf`                                   | k6 (`tests/perf/load.ts`); k6 is installed with `winget install k6`, not npm                              |
-| `npm run test:bdd`                                    | Cucumber scenarios: integration, API, then E2E on Chromium, Firefox, WebKit and Pixel 7 (Phase 13)        |
+| `npm run test:bdd`                                    | Every Cucumber profile: integration, API, E2E in 4 browsers; goes on after a failure (`scripts/bdd.ts`)   |
 | `npm run test:bdd:integration` … `test:bdd:e2e`       | One Cucumber suite; each profile is in `cucumber.json` and writes `reports/cucumber/<profile>.json/html`  |
 | `npm run test:bdd:smoke`                              | The `@smoke` scenarios on Chromium                                                                        |
 | `npm run audit`                                       | `npm audit --audit-level=high`                                                                            |

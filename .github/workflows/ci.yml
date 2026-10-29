@@ -114,8 +114,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+      # Runs every profile even when one fails (scripts/bdd.ts), so one failure doesn't hide the other suites.
       - run: npm run test:bdd
       - run: npm run test:bdd:smoke
+        if: ${{ !cancelled() }}
       - name: Upload the Cucumber reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
