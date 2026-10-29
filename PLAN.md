@@ -1065,11 +1065,11 @@ Tasks:
 Definition of done: every quality gate in §8.4 is green, including the new BDD gates and their CI job. Every scenario passes on every profile it belongs to. `git diff main -- src/` is empty, and in the existing test files lines were only added, apart from the dependency list (task 1).
 
 **🛑 CP-13. The owner checks:**
-- [ ] Opens three feature files in `tests/features/` (one integration, one API, one E2E) and understands each scenario without opening the step definitions
-- [ ] `npm run test:bdd` passes, and `reports/cucumber/` has an HTML report for each suite showing every feature, scenario and tag
-- [ ] `npm run test:bdd:smoke` runs only the `@smoke` scenarios, on Chromium
-- [ ] `docs/traceability.md` lists the scenarios under their requirements
-- [ ] `package.json` adds only `@cucumber/cucumber` and the `test:bdd*` scripts; `git diff main -- src` is empty; `git diff main --numstat -- tests/unit tests/integration tests/api tests/contract tests/e2e` shows 0 deleted lines (`tests/security/` changes only the dependency list)
+- [x] Opens three feature files in `tests/features/` (one integration, one API, one E2E) and understands each scenario without opening the step definitions
+- [x] `npm run test:bdd` passes, and `reports/cucumber/` has an HTML report for each suite showing every feature, scenario and tag
+- [x] `npm run test:bdd:smoke` runs only the `@smoke` scenarios, on Chromium
+- [x] `docs/traceability.md` lists the scenarios under their requirements
+- [x] `package.json` adds only `@cucumber/cucumber` and the `test:bdd*` scripts; `git diff main -- src` is empty; `git diff main --numstat -- tests/unit tests/integration tests/api tests/contract tests/e2e` shows 0 deleted lines (`tests/security/` changes only the dependency list)
 
 ---
 
@@ -1169,7 +1169,7 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 | CP-10 | Other job sources (DEC-035) | Approved | 2026-10-24 | Free feeds only (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Remote OK, Himalayas, Jobicy, Hacker News; Adzuna only with a free key). DEC-035 (free sources, no other Gmail alerts), DEC-036 (LinkedIn | Other sources views), DEC-037 (source + source_job_id, migration 003 verified on a copy of the real database), DEC-038 (same rubric, descriptions not read by the agent). 1,165 tests green (1,017 Vitest, 148 Playwright). First live run (run 4): 11 emails, 142 feed listings, 157 new jobs, all scored, no feed failures |
 | CP-11 | LinkedIn search; Gmail track retired (DEC-041) | Approved | 2026-10-24 | scripts/search-linkedin.ts runs the owner's four searches (three mirrored alerts plus AI QA) with the saved session: last 7 days, newest first, remote, full-time and contract, 10 pages (DEC-047); parameter codes checked live. Gmail track removed, email endpoint 404, old email data still shown. Rubric match-v1 scores on descriptions; calibration 6/6 with Agilent changed to strong (DEC-050). Comparison with a week of alerts: 2/79 found newest-first, 16 of 30 open remote jobs with relevance (report in data/reports/). DEC-044 to DEC-050, DEF-015 to DEF-019. 1,297 tests green (1,145 Vitest, 152 Playwright); k6 p95 44.0 ms |
 | CP-12 | Find Now and Clear All (DEC-051) | Approved | 2026-10-25 | Clear All dismisses a view's New jobs after asking; Find Now runs `/find-jobs linkedin|other` headless (dontAsk, no MCP server, the command's tools only, no shell, one run at a time, log in data/find-now/). NFR-03 allows that one process (DEC-052). The view switch counts New jobs only (DEC-054). DEF-020 fixed (the command's write rule never matched; now `Edit(/data/find-jobs/**)`). E2E for the two actions on a server of their own (DEC-053). 1,343 tests green (1,189 Vitest, 154 Playwright); k6 p95 44.0 ms |
-| CP-13 | Cucumber BDD layer (DEC-056) | Not started | — | Planned 2026-10-29: Cucumber scenarios for integration, API, E2E (four browsers) and smoke; no-new-dependencies rule removed (DEC-055) |
+| CP-13 | Cucumber BDD layer (DEC-056) | Approved | 2026-10-29 | @cucumber/cucumber 13.3.0 runs TypeScript steps natively; DEC-055 (dependencies may be added, listed in §7), DEC-057 (an app per scenario, smoke profile, Playwright timeouts). 21 integration, 46 API and 16 E2E scenarios on Chromium, Firefox, WebKit and Pixel 7, plus 4 @smoke: 131 scenario runs green; scripts/bdd.ts runs every profile even after a failure; traceability lists the scenarios per requirement. Independent review: 11 findings, all fixed. 1,482 tests green (1,328 Vitest, 154 Playwright); k6 p95 42.7 ms |
 
 ---
 
