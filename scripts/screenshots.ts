@@ -1,10 +1,13 @@
 // README screenshots (PLAN.md Phase 8 task 3), taken with Playwright from fake data only:
 //   node scripts/screenshots.ts
 // Starts the app on a temporary database seeded by scripts/seed.ts, so no real job, company or person appears.
+// board-report's screenshots come from the fixture results of tests/helpers/board-report-fixture.ts.
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { chromium } from '@playwright/test';
+import { buildFixtureReport } from '../tests/helpers/board-report-fixture.ts';
 import { startApp } from '../src/app.ts';
 import { createLogger } from '../src/logger.ts';
 import { seedDatabase } from './seed.ts';
@@ -39,6 +42,28 @@ try {
       deviceScaleFactor: shot.width < 500 ? 2 : 1,
     });
     await page.goto(`${app.url}${shot.path}`);
+    await page.screenshot({ path: new URL(`${shot.name}.png`, OUT).pathname.replace(/^\/([A-Za-z]:)/, '$1') });
+    await page.close();
+    console.log(`docs/screenshots/${shot.name}.png`);
+  }
+
+  // board-report (PLAN.md Phase 14) from fixture results, so no real test output appears either.
+  const report = join(dir, 'board-report');
+  const { index } = buildFixtureReport(report);
+  const failed = index.tests.find((test) => test.status === 'failed' && test.browser === 'Chromium');
+  const reportShots = [
+    { name: 'board-report', hash: '#/overview', dark: false },
+    { name: 'board-report-dark', hash: '#/overview', dark: true },
+    { name: 'board-report-test', hash: `#/test/${failed?.id ?? ''}`, dark: false },
+  ];
+  for (const shot of reportShots) {
+    const page = await browser.newPage({
+      viewport: { width: 1280, height: 900 },
+      colorScheme: shot.dark ? 'dark' : 'light',
+      reducedMotion: 'reduce', // no fade caught halfway
+    });
+    await page.goto(`${pathToFileURL(join(report, 'index.html')).href}${shot.hash}`);
+    await page.waitForLoadState('networkidle');
     await page.screenshot({ path: new URL(`${shot.name}.png`, OUT).pathname.replace(/^\/([A-Za-z]:)/, '$1') });
     await page.close();
     console.log(`docs/screenshots/${shot.name}.png`);

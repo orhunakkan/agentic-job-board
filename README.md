@@ -165,7 +165,19 @@ Ten test types, each run by one command. Every test name starts with the require
 ```bash
 npm run check                 # typecheck, lint, format, and every Vitest project with coverage thresholds
 npm run audit                 # npm audit --audit-level=high
+npm run test:static           # typecheck, lint, format and audit as one board-report step
+npm run test:all              # every test type in one run, then one report
 ```
+
+### board-report: one report for every test type
+
+Every test command writes **board-report**, the repository's own test report, to `reports/board-report/`, and `npm run report` opens it. It shows the latest run: `npm run test:unit` gives the unit tests, `npm run test:all` gives all ten types and the BDD layer together. Each test has its requirements, browser, tags and duration, its error with expected and actual side by side, its steps as Playwright, Cucumber or the tool reported them, its screenshots, videos and traces, and its console output; the history dots and trend charts show the last runs. It is built even when tests fail (the command still fails), opens straight from disk with no request to anywhere, and has no axe violations in light or dark. It is made with what is already installed: a Vitest reporter, a Playwright reporter, Cucumber's message output and converters for the static checks, coverage and k6 ([`scripts/board-report/`](scripts/board-report/README.md)). CI builds one per run from every job's results, as the `board-report` artifact.
+
+| Light                                                       | Dark                                                            |
+| ----------------------------------------------------------- | --------------------------------------------------------------- |
+| ![board-report overview](docs/screenshots/board-report.png) | ![board-report in dark](docs/screenshots/board-report-dark.png) |
+
+![A failed test in board-report: its error, steps, screenshot and video](docs/screenshots/board-report-test.png)
 
 ### BDD scenarios (Cucumber)
 
@@ -195,7 +207,7 @@ PORT=3000 DB_PATH=data/perf.db LOG_LEVEL=warn node src/main.ts    # in a second 
 npm run test:perf
 ```
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs static checks and unit tests, then every Vitest project with coverage (in the Playwright image, since the script tests open saved LinkedIn pages in Chromium), then E2E and smoke on four browser projects (plus the Clear All and Find Now tests on a server of their own, DEC-053) and, alongside, the Cucumber scenarios (uploaded as the `cucumber-report` artifact), then the k6 load test.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs static checks and unit tests, then every Vitest project with coverage (in the Playwright image, since the script tests open saved LinkedIn pages in Chromium), then E2E and smoke on four browser projects (plus the Clear All and Find Now tests on a server of their own, DEC-053) and, alongside, the Cucumber scenarios (uploaded as the `cucumber-report` artifact), then the k6 load test. A last job gathers every job's results into one board-report (the `board-report` artifact) and writes the totals and failures to the run's summary page.
 
 ## Privacy and safety
 

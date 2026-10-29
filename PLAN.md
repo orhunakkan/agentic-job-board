@@ -137,6 +137,7 @@ FR-02, FR-03, FR-05 and FR-12 cover the Gmail track and are retired at the end o
 | **NFR-09** | Every API input is validated with Zod; invalid input → 400 with a structured error. | API and contract tests |
 | **NFR-10** | Works on the owner's Windows 11 machine (Git Bash and PowerShell). | Manual check at every checkpoint |
 | **NFR-11** | Responsive down to 375 px wide. | Playwright mobile project |
+| **NFR-13** | Every test command writes one board-report of that run: every test type it ran, each test with its requirements, steps, errors and attachments. The report is built even when tests fail, and the command still fails. It opens from disk, makes no outside request and has no axe violations in light or dark (Phase 14, DEC-058). | Unit, contract, E2E and security tests of `scripts/board-report/`; CP-14 checks |
 
 ---
 
@@ -215,6 +216,9 @@ agentic-job-board/
 │  └─ schemas/                 ← api.ts, profile.ts (Zod)
 ├─ public/app.css
 ├─ scripts/                    ← seed.ts (perf data), parse-email.ts (dry-run tool)
+│  ├─ board-report.ts          ← every test command runs through it (Phase 14, §8.6)
+│  └─ board-report/            ← README.md, result-schema.ts, reporters/, converters/, labels.ts, history.ts,
+│                                categories.ts, environment.ts, steps.ts, command.ts, build/, client/, styles/, open.ts
 ├─ tests/
 │  ├─ fixtures/emails/*.txt    ← SANITIZED real alert emails
 │  ├─ unit/ integration/ api/ contract/ security/
@@ -223,7 +227,9 @@ agentic-job-board/
 │  │                             integration/ api/ e2e/ (*.feature + steps/; e2e/hooks.ts), smoke in e2e/smoke.feature
 │  └─ perf/                    ← k6 scripts + own tsconfig
 ├─ docs/                       ← test-strategy.md, api.md, decisions.md, traceability.md, defects.md
-└─ data/                       ← git-ignored: jobboard.db, resume.pdf
+├─ data/                       ← git-ignored: jobboard.db, resume.pdf
+└─ reports/                    ← git-ignored: test-results/<step>/ (a run's raw results), board-report/ (the report),
+                                 board-report-history.jsonl, cucumber/ (Phase 13)
 ```
 
 Add `data/` to `.gitignore` in Phase 0. Today only `*.db` is ignored, and `resume.pdf` must never be committed.
@@ -555,6 +561,7 @@ npm run test:e2e && npm run test:smoke                               # from Phas
 npm run test:perf                                                    # Phase 7
 npm run test:bdd && npm run test:bdd:smoke                           # from Phase 13
 npm run audit
+npm run test:all                                                     # from Phase 14: every type in one run, one board-report
 ```
 
 Forbidden ways to reach green: `.skip`, `.only`, deleting tests, weakening assertions, lowering thresholds, `@ts-ignore` or `eslint-disable` without a written reason, and stubbing the code under test. If a test can't pass, stop and report it.
@@ -579,6 +586,15 @@ Rules that keep the scenarios easy to read:
 - **Thin step definitions** that call the existing helpers (`tests/helpers/`, `tests/integration/helpers/`), so no plumbing hides in them.
 - **Every scenario starts from a clean app**: its own temporary database and, for API and E2E, its own app on a free port with the stand-in for Claude Code (`tests/helpers/fake-claude.ts`). No scenario depends on another.
 - **No way around a failure.** Undefined, pending or ambiguous steps fail the run. No `@skip`, `@wip` or `@only` tags, and no tag filter in the config except `@smoke` for the smoke run.
+
+### 8.6 Reporting: board-report (Phase 14, DEC-058)
+
+**board-report** is one report of every test type above and the BDD layer, built in this repository from each runner's own interfaces with no report package (`scripts/board-report/`, its README documents the result format). Every `test:*` script runs through `scripts/board-report.ts`, which empties `reports/test-results/`, runs its steps one after another (all of them, even after a failure), builds `reports/board-report/` even when tests failed, prints a short summary and exits with the tests' result.
+
+- **The report shows the latest run** (option 1): `npm run test:unit` gives a report of the unit tests, `npm run test:all` one of everything. Earlier runs show only as history (each test's last 20 results, trends of the last 50 runs, flaky tests).
+- **What it holds:** each test with its type, requirements, browser, tags, severity, duration, error with expected and actual, nested steps, attachments (screenshots, videos, traces, axe results, raw tool output), stdout and stderr, and the source line on GitHub.
+- **Where it is:** `reports/board-report/index.html`, opened from disk; `npm run report` opens it. CI builds one per run from every job's results and uploads it as the `board-report` artifact; the totals and failures are on the run's summary page.
+- **What stays:** Vitest's console output and coverage report, Playwright's list and HTML report, Cucumber's JSON and HTML reports, k6's summary, their CI artifacts and `docs/traceability.md`.
 
 ---
 
@@ -1251,6 +1267,7 @@ Definition of done: every quality gate in §8.4 is green, and also as one `npm r
 | DEC-056 | 2026-10-29 | A Cucumber BDD layer for test types 3, 4, 7 and 8 in full, on top of the existing tests (owner: those four types, nothing partial; plain English that is easy to read; Cucumber.js). One runner, `@cucumber/cucumber`, for all four; the E2E steps drive the Playwright that is already installed, on Chromium, Firefox, WebKit and Pixel 7, and smoke runs the `@smoke` scenarios on Chromium. Feature files under `tests/features/<type>/`, each with its own steps and Cucumber profile; scenarios tagged with their requirement and listed in a "BDD scenarios" table of the traceability matrix, below the existing table, which stays unchanged; one JSON and one HTML report per profile; its own CI job. The scenarios run outside Vitest, so they don't count toward coverage (agent, chosen over `playwright-bdd` for the browser types and over a homemade Gherkin runner) | The owner is applying for roles that ask for Cucumber and BDD experience, and wants a reader to understand the scenarios at once. One runner keeps one way of writing steps for every type. Profiles per folder let a sentence mean "call the service" in integration and "post the form" in API without clashing. Coverage stays measured by Vitest (DEC-021) |
 | DEC-057 | 2026-10-29 | How the BDD layer runs (agent, Phase 13). Every API and E2E scenario starts its own app in-process (`tests/helpers/test-app.ts`) on a free port, so Clear All and Find Now need no server of their own (unlike DEC-053). A seventh profile, `smoke`, runs the `@smoke` scenarios on Chromium and writes `reports/cucumber/smoke.json` and `smoke.html`; `scripts/traceability.ts` skips that report, since the Chromium run already counts those scenarios. In the E2E steps each Playwright action gives up after 10 seconds, and a step that posts a form waits for the next page to load. The steps put their jobs on the board through `tests/features/support/` rather than `tests/helpers/seed-board.ts` | A clean app per scenario is what §8.5 asks for, and it keeps the scenarios independent in every browser. A separate smoke profile keeps the Chromium report whole. Outside Playwright's runner an action waits forever, so a missing button ran into Cucumber's 30-second limit with no locator in the message; and in WebKit the next step's page change cut a form post short. seed-board.ts has fixed jobs, while a scenario needs its own jobs written in its table |
 | DEC-058 | 2026-10-29 | **board-report** gathers every test type into one report, built in this repository with no new package (owner: every test type connected, with as much detail as the runners give; a modern, colourful interface; details the owner doesn't want are dropped later). Each runner's own interfaces feed it: a Vitest reporter, a Playwright reporter, Cucumber's message output, and converters for the static checks, coverage and k6. **The report shows the latest run only** (owner, option 1): every test command starts from empty results, builds the report even when tests fail and keeps the failing exit code; `npm run test:all` is one run of every type; earlier runs show only as history and trends. Chosen over keeping each type's last results side by side (option 2). The existing reports, their CI artifacts and `docs/traceability.md` stay; the report opens from disk and doesn't open by itself, `npm run report` opens it; CI builds one report per commit from every job's results (agent) | The owner wants one place to see every test result, in a report of the repository's own with no third-party report package. A report that mixes runs of different times can show a pass for code that was never tested, so one report is one run. Keeping the old reports while board-report is new means nothing is lost if the owner later trims its details |
+| DEC-059 | 2026-10-29 | How board-report is built (agent, Phase 14). (1) The client's TypeScript files are stripped and joined, dependencies first, into one classic script, since browsers refuse module scripts from `file://`; so client files use named, relative, unrenamed imports and never declare a top-level name twice. (2) Reporters and converters label each result as they write it (`labels.ts`, with the step named by `BOARD_REPORT_STEP`). (3) A test that two steps ran (the unit tests in CI's static and coverage jobs) keeps its worst result. (4) A step whose command fails with no failing test to show for it, or that passes without writing a result, gets a broken result of its own. (5) A failed `expect` or assertion is `failed`; a timeout, an interrupted run or any other error is `broken`. (6) The "missed thresholds" category holds coverage thresholds as well as k6's. (7) ESLint ignores `reports/`, which now holds the built report's scripts. (8) The Playwright reporter is a default export, as Playwright loads it, with a written `eslint-disable`. (9) `vitest.config.ts` gains `includeTaskLocation` for the source lines. (10) `tests/unit/scripts/traceability.test.ts` counts 13 NFRs instead of 12 (one changed line) now that NFR-13 is in §3.2. (11) k6 results come from `--summary-export`, checked with k6 2.2.0 (a threshold's `true` means crossed). (12) CI keeps the history in the Actions cache, one entry per run | (1) Checked in task 1: module scripts fail from disk in Chromium, classic ones load in all three engines. (3) A failure must never be hidden by a pass of the same test. (4) A run that couldn't start, or a reporter that lost its results, must never look green. (6) Both are a measured value below its limit. (7) ESLint doesn't read `.gitignore`, and linted the report's 600 data files. (10) The test checks that the list matches §3, which gained NFR-13; it is not weakened |
 
 ---
 
@@ -1292,20 +1309,26 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
   "format:check": "prettier --check .",
   "audit": "npm audit --audit-level=high",
 
-  "test:unit": "vitest run --project unit",
-  "test:coverage": "vitest run --coverage",                                     // DEC-021
-  "test:integration": "vitest run --project integration",
-  "test:api": "vitest run --project api",
-  "test:contract": "vitest run --project contract",
-  "test:security": "vitest run --project security",
-  "test:e2e": "playwright test",
-  "test:smoke": "playwright test --grep @smoke --project chromium",
-  "test:perf": "k6 run tests/perf/load.ts",
-  "test:bdd": "node scripts/bdd.ts",                                           // Phase 13: every profile, even after a failure
-  "test:bdd:integration": "node scripts/bdd.ts integration",
-  "test:bdd:api": "node scripts/bdd.ts api",
-  "test:bdd:e2e": "node scripts/bdd.ts e2e",                                   // the four browser profiles one after another
-  "test:bdd:smoke": "node scripts/bdd.ts smoke",
+  // Phase 14 (DEC-058): every test script runs through scripts/board-report.ts, which runs the step named
+  // (until then: vitest run --project unit, vitest run --coverage, playwright test, k6 run tests/perf/load.ts,
+  // node scripts/bdd.ts …) and then builds reports/board-report/.
+  "test:static": "node scripts/board-report.ts static",                        // tsc ×2, ESLint, Prettier, npm audit
+  "test:unit": "node scripts/board-report.ts unit",
+  "test:coverage": "node scripts/board-report.ts coverage",                    // every Vitest project, DEC-021
+  "test:integration": "node scripts/board-report.ts integration",
+  "test:api": "node scripts/board-report.ts api",
+  "test:contract": "node scripts/board-report.ts contract",
+  "test:security": "node scripts/board-report.ts security",
+  "test:e2e": "node scripts/board-report.ts e2e",
+  "test:smoke": "node scripts/board-report.ts smoke",                          // @smoke on chromium
+  "test:perf": "node scripts/board-report.ts perf",                            // k6 against the app you started
+  "test:bdd": "node scripts/board-report.ts bdd",                              // integration, API, E2E; scripts/bdd.ts per suite
+  "test:bdd:integration": "node scripts/board-report.ts bdd-integration",
+  "test:bdd:api": "node scripts/board-report.ts bdd-api",
+  "test:bdd:e2e": "node scripts/board-report.ts bdd-e2e",                      // the four browser profiles one after another
+  "test:bdd:smoke": "node scripts/board-report.ts bdd-smoke",
+  "test:all": "node scripts/board-report.ts all",                              // every type, k6 on its own seeded app
+  "report": "node scripts/board-report/open.ts",                               // opens the latest board-report
 
   "check": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage"   // DEC-021
 }
@@ -1329,3 +1352,5 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 | Feature file | A `.feature` file in `tests/features/` that describes one area of the board in Gherkin |
 | Scenario | One example in a feature file, written as `Given` (the starting state), `When` (what the owner does) and `Then` (what should happen) |
 | Step definition | The TypeScript code that runs one Gherkin sentence; kept short, it calls the existing test helpers |
+| board-report | The repository's own test report of the latest run, with every test type in it (Phase 14, §8.6); `reports/board-report/index.html`, opened with `npm run report` |
+| Test results | The raw results of a run, one JSON file per test in board-report's result format, under `reports/test-results/<step>/`; board-report is built from them |
