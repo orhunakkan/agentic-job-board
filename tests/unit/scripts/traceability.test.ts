@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildMatrix,
   cucumberCases,
+  CucumberReportError,
+  cucumberScenarios,
   playwrightCases,
   REQUIREMENTS,
   requirementIds,
@@ -179,6 +181,56 @@ describe('scripts/traceability.ts: the BDD scenarios (Phase 13)', () => {
   it('NFR-02: the requirement reads as PLAN.md §3.2 has it since DEC-055', () => {
     expect(REQUIREMENTS.find((requirement) => requirement.id === 'NFR-02')?.title).toBe(
       'Every npm dependency listed in PLAN.md §7, no overrides, npm audit passes',
+    );
+  });
+});
+
+describe('scripts/traceability.ts: which Cucumber reports it trusts', () => {
+  const scenario = (name: string) => ({
+    name,
+    tags: [{ name: '@FR-07' }],
+    steps: [{ result: { status: 'passed' } }],
+  });
+  const report = (uri: string, ...names: string[]) =>
+    JSON.stringify([{ uri, name: 'A feature', tags: [], elements: names.map(scenario) }]);
+  const e2e = report('tests/features/e2e/a.feature', 'One', 'Two');
+  const complete = () =>
+    new Map([
+      ['integration.json', report('tests/features/integration/a.feature', 'One')],
+      ['api.json', report('tests/features/api/a.feature', 'One')],
+      ['e2e-chromium.json', e2e],
+      ['e2e-firefox.json', e2e],
+      ['e2e-webkit.json', e2e],
+      ['e2e-mobile.json', e2e],
+      ['smoke.json', report('tests/features/e2e/a.feature', 'One')],
+    ]);
+
+  it('NFR-09: reads every profile’s report but smoke’s, whose scenarios the Chromium run already counts', () => {
+    expect(cucumberScenarios(complete())).toHaveLength(10);
+  });
+
+  it('NFR-09: with no Cucumber report at all there are no scenarios', () => {
+    expect(cucumberScenarios(new Map())).toEqual([]);
+  });
+
+  it('NFR-09: refuses a set of reports with a profile missing', () => {
+    const reports = complete();
+    reports.delete('e2e-webkit.json');
+
+    expect(() => cucumberScenarios(reports)).toThrow(CucumberReportError);
+    expect(() => cucumberScenarios(reports)).toThrow(/e2e-webkit.json is missing.*npm run test:bdd/);
+  });
+
+  it('NFR-09: refuses an empty or unreadable report, naming it', () => {
+    expect(() => cucumberScenarios(complete().set('api.json', ''))).toThrow(/api.json is empty/);
+    expect(() => cucumberScenarios(complete().set('api.json', '[{"uri":'))).toThrow(/api.json can't be read/);
+  });
+
+  it('NFR-09: refuses E2E reports that list different scenarios, as a filtered run leaves them', () => {
+    const filtered = report('tests/features/e2e/a.feature', 'One');
+
+    expect(() => cucumberScenarios(complete().set('e2e-firefox.json', filtered))).toThrow(
+      /e2e-firefox.json lists other scenarios than e2e-chromium.json/,
     );
   });
 });

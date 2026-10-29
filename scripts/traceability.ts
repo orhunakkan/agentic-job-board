@@ -345,17 +345,56 @@ ${details.join('\n\n')}
 `;
 }
 
+export class CucumberReportError extends Error {
+  override name = 'CucumberReportError';
+}
+
+/** The profiles of `npm run test:bdd`; the smoke run's scenarios are the @smoke ones of e2e-chromium. */
+const BDD_PROFILES = ['integration', 'api', 'e2e-chromium', 'e2e-firefox', 'e2e-webkit', 'e2e-mobile'];
+
 /**
- * Every Cucumber profile's JSON report in reports/cucumber/. The smoke run is left out: its scenarios are the
- * @smoke ones of the Chromium run, which are already counted.
+ * The scenarios of one complete `npm run test:bdd`, from the reports' text by file name. No report at all gives no
+ * scenarios. A missing, empty or unreadable report, or E2E reports that list different scenarios (a run filtered by
+ * tag or name rewrites its profile's report), would make the matrix wrong, so they are refused.
  */
-function readCucumberReports(read: (path: string) => unknown): ScenarioCase[] {
+export function cucumberScenarios(reports: ReadonlyMap<string, string>): ScenarioCase[] {
+  const files = BDD_PROFILES.map((profile) => `${profile}.json`);
+  if (!files.some((file) => reports.has(file))) return [];
+  const rerun = 'run `npm run test:bdd` again';
+
+  const byProfile = BDD_PROFILES.map((profile) => {
+    const file = `${profile}.json`;
+    const text = reports.get(file);
+    if (text === undefined) throw new CucumberReportError(`reports/cucumber/${file} is missing: ${rerun}`);
+    if (text.trim() === '') throw new CucumberReportError(`reports/cucumber/${file} is empty: ${rerun}`);
+    try {
+      return { file, cases: cucumberCases(JSON.parse(text), profile) };
+    } catch (error) {
+      throw new CucumberReportError(`reports/cucumber/${file} can't be read (${String(error)}): ${rerun}`);
+    }
+  });
+
+  const listed = (cases: readonly ScenarioCase[]) => cases.map((test) => `${test.feature}: ${test.name}`).join('\n');
+  const [chromium, ...others] = byProfile.filter(({ file }) => file.startsWith('e2e-'));
+  for (const report of others) {
+    if (chromium !== undefined && listed(report.cases) !== listed(chromium.cases)) {
+      throw new CucumberReportError(
+        `reports/cucumber/${report.file} lists other scenarios than ${chromium.file}, as a filtered run leaves it: ${rerun}`,
+      );
+    }
+  }
+  return byProfile.flatMap(({ cases }) => cases);
+}
+
+/** Every JSON report in reports/cucumber/, by file name. */
+function readCucumberReports(): Map<string, string> {
   const dir = new URL('../reports/cucumber/', import.meta.url);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((name) => name.endsWith('.json') && name !== 'smoke.json')
-    .toSorted()
-    .flatMap((name) => cucumberCases(read(`reports/cucumber/${name}`), name.slice(0, -'.json'.length)));
+  if (!existsSync(dir)) return new Map();
+  return new Map(
+    readdirSync(dir)
+      .filter((name) => name.endsWith('.json'))
+      .map((name) => [name, readFileSync(new URL(name, dir), 'utf8')]),
+  );
 }
 
 if (import.meta.main) {
@@ -368,7 +407,7 @@ if (import.meta.main) {
     ...vitestCases(read('reports/vitest.json'), root),
     ...playwrightCases(read('reports/playwright.json')),
   ];
-  const scenarios = readCucumberReports(read);
+  const scenarios = cucumberScenarios(readCucumberReports());
   const markdown = buildMatrix(cases, new Date().toISOString().slice(0, 10), k6, scenarios);
   writeFileSync(new URL('../docs/traceability.md', import.meta.url), markdown);
   console.log(

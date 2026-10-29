@@ -69,6 +69,9 @@ tests/features/
 
 ## Running the scenarios
 
+The `test:bdd` scripts go through `scripts/bdd.ts`, which runs every profile of the suites asked for, one after
+another, and keeps going when one fails, so a run always reports on every suite; it fails at the end if any did.
+
 ```bash
 npm run test:bdd                 # integration, API, then E2E on the four browsers
 npm run test:bdd:integration     # one suite
@@ -93,11 +96,16 @@ narrow the run; tags and names do. Without a profile no report is written. The E
 their profile, so run E2E scenarios through a profile with `--tags` or `--name`. The E2E profiles need the Playwright
 browsers (`npx playwright install`), like `npm run test:e2e`.
 
+A run with `--profile` and `--tags` or `--name` rewrites that profile's report with only the scenarios it ran, so
+run `npm run test:bdd` again before `node scripts/traceability.ts`.
+
 ## Reports
 
 Every profile writes a JSON and an HTML report to `reports/cucumber/<profile>.json` and `.html` (git-ignored). Open the
 HTML report in a browser to see every feature, scenario, step and tag; a failed E2E scenario keeps a screenshot of the
-page. `node scripts/traceability.ts` reads the JSON reports for `docs/traceability.md`. In CI, the `bdd` job uploads
+page. `scripts/bdd.ts` removes a profile's old reports before running it, so a report on disk is always from that
+profile's latest run. `node scripts/traceability.ts` reads the JSON reports for `docs/traceability.md`, and refuses a
+missing, empty or unreadable report, or E2E reports that list different scenarios (what a filtered run leaves). In CI, the `bdd` job uploads
 the folder as the `cucumber-report` artifact.
 
 ## Writing a scenario
