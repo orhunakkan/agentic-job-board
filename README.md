@@ -167,6 +167,26 @@ npm run check                 # typecheck, lint, format, and every Vitest projec
 npm run audit                 # npm audit --audit-level=high
 ```
 
+### BDD scenarios (Cucumber)
+
+Types 3, 4, 7 and 8 also have [Cucumber](https://github.com/cucumber/cucumber-js) scenarios in [`tests/features/`](tests/features/README.md): the requirements written as plain-English stories in Gherkin, so anyone can read what the board does without opening the code. For example, from [`tests/features/api/clear-all.feature`](tests/features/api/clear-all.feature):
+
+```gherkin
+Scenario: Clear All says how many jobs it dismissed
+  When I press Clear All on the LinkedIn view
+  Then the board says "Dismissed 2 new LinkedIn jobs. Each one can be restored from Dismissed."
+  And the New tab of the LinkedIn view is empty
+```
+
+Every scenario is tagged with its requirement (`@FR-21`), starts from a clean app, and is listed under that requirement in [`docs/traceability.md`](docs/traceability.md). The integration scenarios call the services on a temporary database, the API scenarios drive the real app over HTTP, and the E2E scenarios use the board in Chromium, Firefox, WebKit and Pixel 7 through Playwright. They run on top of the Vitest and Playwright tests above, which keep the edge cases.
+
+```bash
+npm run test:bdd              # integration, API, then E2E on the four browsers
+npm run test:bdd:smoke        # the @smoke scenarios on Chromium
+```
+
+Each suite writes a JSON and an HTML report to `reports/cucumber/`.
+
 Coverage is measured over every Vitest project together: ≥ 85 % of lines overall and ≥ 95 % in `src/domain`, `src/ingest` and `src/sources` (currently about 97 %). The load test needs a seeded database and a running app:
 
 ```bash
@@ -175,7 +195,7 @@ PORT=3000 DB_PATH=data/perf.db LOG_LEVEL=warn node src/main.ts    # in a second 
 npm run test:perf
 ```
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs static checks and unit tests, then every Vitest project with coverage (in the Playwright image, since the script tests open saved LinkedIn pages in Chromium), then E2E and smoke on four browser projects (plus the Clear All and Find Now tests on a server of their own, DEC-053), then the k6 load test.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs static checks and unit tests, then every Vitest project with coverage (in the Playwright image, since the script tests open saved LinkedIn pages in Chromium), then E2E and smoke on four browser projects (plus the Clear All and Find Now tests on a server of their own, DEC-053) and, alongside, the Cucumber scenarios (uploaded as the `cucumber-report` artifact), then the k6 load test.
 
 ## Privacy and safety
 

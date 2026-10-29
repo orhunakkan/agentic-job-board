@@ -36,6 +36,9 @@ Node ≥ 24 running TypeScript natively (TS `~6.0.3`, `tsconfig.json` is strict)
 | `npm run test:coverage`                               | All Vitest projects at once, with the coverage thresholds (DEC-021)                                       |
 | `npm run test:e2e` / `test:smoke`                     | Playwright on chromium, firefox, webkit, mobile / `@smoke` on chromium                                    |
 | `npm run test:perf`                                   | k6 (`tests/perf/load.ts`); k6 is installed with `winget install k6`, not npm                              |
+| `npm run test:bdd`                                    | Cucumber scenarios: integration, API, then E2E on Chromium, Firefox, WebKit and Pixel 7 (Phase 13)        |
+| `npm run test:bdd:integration` … `test:bdd:e2e`       | One Cucumber suite; each profile is in `cucumber.json` and writes `reports/cucumber/<profile>.json/html`  |
+| `npm run test:bdd:smoke`                              | The `@smoke` scenarios on Chromium                                                                        |
 | `npm run audit`                                       | `npm audit --audit-level=high`                                                                            |
 | `npm start` / `npm run dev`                           | App on `127.0.0.1:$PORT` (needs `.env`); `start` first signs in to LinkedIn (DEC-033)                     |
 | `node scripts/seed.ts --count 5000 --db data/perf.db` | Fake jobs for the load test and screenshots; refuses a non-empty database                                 |
@@ -52,7 +55,8 @@ Node ≥ 24 running TypeScript natively (TS `~6.0.3`, `tsconfig.json` is strict)
 - Errors are typed classes (`class NotFoundError extends Error`), not bare strings or objects.
 - Relative imports end in `.ts` (`import { x } from './y.ts'`). Node runs the sources directly.
 - Tests import `describe`/`it`/`expect` from `vitest` explicitly. Name tests after the requirement they cover, e.g. `it('FR-04: …')`.
-- Test files: `tests/<project>/**/*.test.ts` for Vitest, `tests/e2e/**/*.spec.ts` for Playwright.
+- Test files: `tests/<project>/**/*.test.ts` for Vitest, `tests/e2e/**/*.spec.ts` for Playwright, `tests/features/<integration|api|e2e>/*.feature` with their `steps/` for Cucumber (PLAN.md §8.5).
+- Feature files are plain English in the board's own words: no URLs, JSON, SQL, selectors or code names (those go in the step definitions). Each one opens with "As the owner, I want …, so that …", and every feature or scenario carries its requirement tag (`@FR-21`). No `@skip`, `@wip` or `@only` tags; `tests/contract/feature-files.test.ts` checks this.
 - `console` is banned in `src/` (use the logger from Phase 4). It's fine in `scripts/` and tests.
 
 ## Tool details

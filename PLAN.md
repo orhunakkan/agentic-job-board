@@ -196,6 +196,8 @@ agentic-job-board/
 ├─ README.md
 ├─ package.json / package-lock.json / tsconfig.json / tsconfig.build.json
 ├─ eslint.config.ts / vitest.config.ts / playwright.config.ts / .prettierrc.json
+├─ cucumber.json               ← one Cucumber profile per BDD suite (Phase 13): integration, api, e2e-chromium,
+│                                e2e-firefox, e2e-webkit, e2e-mobile, smoke
 ├─ .env.example                ← committed; .env is git-ignored
 ├─ agent/
 │  ├─ find-jobs.md             ← full agent procedure (versioned, reviewed)
@@ -217,6 +219,8 @@ agentic-job-board/
 │  ├─ fixtures/emails/*.txt    ← SANITIZED real alert emails
 │  ├─ unit/ integration/ api/ contract/ security/
 │  ├─ e2e/                     ← Playwright (incl. @smoke and a11y)
+│  ├─ features/                ← Cucumber BDD (Phase 13): README.md, support/ (World, parameter types),
+│  │                             integration/ api/ e2e/ (*.feature + steps/; e2e/hooks.ts), smoke in e2e/smoke.feature
 │  └─ perf/                    ← k6 scripts + own tsconfig
 ├─ docs/                       ← test-strategy.md, api.md, decisions.md, traceability.md, defects.md
 └─ data/                       ← git-ignored: jobboard.db, resume.pdf
@@ -1142,6 +1146,7 @@ Definition of done: every quality gate in §8.4 is green, including the new BDD 
 | DEC-054 | 2026-10-25 | The **LinkedIn \| Other sources** switch shows each view's number of **New** jobs, not all its jobs; the status tabs keep their own counts (owner, Phase 12). Screen readers hear "new" after the number | After Clear All the switch still showed every dismissed job (LinkedIn 79, Other sources 142), so it didn't say whether anything was left to look at. The number that matters on the switch is what is new |
 | DEC-055 | 2026-10-29 | The no-new-dependencies rule is removed (owner). Packages may be added; §7 lists every one with the phase that added it, and NFR-02 now checks that `package.json` matches that list, has no `overrides` and passes `npm audit`. Overrides still need the owner's approval. Replaces the dependency rule in §0, §7 and CLAUDE.md, and the "a new dependency seems unavoidable" stop in `docs/test-strategy.md` | The owner wants the BDD layer to use real Cucumber (Phase 13), which the rule would have blocked. Keeping the list and the audit keeps the supply chain visible in a public repository |
 | DEC-056 | 2026-10-29 | A Cucumber BDD layer for test types 3, 4, 7 and 8 in full, on top of the existing tests (owner: those four types, nothing partial; plain English that is easy to read; Cucumber.js). One runner, `@cucumber/cucumber`, for all four; the E2E steps drive the Playwright that is already installed, on Chromium, Firefox, WebKit and Pixel 7, and smoke runs the `@smoke` scenarios on Chromium. Feature files under `tests/features/<type>/`, each with its own steps and Cucumber profile; scenarios tagged with their requirement and listed in a "BDD scenarios" table of the traceability matrix, below the existing table, which stays unchanged; one JSON and one HTML report per profile; its own CI job. The scenarios run outside Vitest, so they don't count toward coverage (agent, chosen over `playwright-bdd` for the browser types and over a homemade Gherkin runner) | The owner is applying for roles that ask for Cucumber and BDD experience, and wants a reader to understand the scenarios at once. One runner keeps one way of writing steps for every type. Profiles per folder let a sentence mean "call the service" in integration and "post the form" in API without clashing. Coverage stays measured by Vitest (DEC-021) |
+| DEC-057 | 2026-10-29 | How the BDD layer runs (agent, Phase 13). Every API and E2E scenario starts its own app in-process (`tests/helpers/test-app.ts`) on a free port, so Clear All and Find Now need no server of their own (unlike DEC-053). A seventh profile, `smoke`, runs the `@smoke` scenarios on Chromium and writes `reports/cucumber/smoke.json|html`; `scripts/traceability.ts` skips that report, since the Chromium run already counts those scenarios. In the E2E steps each Playwright action gives up after 10 seconds, and a step that posts a form waits for the next page to load | A clean app per scenario is what §8.5 asks for, and it keeps the scenarios independent in every browser. A separate smoke profile keeps the Chromium report whole. Outside Playwright's runner an action waits forever, so a missing button ran into Cucumber's 30-second limit with no locator in the message; and in WebKit the next step's page change cut a form post short |
 
 ---
 
@@ -1191,6 +1196,11 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
   "test:e2e": "playwright test",
   "test:smoke": "playwright test --grep @smoke --project chromium",
   "test:perf": "k6 run tests/perf/load.ts",
+  "test:bdd": "npm run test:bdd:integration && npm run test:bdd:api && npm run test:bdd:e2e",      // Phase 13
+  "test:bdd:integration": "cucumber-js --profile integration",
+  "test:bdd:api": "cucumber-js --profile api",
+  "test:bdd:e2e": "cucumber-js --profile e2e-chromium && cucumber-js --profile e2e-firefox && cucumber-js --profile e2e-webkit && cucumber-js --profile e2e-mobile",
+  "test:bdd:smoke": "cucumber-js --profile smoke",
 
   "check": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage"   // DEC-021
 }
