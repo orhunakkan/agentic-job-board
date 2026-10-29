@@ -22,7 +22,7 @@ describe('dependencies (NFR-02)', () => {
     expect(Object.keys(packageJson.dependencies)).toEqual(['zod']);
   });
 
-  it('NFR-02: the dev dependencies are exactly the approved list', () => {
+  it('NFR-02: the dev dependencies are exactly the list in PLAN.md §7', () => {
     expect(Object.keys(packageJson.devDependencies).sort()).toEqual(
       [
         'typescript',
@@ -37,6 +37,7 @@ describe('dependencies (NFR-02)', () => {
         '@playwright/test',
         '@axe-core/playwright',
         '@types/k6',
+        '@cucumber/cucumber',
       ].sort(),
     );
     expect(packageJson.devDependencies['typescript']).toBe('~6.0.3');
