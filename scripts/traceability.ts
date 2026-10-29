@@ -2,8 +2,9 @@
 // name it (test names start with the IDs they cover, e.g. "FR-07, FR-10: …"), and how those tests did.
 //   npx vitest run --reporter=json --outputFile=reports/vitest.json
 //   PLAYWRIGHT_JSON_OUTPUT_NAME=reports/playwright.json npx playwright test --reporter=json
+//   npm run test:bdd          (Cucumber writes reports/cucumber/<profile>.json, PLAN.md Phase 13)
 //   node scripts/traceability.ts [--k6 "<p95 summary>"]
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
 
 export interface Requirement {
@@ -67,7 +68,11 @@ export const REQUIREMENTS: readonly Requirement[] = [
     also: 'Tests run a stand-in for Claude Code; a real Find Now run is checked by hand at CP-12',
   },
   { id: 'NFR-01', title: 'Localhost only' },
-  { id: 'NFR-02', title: 'No new npm dependencies', also: '`npm run audit` in CI' },
+  {
+    id: 'NFR-02',
+    title: 'Every npm dependency listed in PLAN.md §7, no overrides, npm audit passes',
+    also: '`npm run audit` in CI',
+  },
   { id: 'NFR-03', title: 'The app server makes no outbound requests' },
   {
     id: 'NFR-04',
@@ -157,6 +162,59 @@ export function playwrightCases(report: unknown): TestCase[] {
   return suites.flatMap(walk);
 }
 
+/** One Cucumber scenario in one profile's run (PLAN.md §8.5). */
+export interface ScenarioCase {
+  feature: string;
+  name: string;
+  /** integration, api or e2e: the folder under tests/features/. */
+  suite: string;
+  /** The E2E profile's browser; null for the suites that run on Node. */
+  browser: string | null;
+  /** The requirements the scenario is tagged with (@FR-21), its feature's tags included. */
+  requirements: string[];
+  passed: boolean;
+}
+
+const CucumberReport = z.array(
+  z.object({
+    uri: z.string(),
+    elements: z.array(
+      z.object({
+        name: z.string(),
+        tags: z.array(z.object({ name: z.string() })),
+        steps: z.array(z.object({ result: z.object({ status: z.string() }) })),
+      }),
+    ),
+  }),
+);
+
+const BROWSER_OF_PROFILE: Readonly<Record<string, string>> = {
+  'e2e-chromium': 'Chromium',
+  'e2e-firefox': 'Firefox',
+  'e2e-webkit': 'WebKit',
+  'e2e-mobile': 'Pixel 7',
+};
+
+const REQUIREMENT_TAG = /^@(N?FR-\d{2})$/;
+
+/**
+ * One case per scenario in a profile's JSON report. A scenario passes when every step and hook passed, so an
+ * undefined, pending or skipped step counts as failing, as `strict` has it.
+ */
+export function cucumberCases(report: unknown, profile: string): ScenarioCase[] {
+  return CucumberReport.parse(report).flatMap((feature) => {
+    const path = feature.uri.replaceAll('\\', '/');
+    return feature.elements.map((scenario) => ({
+      feature: path,
+      name: scenario.name,
+      suite: /^tests\/features\/([^/]+)\//.exec(path)?.[1] ?? 'unknown',
+      browser: BROWSER_OF_PROFILE[profile] ?? null,
+      requirements: scenario.tags.flatMap((tag) => REQUIREMENT_TAG.exec(tag.name)?.[1] ?? []),
+      passed: scenario.steps.every((step) => step.result.status === 'passed'),
+    }));
+  });
+}
+
 function relative(path: string, root: string): string {
   const normalized = path.replaceAll('\\', '/');
   const base = root.replaceAll('\\', '/');
@@ -165,7 +223,12 @@ function relative(path: string, root: string): string {
 
 // --- The matrix --------------------------------------------------------------------------------------------
 
-export function buildMatrix(cases: readonly TestCase[], generatedAt: string, k6: string | null): string {
+export function buildMatrix(
+  cases: readonly TestCase[],
+  generatedAt: string,
+  k6: string | null,
+  scenarios?: readonly ScenarioCase[],
+): string {
   const byRequirement = new Map(REQUIREMENTS.map((requirement) => [requirement.id, [] as TestCase[]]));
   for (const test of cases) {
     for (const id of requirementIds(test.name)) byRequirement.get(id)?.push(test);
@@ -224,7 +287,114 @@ ${rows.join('\n')}
 ## Tests per requirement
 
 ${details.join('\n\n')}
+${scenarios === undefined ? '' : bddSection(scenarios)}`;
+}
+
+/** The Cucumber scenarios under each requirement, below the matrix (PLAN.md Phase 13 task 9). */
+function bddSection(scenarios: readonly ScenarioCase[]): string {
+  const intro = `
+## BDD scenarios
+
+The Cucumber scenarios in \`tests/features/\` (PLAN.md §8.5), from the JSON reports in \`reports/cucumber/\`. A scenario counts for every requirement it is tagged with; the E2E scenarios count once per browser (Chromium, Firefox, WebKit, Pixel 7). They run outside Vitest, so they don't count toward coverage (DEC-056).
 `;
+  if (scenarios.length === 0) return `${intro}\nNo Cucumber report was found: run \`npm run test:bdd\` first.\n`;
+
+  const covered = REQUIREMENTS.flatMap((requirement) => {
+    const runs = scenarios.filter((scenario) => scenario.requirements.includes(requirement.id));
+    return runs.length === 0 ? [] : [{ requirement, runs }];
+  });
+  const failed = scenarios.filter((scenario) => !scenario.passed).length;
+
+  const rows = covered.map(({ requirement, runs }) => {
+    const passed = runs.filter((scenario) => scenario.passed).length;
+    const result = passed === runs.length ? '✅ pass' : `❌ ${String(runs.length - passed)} failing`;
+    return `| ${requirement.id} | ${requirement.title} | ${String(runs.length)} | ${String(passed)} | ${result} |`;
+  });
+
+  const details = covered.map(({ requirement, runs }) => {
+    const lines = runs
+      .toSorted(
+        (left, right) =>
+          left.feature.localeCompare(right.feature) ||
+          left.name.localeCompare(right.name) ||
+          (left.browser ?? '').localeCompare(right.browser ?? ''),
+      )
+      .map((scenario) => {
+        const browser = scenario.browser === null ? '' : ` [${scenario.browser}]`;
+        return `- ${scenario.passed ? '✅' : '❌'} \`${scenario.feature}\`: ${scenario.name.replaceAll('|', '\\|')}${browser}`;
+      });
+    return [
+      `<details><summary><b>${requirement.id}</b> ${requirement.title} (${String(runs.length)} scenarios)</summary>`,
+      '',
+      ...lines,
+      '',
+      '</details>',
+    ].join('\n');
+  });
+
+  return `${intro}
+**${String(scenarios.length)} scenario runs, ${String(failed)} failing.**
+
+| ID | Requirement | Scenarios | Passing | Result |
+| --- | --- | --- | --- | --- |
+${rows.join('\n')}
+
+### Scenarios per requirement
+
+${details.join('\n\n')}
+`;
+}
+
+export class CucumberReportError extends Error {
+  override name = 'CucumberReportError';
+}
+
+/** The profiles of `npm run test:bdd`; the smoke run's scenarios are the @smoke ones of e2e-chromium. */
+const BDD_PROFILES = ['integration', 'api', 'e2e-chromium', 'e2e-firefox', 'e2e-webkit', 'e2e-mobile'];
+
+/**
+ * The scenarios of one complete `npm run test:bdd`, from the reports' text by file name. No report at all gives no
+ * scenarios. A missing, empty or unreadable report, or E2E reports that list different scenarios (a run filtered by
+ * tag or name rewrites its profile's report), would make the matrix wrong, so they are refused.
+ */
+export function cucumberScenarios(reports: ReadonlyMap<string, string>): ScenarioCase[] {
+  const files = BDD_PROFILES.map((profile) => `${profile}.json`);
+  if (!files.some((file) => reports.has(file))) return [];
+  const rerun = 'run `npm run test:bdd` again';
+
+  const byProfile = BDD_PROFILES.map((profile) => {
+    const file = `${profile}.json`;
+    const text = reports.get(file);
+    if (text === undefined) throw new CucumberReportError(`reports/cucumber/${file} is missing: ${rerun}`);
+    if (text.trim() === '') throw new CucumberReportError(`reports/cucumber/${file} is empty: ${rerun}`);
+    try {
+      return { file, cases: cucumberCases(JSON.parse(text), profile) };
+    } catch (error) {
+      throw new CucumberReportError(`reports/cucumber/${file} can't be read (${String(error)}): ${rerun}`);
+    }
+  });
+
+  const listed = (cases: readonly ScenarioCase[]) => cases.map((test) => `${test.feature}: ${test.name}`).join('\n');
+  const [chromium, ...others] = byProfile.filter(({ file }) => file.startsWith('e2e-'));
+  for (const report of others) {
+    if (chromium !== undefined && listed(report.cases) !== listed(chromium.cases)) {
+      throw new CucumberReportError(
+        `reports/cucumber/${report.file} lists other scenarios than ${chromium.file}, as a filtered run leaves it: ${rerun}`,
+      );
+    }
+  }
+  return byProfile.flatMap(({ cases }) => cases);
+}
+
+/** Every JSON report in reports/cucumber/, by file name. */
+function readCucumberReports(): Map<string, string> {
+  const dir = new URL('../reports/cucumber/', import.meta.url);
+  if (!existsSync(dir)) return new Map();
+  return new Map(
+    readdirSync(dir)
+      .filter((name) => name.endsWith('.json'))
+      .map((name) => [name, readFileSync(new URL(name, dir), 'utf8')]),
+  );
 }
 
 if (import.meta.main) {
@@ -237,9 +407,11 @@ if (import.meta.main) {
     ...vitestCases(read('reports/vitest.json'), root),
     ...playwrightCases(read('reports/playwright.json')),
   ];
-  const markdown = buildMatrix(cases, new Date().toISOString().slice(0, 10), k6);
+  const scenarios = cucumberScenarios(readCucumberReports());
+  const markdown = buildMatrix(cases, new Date().toISOString().slice(0, 10), k6, scenarios);
   writeFileSync(new URL('../docs/traceability.md', import.meta.url), markdown);
   console.log(
-    `docs/traceability.md: ${String(cases.length)} tests, ${String(cases.filter((test) => !test.passed).length)} failing`,
+    `docs/traceability.md: ${String(cases.length)} tests, ${String(cases.filter((test) => !test.passed).length)} failing; ` +
+      `${String(scenarios.length)} scenario runs, ${String(scenarios.filter((scenario) => !scenario.passed).length)} failing`,
   );
 }

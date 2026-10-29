@@ -196,6 +196,8 @@ agentic-job-board/
 ├─ README.md
 ├─ package.json / package-lock.json / tsconfig.json / tsconfig.build.json
 ├─ eslint.config.ts / vitest.config.ts / playwright.config.ts / .prettierrc.json
+├─ cucumber.json               ← one Cucumber profile per BDD suite (Phase 13): integration, api, e2e-chromium,
+│                                e2e-firefox, e2e-webkit, e2e-mobile, smoke
 ├─ .env.example                ← committed; .env is git-ignored
 ├─ agent/
 │  ├─ find-jobs.md             ← full agent procedure (versioned, reviewed)
@@ -217,6 +219,8 @@ agentic-job-board/
 │  ├─ fixtures/emails/*.txt    ← SANITIZED real alert emails
 │  ├─ unit/ integration/ api/ contract/ security/
 │  ├─ e2e/                     ← Playwright (incl. @smoke and a11y)
+│  ├─ features/                ← Cucumber BDD (Phase 13): README.md, support/ (World, parameter types),
+│  │                             integration/ api/ e2e/ (*.feature + steps/; e2e/hooks.ts), smoke in e2e/smoke.feature
 │  └─ perf/                    ← k6 scripts + own tsconfig
 ├─ docs/                       ← test-strategy.md, api.md, decisions.md, traceability.md, defects.md
 └─ data/                       ← git-ignored: jobboard.db, resume.pdf
@@ -1061,11 +1065,11 @@ Tasks:
 Definition of done: every quality gate in §8.4 is green, including the new BDD gates and their CI job. Every scenario passes on every profile it belongs to. `git diff main -- src/` is empty, and in the existing test files lines were only added, apart from the dependency list (task 1).
 
 **🛑 CP-13. The owner checks:**
-- [ ] Opens three feature files in `tests/features/` (one integration, one API, one E2E) and understands each scenario without opening the step definitions
-- [ ] `npm run test:bdd` passes, and `reports/cucumber/` has an HTML report for each suite showing every feature, scenario and tag
-- [ ] `npm run test:bdd:smoke` runs only the `@smoke` scenarios, on Chromium
-- [ ] `docs/traceability.md` lists the scenarios under their requirements
-- [ ] `package.json` adds only `@cucumber/cucumber` and the `test:bdd*` scripts; `git diff main -- src` is empty; `git diff main --numstat -- tests/unit tests/integration tests/api tests/contract tests/e2e` shows 0 deleted lines (`tests/security/` changes only the dependency list)
+- [x] Opens three feature files in `tests/features/` (one integration, one API, one E2E) and understands each scenario without opening the step definitions
+- [x] `npm run test:bdd` passes, and `reports/cucumber/` has an HTML report for each suite showing every feature, scenario and tag
+- [x] `npm run test:bdd:smoke` runs only the `@smoke` scenarios, on Chromium
+- [x] `docs/traceability.md` lists the scenarios under their requirements
+- [x] `package.json` adds only `@cucumber/cucumber` and the `test:bdd*` scripts; `git diff main -- src` is empty; `git diff main --numstat -- tests/unit tests/integration tests/api tests/contract tests/e2e` shows 0 deleted lines (`tests/security/` changes only the dependency list)
 
 ---
 
@@ -1142,6 +1146,7 @@ Definition of done: every quality gate in §8.4 is green, including the new BDD 
 | DEC-054 | 2026-10-25 | The **LinkedIn \| Other sources** switch shows each view's number of **New** jobs, not all its jobs; the status tabs keep their own counts (owner, Phase 12). Screen readers hear "new" after the number | After Clear All the switch still showed every dismissed job (LinkedIn 79, Other sources 142), so it didn't say whether anything was left to look at. The number that matters on the switch is what is new |
 | DEC-055 | 2026-10-29 | The no-new-dependencies rule is removed (owner). Packages may be added; §7 lists every one with the phase that added it, and NFR-02 now checks that `package.json` matches that list, has no `overrides` and passes `npm audit`. Overrides still need the owner's approval. Replaces the dependency rule in §0, §7 and CLAUDE.md, and the "a new dependency seems unavoidable" stop in `docs/test-strategy.md` | The owner wants the BDD layer to use real Cucumber (Phase 13), which the rule would have blocked. Keeping the list and the audit keeps the supply chain visible in a public repository |
 | DEC-056 | 2026-10-29 | A Cucumber BDD layer for test types 3, 4, 7 and 8 in full, on top of the existing tests (owner: those four types, nothing partial; plain English that is easy to read; Cucumber.js). One runner, `@cucumber/cucumber`, for all four; the E2E steps drive the Playwright that is already installed, on Chromium, Firefox, WebKit and Pixel 7, and smoke runs the `@smoke` scenarios on Chromium. Feature files under `tests/features/<type>/`, each with its own steps and Cucumber profile; scenarios tagged with their requirement and listed in a "BDD scenarios" table of the traceability matrix, below the existing table, which stays unchanged; one JSON and one HTML report per profile; its own CI job. The scenarios run outside Vitest, so they don't count toward coverage (agent, chosen over `playwright-bdd` for the browser types and over a homemade Gherkin runner) | The owner is applying for roles that ask for Cucumber and BDD experience, and wants a reader to understand the scenarios at once. One runner keeps one way of writing steps for every type. Profiles per folder let a sentence mean "call the service" in integration and "post the form" in API without clashing. Coverage stays measured by Vitest (DEC-021) |
+| DEC-057 | 2026-10-29 | How the BDD layer runs (agent, Phase 13). Every API and E2E scenario starts its own app in-process (`tests/helpers/test-app.ts`) on a free port, so Clear All and Find Now need no server of their own (unlike DEC-053). A seventh profile, `smoke`, runs the `@smoke` scenarios on Chromium and writes `reports/cucumber/smoke.json` and `smoke.html`; `scripts/traceability.ts` skips that report, since the Chromium run already counts those scenarios. In the E2E steps each Playwright action gives up after 10 seconds, and a step that posts a form waits for the next page to load. The steps put their jobs on the board through `tests/features/support/` rather than `tests/helpers/seed-board.ts` | A clean app per scenario is what §8.5 asks for, and it keeps the scenarios independent in every browser. A separate smoke profile keeps the Chromium report whole. Outside Playwright's runner an action waits forever, so a missing button ran into Cucumber's 30-second limit with no locator in the message; and in WebKit the next step's page change cut a form post short. seed-board.ts has fixed jobs, while a scenario needs its own jobs written in its table |
 
 ---
 
@@ -1164,7 +1169,7 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 | CP-10 | Other job sources (DEC-035) | Approved | 2026-10-24 | Free feeds only (Greenhouse, Lever, Ashby, SmartRecruiters, Workable, Remote OK, Himalayas, Jobicy, Hacker News; Adzuna only with a free key). DEC-035 (free sources, no other Gmail alerts), DEC-036 (LinkedIn | Other sources views), DEC-037 (source + source_job_id, migration 003 verified on a copy of the real database), DEC-038 (same rubric, descriptions not read by the agent). 1,165 tests green (1,017 Vitest, 148 Playwright). First live run (run 4): 11 emails, 142 feed listings, 157 new jobs, all scored, no feed failures |
 | CP-11 | LinkedIn search; Gmail track retired (DEC-041) | Approved | 2026-10-24 | scripts/search-linkedin.ts runs the owner's four searches (three mirrored alerts plus AI QA) with the saved session: last 7 days, newest first, remote, full-time and contract, 10 pages (DEC-047); parameter codes checked live. Gmail track removed, email endpoint 404, old email data still shown. Rubric match-v1 scores on descriptions; calibration 6/6 with Agilent changed to strong (DEC-050). Comparison with a week of alerts: 2/79 found newest-first, 16 of 30 open remote jobs with relevance (report in data/reports/). DEC-044 to DEC-050, DEF-015 to DEF-019. 1,297 tests green (1,145 Vitest, 152 Playwright); k6 p95 44.0 ms |
 | CP-12 | Find Now and Clear All (DEC-051) | Approved | 2026-10-25 | Clear All dismisses a view's New jobs after asking; Find Now runs `/find-jobs linkedin|other` headless (dontAsk, no MCP server, the command's tools only, no shell, one run at a time, log in data/find-now/). NFR-03 allows that one process (DEC-052). The view switch counts New jobs only (DEC-054). DEF-020 fixed (the command's write rule never matched; now `Edit(/data/find-jobs/**)`). E2E for the two actions on a server of their own (DEC-053). 1,343 tests green (1,189 Vitest, 154 Playwright); k6 p95 44.0 ms |
-| CP-13 | Cucumber BDD layer (DEC-056) | Not started | — | Planned 2026-10-29: Cucumber scenarios for integration, API, E2E (four browsers) and smoke; no-new-dependencies rule removed (DEC-055) |
+| CP-13 | Cucumber BDD layer (DEC-056) | Approved | 2026-10-29 | @cucumber/cucumber 13.3.0 runs TypeScript steps natively; DEC-055 (dependencies may be added, listed in §7), DEC-057 (an app per scenario, smoke profile, Playwright timeouts). 21 integration, 46 API and 16 E2E scenarios on Chromium, Firefox, WebKit and Pixel 7, plus 4 @smoke: 131 scenario runs green; scripts/bdd.ts runs every profile even after a failure; traceability lists the scenarios per requirement. Independent review: 11 findings, all fixed. 1,482 tests green (1,328 Vitest, 154 Playwright); k6 p95 42.7 ms |
 
 ---
 
@@ -1191,6 +1196,11 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
   "test:e2e": "playwright test",
   "test:smoke": "playwright test --grep @smoke --project chromium",
   "test:perf": "k6 run tests/perf/load.ts",
+  "test:bdd": "node scripts/bdd.ts",                                           // Phase 13: every profile, even after a failure
+  "test:bdd:integration": "node scripts/bdd.ts integration",
+  "test:bdd:api": "node scripts/bdd.ts api",
+  "test:bdd:e2e": "node scripts/bdd.ts e2e",                                   // the four browser profiles one after another
+  "test:bdd:smoke": "node scripts/bdd.ts smoke",
 
   "check": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage"   // DEC-021
 }

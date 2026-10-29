@@ -68,6 +68,17 @@ The pyramid runs from many fast, isolated tests at the bottom to a few slow, bro
 | 9   | Accessibility | `@axe-core/playwright`                               | `tests/e2e/a11y.spec.ts` | Zero WCAG 2.2 AA violations on every page and tab                                                                 | 6                            |
 | 10  | Performance   | k6 (TypeScript scripts)                              | `tests/perf`             | p95 < 200 ms and < 1 % errors with 5,000 jobs                                                                     | 7                            |
 
+**BDD layer (Phase 13, DEC-056):** types 3, 4, 7 and 8 also have Cucumber scenarios in `tests/features/`, the requirements written in plain English (`Given` / `When` / `Then`) and run by Cucumber.js on top of the tests above, which stay as they are:
+
+| #   | Type        | Scenarios                                     | What a scenario drives                                          | Command                        |
+| --- | ----------- | --------------------------------------------- | --------------------------------------------------------------- | ------------------------------ |
+| 3   | Integration | `tests/features/integration/`                 | The services on a temporary database; rows checked with SQL     | `npm run test:bdd:integration` |
+| 4   | API         | `tests/features/api/`                         | A real app over HTTP: the JSON API and the board's form posts   | `npm run test:bdd:api`         |
+| 7   | End-to-end  | `tests/features/e2e/`                         | The board in Chromium, Firefox, WebKit and Pixel 7 (Playwright) | `npm run test:bdd:e2e`         |
+| 8   | Smoke       | `tests/features/e2e/smoke.feature` (`@smoke`) | The app starts, the board, a job and the runs page, on Chromium | `npm run test:bdd:smoke`       |
+
+Every scenario is tagged with its requirement and starts from a clean app; Vitest keeps the edge cases. The scenarios run outside Vitest, so they don't count toward coverage. How to read and run them: [`tests/features/README.md`](../tests/features/README.md).
+
 **Design principle:** deterministic code is tested deterministically. Reading pages, deduplication, storage and validation are code with full test coverage. Claude does only the scoring, and the app still validates every score it receives.
 
 ## 5. Test data
@@ -106,14 +117,15 @@ The pyramid runs from many fast, isolated tests at the bottom to a few slow, bro
 
 - Every gate that applies to the phase is green (PLAN.md §8.4):
 
-  | From phase | Gate                                                                |
-  | ---------- | ------------------------------------------------------------------- |
-  | 1          | `npm run check` (typecheck, lint, format, all Vitest + coverage)    |
-  | 3          | `npm run test:integration`                                          |
-  | 4          | `npm run test:api`, `test:contract`, `test:security`                |
-  | 6          | `npm run test:e2e`, `test:smoke`                                    |
-  | 7          | `npm run test:perf`                                                 |
-  | always     | `npm run audit` passes and `package.json` has no dependency changes |
+  | From phase | Gate                                                                                            |
+  | ---------- | ----------------------------------------------------------------------------------------------- |
+  | 1          | `npm run check` (typecheck, lint, format, all Vitest + coverage)                                |
+  | 3          | `npm run test:integration`                                                                      |
+  | 4          | `npm run test:api`, `test:contract`, `test:security`                                            |
+  | 6          | `npm run test:e2e`, `test:smoke`                                                                |
+  | 7          | `npm run test:perf`                                                                             |
+  | 13         | `npm run test:bdd`, `test:bdd:smoke`                                                            |
+  | always     | `npm run audit` passes and every dependency in `package.json` is listed in PLAN.md §7 (DEC-055) |
 
 - Coverage meets §8 below.
 - Every defect found in the phase is logged with its status.
