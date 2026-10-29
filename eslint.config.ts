@@ -12,6 +12,8 @@ export default defineConfig(
     'test-results/',
     'blob-report/',
     'tests/perf/results/',
+    // Test reports, board-report's built pages among them (PLAN.md Phase 14); git-ignored like coverage/.
+    'reports/',
     // Local-only tooling (git-excluded on the owner's machine), not part of the app.
     '.claude/',
     '.playwright/',

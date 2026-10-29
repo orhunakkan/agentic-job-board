@@ -39,10 +39,13 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: true,
   retries: 0,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // board-report (PLAN.md Phase 14) next to list and html; it writes only when scripts/board-report.ts runs Playwright.
+  reporter: [['list'], ['html', { open: 'never' }], ['./scripts/board-report/reporters/playwright.ts']],
   use: {
     baseURL,
     trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: ACTIONS_SPEC },

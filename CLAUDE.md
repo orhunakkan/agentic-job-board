@@ -27,25 +27,29 @@ Node ≥ 24 running TypeScript natively (TS `~6.0.3`, `tsconfig.json` is strict)
 
 ## Commands
 
-| Command                                               | What it does                                                                                              |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `npm run check`                                       | typecheck + lint + format:check + `test:coverage`. Run before every commit.                               |
-| `npm run typecheck`                                   | `tsc` on the repo, then on `tests/perf` (k6 types)                                                        |
-| `npm run lint` / `npm run format`                     | ESLint (zero warnings) / Prettier write                                                                   |
-| `npm run test:unit` … `test:security`                 | One Vitest project each: `unit`, `integration`, `api`, `contract`, `security`                             |
-| `npm run test:coverage`                               | All Vitest projects at once, with the coverage thresholds (DEC-021)                                       |
-| `npm run test:e2e` / `test:smoke`                     | Playwright on chromium, firefox, webkit, mobile / `@smoke` on chromium                                    |
-| `npm run test:perf`                                   | k6 (`tests/perf/load.ts`); k6 is installed with `winget install k6`, not npm                              |
-| `npm run test:bdd`                                    | Every Cucumber profile: integration, API, E2E in 4 browsers; goes on after a failure (`scripts/bdd.ts`)   |
-| `npm run test:bdd:integration` … `test:bdd:e2e`       | One Cucumber suite; each profile is in `cucumber.json` and writes `reports/cucumber/<profile>.json/html`  |
-| `npm run test:bdd:smoke`                              | The `@smoke` scenarios on Chromium                                                                        |
-| `npm run audit`                                       | `npm audit --audit-level=high`                                                                            |
-| `npm start` / `npm run dev`                           | App on `127.0.0.1:$PORT` (needs `.env`); `start` first signs in to LinkedIn (DEC-033)                     |
-| `node scripts/seed.ts --count 5000 --db data/perf.db` | Fake jobs for the load test and screenshots; refuses a non-empty database                                 |
-| `node scripts/screenshots.ts`                         | README screenshots from fake data (`docs/screenshots/`)                                                   |
-| `node scripts/fetch-sources.ts --dry-run`             | Reads the free job feeds in `data/sources.json` and lists the matches; without `--dry-run` it stores them |
-| `node scripts/search-linkedin.ts --dry-run`           | Runs the LinkedIn searches in `data/linkedin-searches.json`; `--backfill` reads missing descriptions      |
-| `node scripts/traceability.ts`                        | Rebuilds `docs/traceability.md` from `reports/vitest.json` and `reports/playwright.json`                  |
+| Command                                               | What it does                                                                                                                                                                                                                |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`                                       | typecheck + lint + format:check + `test:coverage`. Run before every commit.                                                                                                                                                 |
+| `npm run typecheck`                                   | `tsc` on the repo, then on `tests/perf` (k6 types)                                                                                                                                                                          |
+| `npm run lint` / `npm run format`                     | ESLint (zero warnings) / Prettier write                                                                                                                                                                                     |
+| `npm run test:unit` … `test:security`                 | One Vitest project each: `unit`, `integration`, `api`, `contract`, `security`. Every `test:*` script runs through `scripts/board-report.ts`, which writes `reports/board-report/` (Phase 14); extra arguments go after `--` |
+| `npm run test:coverage`                               | All Vitest projects at once, with the coverage thresholds (DEC-021)                                                                                                                                                         |
+| `npm run test:e2e` / `test:smoke`                     | Playwright on chromium, firefox, webkit, mobile / `@smoke` on chromium                                                                                                                                                      |
+| `npm run test:perf`                                   | k6 (`tests/perf/load.ts`); k6 is installed with `winget install k6`, not npm                                                                                                                                                |
+| `npm run test:bdd`                                    | Every Cucumber profile: integration, API, E2E in 4 browsers; goes on after a failure (`scripts/bdd.ts`)                                                                                                                     |
+| `npm run test:bdd:integration` … `test:bdd:e2e`       | One Cucumber suite; each profile is in `cucumber.json` and writes `reports/cucumber/<profile>.json/html`                                                                                                                    |
+| `npm run test:bdd:smoke`                              | The `@smoke` scenarios on Chromium                                                                                                                                                                                          |
+| `npm run test:static`                                 | tsc (both configs), ESLint, Prettier and `npm audit`, as board-report results                                                                                                                                               |
+| `npm run test:all`                                    | Every test type in one run (static, coverage, E2E, smoke, BDD, k6 on its own seeded app), one report                                                                                                                        |
+| `npm run report`                                      | Opens the latest board-report (`reports/board-report/index.html`); it never opens by itself                                                                                                                                 |
+| `node scripts/board-report.ts build`                  | Builds board-report from whatever is in `reports/test-results/` (CI's last job)                                                                                                                                             |
+| `npm run audit`                                       | `npm audit --audit-level=high`                                                                                                                                                                                              |
+| `npm start` / `npm run dev`                           | App on `127.0.0.1:$PORT` (needs `.env`); `start` first signs in to LinkedIn (DEC-033)                                                                                                                                       |
+| `node scripts/seed.ts --count 5000 --db data/perf.db` | Fake jobs for the load test and screenshots; refuses a non-empty database                                                                                                                                                   |
+| `node scripts/screenshots.ts`                         | README screenshots from fake data (`docs/screenshots/`)                                                                                                                                                                     |
+| `node scripts/fetch-sources.ts --dry-run`             | Reads the free job feeds in `data/sources.json` and lists the matches; without `--dry-run` it stores them                                                                                                                   |
+| `node scripts/search-linkedin.ts --dry-run`           | Runs the LinkedIn searches in `data/linkedin-searches.json`; `--backfill` reads missing descriptions                                                                                                                        |
+| `node scripts/traceability.ts`                        | Rebuilds `docs/traceability.md` from `reports/vitest.json` and `reports/playwright.json`                                                                                                                                    |
 
 ## Conventions
 
@@ -58,6 +62,7 @@ Node ≥ 24 running TypeScript natively (TS `~6.0.3`, `tsconfig.json` is strict)
 - Test files: `tests/<project>/**/*.test.ts` for Vitest, `tests/e2e/**/*.spec.ts` for Playwright, `tests/features/<integration|api|e2e>/*.feature` with their `steps/` for Cucumber (PLAN.md §8.5).
 - Feature files are plain English in the board's own words: no URLs, JSON, SQL, selectors or code names (those go in the step definitions). Each one opens with "As the owner, I want …, so that …", and every feature or scenario carries its requirement tag (`@FR-21`). No `@skip`, `@wip` or `@only` tags; `tests/contract/feature-files.test.ts` checks this.
 - `console` is banned in `src/` (use the logger from Phase 4). It's fine in `scripts/` and tests.
+- board-report's client (`scripts/board-report/client/`) is joined into one classic browser script (`build/bundle.ts`): named, relative, unrenamed imports only, no top-level name declared in two files, values shown with `textContent` only.
 
 ## Tool details
 
