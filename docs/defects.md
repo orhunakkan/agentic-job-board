@@ -23,6 +23,7 @@ Every defect found while building the Agentic Job Board (PLAN.md Phase 8 task 2)
 | DEF-019 | Seeding fake jobs is slow enough to time out its test                 | Low      | `npm run check` (Phase 11)       | Fixed  | `0bc72c8`  |
 | DEF-020 | The `/find-jobs` command's write rule never matched                   | High     | Real CLI check (Phase 12)        | Fixed  | `ed0daab`  |
 | DEF-021 | The Firefox dark-mode accessibility runs checked the light theme      | Low      | E2E suite (Phase 15)             | Fixed  | `9133cd9`  |
+| DEF-022 | board-report's WebKit E2E tests time out on the CI runner             | Medium   | CI on `main` (after CP-15)       | Fixed  | `fc2841a`  |
 
 Open defects: none.
 
@@ -163,3 +164,11 @@ Open defects: none.
 - **Expected:** `true`, so axe checks the dark palette.
 - **Actual:** `false`. Playwright's Firefox (1.64.1) drops the emulated colour scheme when the first page a tab loads sends `Cross-Origin-Opener-Policy: same-origin`, as every page of the app does (NFR-01). A plain page, or one with only the CSP, keeps it. Found when the new FR-23 test checked the page's background colour with the system in dark.
 - **Fix:** the E2E and accessibility tests set the scheme again with `page.emulateMedia` after the first load, which holds through later navigations and form posts; the existing accessibility tests gained that line after each `goto` (DEC-062). All 192 accessibility runs pass with Firefox really in dark. **Status:** Fixed in `9133cd9`.
+
+### DEF-022: board-report's WebKit E2E tests time out on the CI runner
+
+- **Severity:** Medium (CI on `main` failed; the report itself was fine)
+- **Steps:** CI run 40995109164, the push of the Phase 15 merge: the E2E job with all four browser projects on 10 workers.
+- **Expected:** `tests/e2e/board-report.spec.ts` passes on WebKit, as it did in the run before (40990199127).
+- **Actual:** three WebKit tests ran past the 30 s limit: "the report opens from file:// …" and "axe finds no violations" in light and dark mode. Each walks every view of the report, waiting for its entrance animation and running axe or a click on each. On the CI runner they had already taken 22–24 s before Phase 15; Phase 15 added 116 browser tests (218 → 334) to the same workers, and they took 31–34 s. The other WebKit tests of the file slowed the same way (one passed in 30.1 s). Locally they take 7–14 s, and the report did not change apart from one comment.
+- **Fix:** the file's tests get Playwright's triple time budget (`test.slow`) on WebKit only, with the reason written next to it. No assertion, test or browser was dropped. **Status:** Fixed in `fc2841a`.
