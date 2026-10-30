@@ -1,10 +1,19 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { TABS } from '../../src/domain/board-tabs.ts';
 import { expectNoViolations } from './axe.ts';
 import { PROFILE, seedJobs, seedListings, uniqueTag } from './seed.ts';
 
 // PLAN.md §8.1 type 9, NFR-06: every page and every board tab has no axe violations against the WCAG 2.2 AA
 // rules, in light and dark mode, on every Playwright project (so also at phone width).
+
+/**
+ * Opens a page with the system's scheme. Playwright's Firefox drops the emulated scheme when the first page it loads
+ * sends Cross-Origin-Opener-Policy, as every page of the app does (DEF-021); set again, it holds from then on.
+ */
+async function open(page: Page, path: string, scheme: 'light' | 'dark'): Promise<void> {
+  await page.goto(path);
+  await page.emulateMedia({ colorScheme: scheme });
+}
 
 test.describe('accessibility', () => {
   let jobId = 0;
@@ -50,52 +59,44 @@ test.describe('accessibility', () => {
 
       for (const tab of TABS) {
         test(`NFR-06: board, ${tab} tab`, async ({ page }) => {
-          await page.goto(`/?tab=${tab}`);
-          await page.emulateMedia({ colorScheme: scheme }); // Firefox drops the scheme otherwise (DEF-021)
+          await open(page, `/?tab=${tab}`, scheme);
           await expectNoViolations(page);
         });
       }
 
       test('NFR-06: board with filters, scores and a notice', async ({ page }) => {
-        await page.goto(`/?q=${tag}&minScore=50&changed=${String(jobId)}`);
-        await page.emulateMedia({ colorScheme: scheme }); // Firefox drops the scheme otherwise (DEF-021)
+        await open(page, `/?q=${tag}&minScore=50&changed=${String(jobId)}`, scheme);
         await expect(page.getByRole('status')).toBeVisible();
         await expectNoViolations(page);
       });
 
       test('NFR-06: board, other sources', async ({ page }) => {
-        await page.goto('/?origin=other');
-        await page.emulateMedia({ colorScheme: scheme }); // Firefox drops the scheme otherwise (DEF-021)
+        await open(page, '/?origin=other', scheme);
         await expectNoViolations(page);
       });
 
       test('NFR-06: job detail from another source, with its description', async ({ page }) => {
-        await page.goto(`/jobs/${String(listedId)}`);
-        await page.emulateMedia({ colorScheme: scheme }); // Firefox drops the scheme otherwise (DEF-021)
+        await open(page, `/jobs/${String(listedId)}`, scheme);
         await expectNoViolations(page);
       });
 
       test('NFR-06: job detail from a LinkedIn search, with workplace, rubric and search name', async ({ page }) => {
-        await page.goto(`/jobs/${String(jobId)}?notes=saved`);
-        await page.emulateMedia({ colorScheme: scheme }); // Firefox drops the scheme otherwise (DEF-021)
+        await open(page, `/jobs/${String(jobId)}?notes=saved`, scheme);
         await expectNoViolations(page);
       });
 
       test('NFR-06: runs', async ({ page }) => {
-        await page.goto('/runs');
-        await page.emulateMedia({ colorScheme: scheme }); // Firefox drops the scheme otherwise (DEF-021)
+        await open(page, '/runs', scheme);
         await expectNoViolations(page);
       });
 
       test('NFR-06: profile', async ({ page }) => {
-        await page.goto('/profile');
-        await page.emulateMedia({ colorScheme: scheme }); // Firefox drops the scheme otherwise (DEF-021)
+        await open(page, '/profile', scheme);
         await expectNoViolations(page);
       });
 
       test('NFR-06: error page', async ({ page }) => {
-        await page.goto('/jobs/999999999');
-        await page.emulateMedia({ colorScheme: scheme }); // Firefox drops the scheme otherwise (DEF-021)
+        await open(page, '/jobs/999999999', scheme);
         await expectNoViolations(page);
       });
     });
@@ -127,8 +128,7 @@ test.describe('accessibility', () => {
 
       for (const [name, path] of pages) {
         test(`FR-23, NFR-06: ${name}`, async ({ page }) => {
-          await page.goto(path());
-          await page.emulateMedia({ colorScheme: system }); // DEF-021
+          await open(page, path(), system);
           await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
           await expectNoViolations(page);
         });
