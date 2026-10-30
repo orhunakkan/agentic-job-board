@@ -672,9 +672,9 @@ textarea {
   color: var(--accent-on);
   font-weight: 700;
   cursor: pointer;
-  transition:
-    box-shadow 0.15s ease,
-    background 0.15s ease;
+  /* Only the shadow moves: a background that fades while the text colour changes at once would pass through
+     unreadable pairs when the theme changes. */
+  transition: box-shadow 0.15s ease;
 }
 
 .button:hover {
