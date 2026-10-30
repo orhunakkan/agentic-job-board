@@ -36,6 +36,15 @@ export const BoardActionFormSchema = z.strictObject({
   origin: z.enum(ORIGINS),
 });
 
+/** The header's light/dark toggle (FR-23, DEC-061): the theme to switch to, and the page to come back to. */
+export const THEMES = ['light', 'dark'] as const;
+export type Theme = (typeof THEMES)[number];
+
+export const ThemeFormSchema = z.strictObject({
+  theme: z.enum(THEMES),
+  return: z.string().max(2000).optional(),
+});
+
 export const NotesFormSchema = z.strictObject({
   // Browsers send textarea line breaks as CRLF; store plain LF so the 5,000-character limit counts characters.
   notes: z

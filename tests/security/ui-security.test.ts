@@ -155,4 +155,49 @@ describe('HTML page security', () => {
     expect(response.status).toBe(404);
     expect(response.text).not.toMatch(/"dependencies"|startApp|DB_PATH|prefers-color-scheme/);
   });
+
+  it.each<[string, Record<string, string>]>([
+    ['a foreign Origin', { Origin: 'http://evil.example' }],
+    ['Sec-Fetch-Site: cross-site', { 'Sec-Fetch-Site': 'cross-site', Origin: 'http://evil.example' }],
+    ['an opaque "null" Origin', { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }],
+  ])('FR-23, NFR-01: a theme form post with %s is refused with 403 and sets no cookie', async (_case, headers) => {
+    const response = await testApp.form('/theme', { theme: 'dark', return: '/' }, headers);
+
+    expect(response.status).toBe(403);
+    expect(response.text).toContain('Requests from other sites are not allowed');
+    expect(response.headers.getSetCookie()).toEqual([]);
+  });
+
+  it('FR-23, NFR-01: the theme cookie is out of reach of scripts and is not sent on other sites’ posts', async () => {
+    const response = await testApp.form('/theme', { theme: 'light', return: '/runs' });
+    const [cookie, ...others] = response.headers.getSetCookie();
+    const attributes = (cookie ?? '').split(';').map((part) => part.trim());
+
+    expect(others).toEqual([]);
+    expect(attributes[0]).toBe('theme=light');
+    expect(attributes).toContain('HttpOnly');
+    expect(attributes).toContain('SameSite=Lax');
+    expect(attributes).toContain('Path=/');
+    expect(attributes.some((attribute) => /^Domain=/i.test(attribute))).toBe(false);
+  });
+
+  it('FR-23, DEC-006: with either theme chosen, no page gains script, inline handlers or inline styles, and the CSP is unchanged', async () => {
+    for (const theme of ['dark', 'light', '"><script>alert(10)</script>']) {
+      for (const path of [...pages(), '/nope', `/nope?"><script>alert(11)</script>`]) {
+        const response = await testApp.raw({ path, headers: { Cookie: `theme=${encodeURIComponent(theme)}` } });
+
+        expect(response.text, path).not.toMatch(/<script|<img|<svg|<[^>]*\s(?:on[a-z]+|style)=/i);
+        expect(response.headers['content-security-policy']).toBe(
+          "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        );
+      }
+    }
+  });
+
+  it('FR-23, NFR-07: the toggle’s return path is escaped on every page, also on an error page for a hostile address', async () => {
+    const { text } = await testApp.get(`/nope?q=${encodeURIComponent('"><script>alert(12)</script>')}`);
+
+    expect(text).toContain('name="return" value="/nope?q=%22%3E%3Cscript%3Ealert%2812%29%3C%2Fscript%3E"');
+    expect(text).not.toContain('<script');
+  });
 });

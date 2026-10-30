@@ -1,6 +1,7 @@
 /* board-report's look (PLAN.md Phase 14 task 6): a bright palette defined once as custom properties, light and dark
    with the system or the header's toggle, rounded cards and pill chips, and every text/background pair at WCAG 2.2
-   AA contrast. System fonts only, so the report works offline. */
+   AA contrast. System fonts only, so the report works offline.
+   The board's public/app.css copies this palette (DEC-060): change a shared token in both files. */
 
 :root {
   color-scheme: light;

@@ -4,6 +4,7 @@ import { defaultSortForTab, statusesForTab, TABS, tabForStatus, type Tab } from 
 import { ORIGINS, originOf, sourcesForOrigin, type Origin } from '../domain/job-source.ts';
 import { html as htmlReply, parseInput, queryObject, redirect, type TextReply } from '../http/respond.ts';
 import type { ApiRequest, Route } from '../http/router.ts';
+import type { ErrorRequest } from '../http/server.ts';
 import { staticRoutes } from '../http/static.ts';
 import { changeJobStatus, dismissNewJobs, JobNotFoundError } from '../jobs/status-service.ts';
 import { linkedInSessionStatus } from '../linkedin/session.ts';
@@ -15,6 +16,7 @@ import {
   NotesFormSchema,
   safeReturnPath,
   StatusFormSchema,
+  ThemeFormSchema,
   withoutEmpty,
 } from '../schemas/pages.ts';
 import type { SafeHtml } from './html.ts';
@@ -24,6 +26,7 @@ import { errorPage, errorTitle } from './pages/error.ts';
 import { jobDetailPage } from './pages/job-detail.ts';
 import { profilePage } from './pages/profile.ts';
 import { runsPage } from './pages/runs.ts';
+import { themeCookie, themeOf, themeReturnPath } from './theme.ts';
 
 // The HTML pages of PLAN.md §6.2. Forms post, then redirect back with 303 (post/redirect/get), so reloading a
 // page never sends a form twice. No page needs client-side JavaScript (DEC-006).
@@ -34,13 +37,15 @@ const RECENT = 50;
 export function pageRoutes(context: AppContext): Route[] {
   const { db, repos } = context;
 
-  function page(title: string, nav: NavItem | null, body: SafeHtml): TextReply {
+  function page(request: ApiRequest, title: string, nav: NavItem | null, body: SafeHtml): TextReply {
     return htmlReply(
       layout({
         title,
         nav,
         lastRun: repos.runs.list(1)[0] ?? null,
         linkedin: linkedInSessionStatus(context.linkedinSessionPath, context.now()),
+        theme: themeOf(request.cookies),
+        returnPath: themeReturnPath(request.path, request.query),
         body,
       }),
     );
@@ -105,7 +110,7 @@ export function pageRoutes(context: AppContext): Route[] {
           findNow: context.findNow.last(),
           now: context.now(),
         });
-        return page('Board', 'board', body);
+        return page(request, 'Board', 'board', body);
       },
     },
     {
@@ -148,7 +153,7 @@ export function pageRoutes(context: AppContext): Route[] {
           statusChanged: query.changed === job.id,
           notesSaved: query.notes === 'saved',
         });
-        return page(job.title, null, body);
+        return page(request, job.title, null, body);
       },
     },
     {
@@ -180,12 +185,24 @@ export function pageRoutes(context: AppContext): Route[] {
     {
       method: 'GET',
       path: '/runs',
-      handler: () => page('Runs', 'runs', runsPage({ runs: repos.runs.list(RECENT) })),
+      handler: (request) => page(request, 'Runs', 'runs', runsPage({ runs: repos.runs.list(RECENT) })),
     },
     {
       method: 'GET',
       path: '/profile',
-      handler: () => page('Profile', 'profile', profilePage(repos.profile.get())),
+      handler: (request) => page(request, 'Profile', 'profile', profilePage(repos.profile.get())),
+    },
+    {
+      // The header's light/dark toggle (FR-23, DEC-061): keeps the choice in a cookie and reloads the same page. No
+      // #notice: there is no message to show.
+      method: 'POST',
+      path: '/theme',
+      accepts: 'form',
+      handler: (request) => {
+        const form = parseInput(ThemeFormSchema, request.body, 'form');
+        const reply = redirect(safeReturnPath(form.return, '/'));
+        return { ...reply, headers: { ...reply.headers, 'Set-Cookie': themeCookie(form.theme) } };
+      },
     },
     ...staticRoutes(),
   ];
@@ -196,8 +213,17 @@ function originQuery(origin: Origin): string {
   return origin === 'linkedin' ? '' : `origin=${origin}&`;
 }
 
-/** Any error outside /api/ as a full page. It shows no last run: the database may be what failed. */
-export function renderErrorPage(status: number, message: string): string {
+/**
+ * Any error outside /api/ as a full page. It shows no last run: the database may be what failed. It honours the theme
+ * cookie; its toggle comes back to the same address after a GET, and to the board after a failed form post.
+ */
+export function renderErrorPage(status: number, message: string, request: ErrorRequest): string {
   const sentence = message.charAt(0).toUpperCase() + message.slice(1);
-  return layout({ title: errorTitle(status), nav: null, body: errorPage(status, sentence) });
+  return layout({
+    title: errorTitle(status),
+    nav: null,
+    theme: themeOf(request.cookies),
+    returnPath: request.method === 'GET' ? themeReturnPath(request.path, request.query) : '/',
+    body: errorPage(status, sentence),
+  });
 }

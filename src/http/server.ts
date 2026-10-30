@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { RunFinishedError, RunNotFoundError } from '../ingest/run-errors.ts';
 import { InvalidTransitionError, JobNotFoundError } from '../jobs/status-service.ts';
 import type { Logger } from '../logger.ts';
+import { parseCookies } from './cookies.ts';
 import { errorBody, HttpError, queryObject, type Reply } from './respond.ts';
 import { createRouter, type RouteMatch, type Route } from './router.ts';
 import {
@@ -25,8 +26,16 @@ export const BODY_LIMIT_BYTES = 1024 * 1024;
 // Past the limit the body is read and thrown away so the client still gets its 413; past this, the socket is cut.
 const DISCARD_LIMIT_BYTES = 16 * BODY_LIMIT_BYTES;
 
+/** What an error page may know of the request: where it was going and its cookies (the theme, FR-23). */
+export interface ErrorRequest {
+  method: string;
+  path: string;
+  query: URLSearchParams;
+  cookies: Readonly<Record<string, string>>;
+}
+
 /** Renders an error as a complete HTML page for paths outside /api/. */
-export type ErrorPage = (status: number, message: string) => string;
+export type ErrorPage = (status: number, message: string, request: ErrorRequest) => string;
 
 type Match = (method: string, path: string) => RouteMatch;
 
@@ -59,18 +68,22 @@ async function handle(
   const started = performance.now();
   const requestId = randomUUID();
   const method = request.method ?? '';
+  const cookies = parseCookies(request.headers.cookie);
   let path = '';
+  let query = new URLSearchParams();
 
   let reply: Reply;
   try {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
     path = url.pathname;
-    reply = await dispatch(request, method, url, match);
+    query = url.searchParams;
+    reply = await dispatch(request, method, url, match, cookies);
   } catch (error) {
     const failure = toFailure(error, logger, requestId);
+    const page = () => errorPage(failure.status, failure.message, { method, path: path || '/', query, cookies });
     reply = isApiPath(path)
       ? { status: failure.status, body: errorBody(failure.code, failure.message, failure.details) }
-      : { status: failure.status, text: errorPage(failure.status, failure.message), contentType: HTML };
+      : { status: failure.status, text: page(), contentType: HTML };
     if (failure.headers !== undefined) reply.headers = failure.headers;
   }
 
@@ -90,7 +103,13 @@ function isApiPath(path: string): boolean {
   return path === '/api' || path.startsWith('/api/');
 }
 
-async function dispatch(request: IncomingMessage, method: string, url: URL, match: Match): Promise<Reply> {
+async function dispatch(
+  request: IncomingMessage,
+  method: string,
+  url: URL,
+  match: Match,
+  cookies: Readonly<Record<string, string>>,
+): Promise<Reply> {
   const port = request.socket.localPort ?? 0;
   if (!isAllowedHost(request.headers.host, port)) {
     throw new HttpError(421, 'misdirected_request', 'This server only answers to 127.0.0.1 or localhost on its port');
@@ -124,6 +143,7 @@ async function dispatch(request: IncomingMessage, method: string, url: URL, matc
     params: found.params,
     query: url.searchParams,
     body,
+    cookies,
   });
 }
 
