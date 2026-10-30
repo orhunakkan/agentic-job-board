@@ -21,6 +21,8 @@ Every defect found while building the Agentic Job Board (PLAN.md Phase 8 task 2)
 | DEF-017 | One job page that won't load stops the whole LinkedIn run             | Medium   | Integration test (Phase 11)      | Fixed  | `11d0c37`  |
 | DEF-018 | A Chromium page test times out when the whole suite runs              | Low      | `npm run check` (Phase 11)       | Fixed  | `9fd2dee`  |
 | DEF-019 | Seeding fake jobs is slow enough to time out its test                 | Low      | `npm run check` (Phase 11)       | Fixed  | `0bc72c8`  |
+| DEF-020 | The `/find-jobs` command's write rule never matched                   | High     | Real CLI check (Phase 12)        | Fixed  | `ed0daab`  |
+| DEF-021 | The Firefox dark-mode accessibility runs checked the light theme      | Low      | E2E suite (Phase 15)             | Fixed  | `9133cd9`  |
 
 Open defects: none.
 
@@ -153,3 +155,11 @@ Open defects: none.
 - **Expected:** writing payload files under `data/find-jobs/` is pre-approved.
 - **Actual:** Claude Code warns that `Write(/data/find-jobs/**)` "is not matched by file permission checks — only Edit(path) rules are". Under `--permission-mode dontAsk` every payload write would be refused.
 - **Fix:** the command pre-approves `Edit(/data/find-jobs/**)`, which covers every file-writing tool for the same folder; Find Now passes the same rule, and the security test expects it. Found by a check of the real CLI with the exact flags in Phase 12. **Status:** Fixed in `ed0daab`.
+
+### DEF-021: The Firefox dark-mode accessibility runs checked the light theme
+
+- **Severity:** Low (a gap in the tests, not in the app: no page was wrong, but Firefox's dark theme went unchecked by axe since Phase 6)
+- **Steps:** run `tests/e2e/a11y.spec.ts` on the `firefox` project with `colorScheme: 'dark'`, and read `matchMedia('(prefers-color-scheme: dark)').matches` on the page.
+- **Expected:** `true`, so axe checks the dark palette.
+- **Actual:** `false`. Playwright's Firefox (1.64.1) drops the emulated colour scheme when the first page a tab loads sends `Cross-Origin-Opener-Policy: same-origin`, as every page of the app does (NFR-01). A plain page, or one with only the CSP, keeps it. Found when the new FR-23 test checked the page's background colour with the system in dark.
+- **Fix:** the E2E and accessibility tests set the scheme again with `page.emulateMedia` after the first load, which holds through later navigations and form posts; the existing accessibility tests gained that line after each `goto` (DEC-062). All 192 accessibility runs pass with Firefox really in dark. **Status:** Fixed in `9133cd9`.
