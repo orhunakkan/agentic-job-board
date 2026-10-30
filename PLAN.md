@@ -1246,11 +1246,11 @@ Tasks:
 Definition of done: every quality gate in §8.4 is green, also as one `npm run test:all`. axe finds 0 violations on every page, in light and dark set by the system and by the toggle, on all four projects. Every page works at 375 px with no horizontal scroll. No page has a `<script>`, and `package.json` is unchanged. Existing test files only gain lines, apart from the two exceptions in task 6.
 
 **🛑 CP-15. The owner checks:**
-- [ ] `npm start` and open the board: the header, cards, tabs, chips, buttons and score badges look like board-report, in light and in dark
-- [ ] The toggle switches the theme. The same page reloads with its filters kept, and the choice holds on Runs, Profile, a job's page, and after closing and reopening the browser
-- [ ] The board at phone width (375 px) still works and has no sideways scrolling
-- [ ] The README screenshots show the new look
-- [ ] `package.json` is unchanged; `git diff main --numstat -- tests` shows deleted lines only in the two exceptions of task 6 (the traceability requirement counts and the Profile page's no-form check)
+- [x] `npm start` and open the board: the header, cards, tabs, chips, buttons and score badges look like board-report, in light and in dark
+- [x] The toggle switches the theme. The same page reloads with its filters kept, and the choice holds on Runs, Profile, a job's page, and after closing and reopening the browser
+- [x] The board at phone width (375 px) still works and has no sideways scrolling
+- [x] The README screenshots show the new look
+- [x] `package.json` is unchanged; `git diff main --numstat -- tests` shows deleted lines only in the two exceptions of task 6 (the traceability requirement counts and the Profile page's no-form check)
 
 ---
 
@@ -1357,6 +1357,7 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 | CP-12 | Find Now and Clear All (DEC-051) | Approved | 2026-10-25 | Clear All dismisses a view's New jobs after asking; Find Now runs `/find-jobs linkedin|other` headless (dontAsk, no MCP server, the command's tools only, no shell, one run at a time, log in data/find-now/). NFR-03 allows that one process (DEC-052). The view switch counts New jobs only (DEC-054). DEF-020 fixed (the command's write rule never matched; now `Edit(/data/find-jobs/**)`). E2E for the two actions on a server of their own (DEC-053). 1,343 tests green (1,189 Vitest, 154 Playwright); k6 p95 44.0 ms |
 | CP-13 | Cucumber BDD layer (DEC-056) | Approved | 2026-10-29 | @cucumber/cucumber 13.3.0 runs TypeScript steps natively; DEC-055 (dependencies may be added, listed in §7), DEC-057 (an app per scenario, smoke profile, Playwright timeouts). 21 integration, 46 API and 16 E2E scenarios on Chromium, Firefox, WebKit and Pixel 7, plus 4 @smoke: 131 scenario runs green; scripts/bdd.ts runs every profile even after a failure; traceability lists the scenarios per requirement. Independent review: 11 findings, all fixed. 1,482 tests green (1,328 Vitest, 154 Playwright); k6 p95 42.7 ms |
 | CP-14 | board-report for every test type (DEC-058) | Approved | 2026-10-29 | board-report built in this repository with no new package (DEC-059): one result format (Zod), Vitest and Playwright reporters, converters for Cucumber messages, tsc, ESLint, Prettier, npm audit, coverage thresholds and k6; every test:* script runs through scripts/board-report.ts; test:all, test:static and report added; NFR-13. The report opens from file:// under a strict CSP, light and dark, 375 px. `npm run test:all` twice: 2,006 tests green across 15 types, k6 p95 39.5 and 37.1 ms. CI run 40969564713 on the branch: 6 jobs green, the board-report artifact holds the same 2,006 results. One existing test line changed (traceability.test.ts, 12 → 13 NFRs) |
+| CP-15 | The board gets board-report's look (DEC-060, DEC-061) | Approved | 2026-10-29 | public/app.css copies board-report's palette (contract test keeps the shared tokens equal); gradient header, logo tile, pills, chips, rounded cards, status-coloured score badges; favicon #7c3aed. FR-23: light/dark toggle as a form (POST /theme, HttpOnly SameSite=Lax cookie for a year, data-theme on <html>), no client script. DEC-062 (lenient cookie parsing, optional request cookies, error-page return path, Firefox colour-scheme workaround); DEF-021 (Firefox dark axe runs had checked light) fixed. `npm run test:all`: 2,196 tests green across 15 types, coverage 97.1 % lines, k6 p95 42.1 ms; package.json unchanged; deleted test lines only in the two allowed exceptions |
 
 ---
 
