@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { DataTable, Given, Then, When } from '@cucumber/cucumber';
 import { z } from 'zod';
-import type { IncomingListing } from '../../../../src/ingest/listing-ingest.ts';
-import { ingestListings } from '../../../../src/ingest/listing-ingest.ts';
+import { ingestListings, type IncomingListing } from '../../../../src/ingest/listing-ingest.ts';
 import { countRows, seedEmailYearsJob } from '../../../integration/helpers/test-database.ts';
 import { jobRow } from '../../support/board-data.ts';
 import type { BoardWorld } from '../../support/world.ts';

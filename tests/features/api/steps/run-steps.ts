@@ -9,7 +9,7 @@ import {
   RunSummarySchema,
   ScoringQueueResponseSchema,
 } from '../../../../src/schemas/api.ts';
-import { finishRun, jobDetail, sendListings, startRun, storeScores } from '../../support/board-api.ts';
+import { finishRun, jobDetail, sendListings, startRun, storeScores, type ScoreEntry } from '../../support/board-api.ts';
 import { jobRow, jobRows, type JobRow } from '../../support/board-data.ts';
 import type { BoardWorld } from '../../support/world.ts';
 import { explainedRefusal, lastResponse, refusal } from './answers.ts';
@@ -129,7 +129,7 @@ Then('the board has no jobs', async function (this: BoardWorld) {
 
 // --- Scores (FR-06, FR-20) ---
 
-async function score(world: BoardWorld, rubric: string, entries: Parameters<typeof storeScores>[3]): Promise<void> {
+async function score(world: BoardWorld, rubric: string, entries: readonly ScoreEntry[]): Promise<void> {
   await newRun(world);
   world.response = await storeScores(await world.app(), openRun(world), rubric, entries);
 }

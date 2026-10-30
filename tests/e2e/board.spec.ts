@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { JobDetailSchema } from '../../src/schemas/api.ts';
 import { seedJobs, seedListings, uniqueTag } from './seed.ts';
 
 // PLAN.md §8.1 types 7 and 8: the owner's daily flows in a real browser, on every Playwright project.
@@ -273,9 +274,7 @@ test.describe('board', () => {
     await expect(details).toContainText('match-v1: scored on the full description');
     await expect(page.getByRole('region', { name: 'Sightings' })).toContainText('Found by the search “QA family”');
     await expect(page.locator('.description')).toHaveText('About the role\n\nOwn the Playwright suite.');
-    const { sourceJobId } = (await (await request.get(`/api/jobs/${String(job?.id)}`)).json()) as {
-      sourceJobId: string;
-    };
+    const { sourceJobId } = JobDetailSchema.parse(await (await request.get(`/api/jobs/${String(job?.id)}`)).json());
     await expect(page.getByRole('link', { name: /Open on LinkedIn/ })).toHaveAttribute(
       'href',
       `https://www.linkedin.com/jobs/view/${sourceJobId}/`,
