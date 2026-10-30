@@ -71,10 +71,6 @@ export function svgTitle(text: string): SVGTitleElement {
   return svg('title', { text });
 }
 
-export function clear(node: Node): void {
-  while (node.firstChild !== null) node.removeChild(node.firstChild);
-}
-
 /** A link that leaves the report; only ever given URLs from the data (GitHub, the CI run). */
 export function externalLink(href: string, text: string, attrs: Attrs = {}): HTMLAnchorElement {
   return el('a', { ...attrs, href, target: '_blank', rel: 'noopener noreferrer' }, text);
