@@ -10,6 +10,7 @@ import {
   statusBadge,
   statusCounts,
   statusIcon,
+  STATUSES_SHOWN,
   typeChip,
 } from './badges.ts';
 import { durationArea, historyDots, passRing, trendBars } from './charts.ts';
@@ -82,9 +83,7 @@ function statusLegend(): HTMLElement {
   return el(
     'ul',
     { class: 'legend', 'aria-hidden': 'true' },
-    ...(['passed', 'failed', 'broken', 'skipped'] as const).map((status) =>
-      el('li', {}, el('span', { class: `swatch fill-${status}` }), status),
-    ),
+    ...STATUSES_SHOWN.map((status) => el('li', {}, el('span', { class: `swatch fill-${status}` }), status)),
   );
 }
 
@@ -208,11 +207,7 @@ function requirementChips(): HTMLElement {
       text: 'Every requirement of the plan, coloured by the result of the tests that cover it.',
     }),
     list,
-    el(
-      'ul',
-      { class: 'legend' },
-      ...(['passed', 'failed', 'broken', 'skipped', null] as const).map((status) => el('li', {}, resultBadge(status))),
-    ),
+    el('ul', { class: 'legend' }, ...[...STATUSES_SHOWN, null].map((status) => el('li', {}, resultBadge(status)))),
   );
 }
 
