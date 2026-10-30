@@ -24,6 +24,7 @@ Every defect found while building the Agentic Job Board (PLAN.md Phase 8 task 2)
 | DEF-020 | The `/find-jobs` command's write rule never matched                   | High     | Real CLI check (Phase 12)        | Fixed  | `ed0daab`  |
 | DEF-021 | The Firefox dark-mode accessibility runs checked the light theme      | Low      | E2E suite (Phase 15)             | Fixed  | `9133cd9`  |
 | DEF-022 | board-report's WebKit E2E tests time out on the CI runner             | Medium   | CI on `main` (after CP-15)       | Fixed  | `fc2841a`  |
+| DEF-023 | board-report's Firefox axe tests time out on the CI runner            | Medium   | CI on `main` (after DEF-022)     | Fixed  | `9882e2c`  |
 
 Open defects: none.
 
@@ -172,3 +173,11 @@ Open defects: none.
 - **Expected:** `tests/e2e/board-report.spec.ts` passes on WebKit, as it did in the run before (40990199127).
 - **Actual:** three WebKit tests ran past the 30 s limit: "the report opens from file:// …" and "axe finds no violations" in light and dark mode. Each walks every view of the report, waiting for its entrance animation and running axe or a click on each. On the CI runner they had already taken 22–24 s before Phase 15; Phase 15 added 116 browser tests (218 → 334) to the same workers, and they took 31–34 s. The other WebKit tests of the file slowed the same way (one passed in 30.1 s). Locally they take 7–14 s, and the report did not change apart from one comment.
 - **Fix:** the file's tests get Playwright's triple time budget (`test.slow`) on WebKit only, with the reason written next to it. No assertion, test or browser was dropped. **Status:** Fixed in `fc2841a`.
+
+### DEF-023: board-report's Firefox axe tests time out on the CI runner
+
+- **Severity:** Medium (CI on `main` failed; the report itself was fine)
+- **Steps:** CI run 41000640447, the push of the DEF-022 merge: the E2E job with all four browser projects on 10 workers.
+- **Expected:** "axe finds no violations" in light and dark mode in `tests/e2e/board-report.spec.ts` passes on Firefox, as it did in the two runs before.
+- **Actual:** both ran past the 30 s limit on Firefox. Each opens eight views of the report and runs axe on each. On the CI runner they took 20 s, then 24 s after Phase 15, then more than 30 s. The step timings show no hang: every step was two to four times slower than on Chromium (13 s), and the time ran out on the last view. axe found no violation. The other board-report tests stay under 15 s on Firefox.
+- **Fix:** these two tests get Playwright's triple time budget (`test.slow`) on Firefox too, with the reason written next to it; WebKit already has it (DEF-022). No assertion, test or browser was dropped. **Status:** Fixed in `9882e2c`.
