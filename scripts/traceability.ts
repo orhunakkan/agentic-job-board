@@ -67,6 +67,7 @@ export const REQUIREMENTS: readonly Requirement[] = [
     title: 'Find Now',
     also: 'Tests run a stand-in for Claude Code; a real Find Now run is checked by hand at CP-12',
   },
+  { id: 'FR-23', title: 'Light or dark' },
   { id: 'NFR-01', title: 'Localhost only' },
   {
     id: 'NFR-02',
