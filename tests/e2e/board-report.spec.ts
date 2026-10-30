@@ -73,6 +73,13 @@ async function expectNoSideScroll(page: Page): Promise<void> {
 const ROUTES = ['#/overview', '#/types', '#/requirements', '#/failures', '#/timeline', '#/environment'] as const;
 
 test.describe('board-report', () => {
+  // Several tests here walk every view of the report, with axe or a click on each. WebKit draws the views two to three
+  // times slower than the other engines, and on the CI runner those tests took 22–34 s of the 30 s budget once the
+  // suite grew (DEF-022), so WebKit gets the triple budget. Every assertion stays as it is.
+  test.beforeEach(({ browserName }) => {
+    test.slow(browserName === 'webkit', 'WebKit walks the report’s views slowly (DEF-022)');
+  });
+
   test('NFR-13: the overview shows the run’s totals, pass rate, test types and trends', async ({ page }) => {
     await open(page);
     const { totals } = outcome.index;
