@@ -22,18 +22,23 @@ function isStatus(value: string): value is Status {
   return (STATUSES_SHOWN as readonly string[]).includes(value);
 }
 
-export function filtersFrom(params: URLSearchParams): Filters {
-  const status = params.get('status') ?? '';
-  const type = params.get('type') ?? '';
-  const severity = params.get('severity') ?? '';
+/** The filters from each key's raw value, an unknown status, type or severity read as no filter. */
+function filtersOf(valueOf: (key: (typeof FILTER_KEYS)[number]) => string): Filters {
+  const status = valueOf('status');
+  const type = valueOf('type');
+  const severity = valueOf('severity');
   return {
-    q: params.get('q') ?? '',
+    q: valueOf('q'),
     status: isStatus(status) ? status : '',
     type: report().typeInfo.has(type as TestType) ? (type as TestType) : '',
-    browser: params.get('browser') ?? '',
-    tag: params.get('tag') ?? '',
+    browser: valueOf('browser'),
+    tag: valueOf('tag'),
     severity: severity === 'critical' || severity === 'normal' ? severity : '',
   };
+}
+
+export function filtersFrom(params: URLSearchParams): Filters {
+  return filtersOf((key) => params.get(key) ?? '');
 }
 
 /** The params with the filters written in (empty ones left out), other params kept. */
@@ -162,20 +167,10 @@ export function filterBar(filters: Filters, onChange: (filters: Filters) => void
   form.appendChild(el('div', { class: 'field field-actions' }, reset));
   const element = el('div', { class: 'filter-wrap' }, form, count);
 
-  const valueOf = (id: string): string => form.querySelector<HTMLSelectElement>(`#${id}`)?.value ?? '';
-  const read = (): Filters => {
-    const status = valueOf('filter-status');
-    const type = valueOf('filter-type');
-    const severity = valueOf('filter-severity');
-    return {
-      q: search.value,
-      status: isStatus(status) ? status : '',
-      type: data.typeInfo.has(type as TestType) ? (type as TestType) : '',
-      browser: valueOf('filter-browser'),
-      tag: valueOf('filter-tag'),
-      severity: severity === 'critical' || severity === 'normal' ? severity : '',
-    };
-  };
+  const read = (): Filters =>
+    filtersOf((key) =>
+      key === 'q' ? search.value : (form.querySelector<HTMLSelectElement>(`#filter-${key}`)?.value ?? ''),
+    );
   let timer: number | undefined;
   search.addEventListener('input', () => {
     window.clearTimeout(timer);
