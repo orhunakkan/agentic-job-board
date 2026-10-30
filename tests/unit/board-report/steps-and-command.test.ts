@@ -57,6 +57,9 @@ function writeTest(dir: string, step: Step, status: Status, file = 'tests/unit/a
   );
 }
 
+/** The results folder a step hands its runner. */
+const resultsOf = (command: ProcessCommand) => command.env['BOARD_REPORT_RESULTS'] ?? '';
+
 type Play = (command: ProcessCommand) => Partial<CommandOutput>;
 
 function context(step: Step, play: Play, overrides: Partial<StepContext> = {}) {
@@ -141,7 +144,7 @@ describe('the steps', () => {
     for (const step of ['unit', 'contract', 'e2e', 'smoke', 'bdd-e2e', 'bdd-smoke'] as const) {
       const { value, commands, dir } = context(step, (command) => {
         writeTest(
-          command.env['BOARD_REPORT_RESULTS'] ?? '',
+          resultsOf(command),
           step,
           'passed',
           step.startsWith('bdd')
@@ -200,7 +203,7 @@ describe('the steps', () => {
 
   it('NFR-13: the coverage step runs every project with coverage and turns a fresh summary into threshold results', async () => {
     const { value, commands, dir, root } = context('coverage', (command) => {
-      writeTest(command.env['BOARD_REPORT_RESULTS'] ?? '', 'coverage', 'passed', 'tests/api/a.test.ts');
+      writeTest(resultsOf(command), 'coverage', 'passed', 'tests/api/a.test.ts');
       mkdirSync(join(root, 'coverage'), { recursive: true });
       writeFileSync(
         join(root, 'coverage', 'coverage-summary.json'),
@@ -221,7 +224,7 @@ describe('the steps', () => {
 
   it('NFR-13: a coverage summary older than the run is not reported', async () => {
     const { value, dir, root } = context('coverage', (command) => {
-      writeTest(command.env['BOARD_REPORT_RESULTS'] ?? '', 'coverage', 'passed');
+      writeTest(resultsOf(command), 'coverage', 'passed');
       return {};
     });
     mkdirSync(join(root, 'coverage'));
@@ -234,7 +237,7 @@ describe('the steps', () => {
 
   it('NFR-13: a BDD step turns each profile’s messages into results, and unreadable messages into a broken one', async () => {
     const { value, dir } = context('bdd-api', (command) => {
-      const results = command.env['BOARD_REPORT_RESULTS'] ?? '';
+      const results = resultsOf(command);
       mkdirSync(join(results, 'api'), { recursive: true });
       mkdirSync(join(results, 'broken-profile'), { recursive: true });
       mkdirSync(join(results, 'empty-profile'), { recursive: true });
@@ -294,7 +297,7 @@ describe('the steps', () => {
   it('NFR-13: a failed command with no failing result to show for it gets a broken result; one with a failure does not', async () => {
     const silent = context('e2e', () => ({ exitCode: 1 }));
     const explained = context('unit', (command) => {
-      writeTest(command.env['BOARD_REPORT_RESULTS'] ?? '', 'unit', 'failed');
+      writeTest(resultsOf(command), 'unit', 'failed');
       return { exitCode: 1 };
     });
     await runStep(silent.value);
