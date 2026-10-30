@@ -71,57 +71,50 @@ function parse(path: string): FeatureFile {
 const features = featureFiles(featuresDir).map(parse);
 const REQUIREMENT_TAG = /^@(N?FR-\d{2})$/;
 const requirementsOf = (tags: readonly string[]) => tags.flatMap((tag) => REQUIREMENT_TAG.exec(tag)?.[1] ?? []);
+const byPath = features.map((feature) => [feature.path, feature] as const);
+
+/** The requirements the scenarios of one suite are tagged with. */
+function suiteRequirements(suite: string): string[] {
+  return features
+    .filter((feature) => feature.suite === suite)
+    .flatMap((feature) => feature.scenarios.flatMap((scenario) => requirementsOf(scenario.tags)));
+}
 
 describe('feature files (PLAN.md §8.5)', () => {
   it('there are feature files for integration, API and E2E', () => {
     expect([...new Set(features.map((feature) => feature.suite))].sort()).toEqual(['api', 'e2e', 'integration']);
   });
 
-  it.each(features.map((feature) => [feature.path, feature] as const))(
-    '%s: every scenario is tagged with a requirement',
-    (_, feature) => {
-      expect(feature.scenarios.length).toBeGreaterThan(0);
-      for (const scenario of feature.scenarios) {
-        expect(requirementsOf(scenario.tags), scenario.name).not.toEqual([]);
-      }
-    },
-  );
+  it.each(byPath)('%s: every scenario is tagged with a requirement', (_, feature) => {
+    expect(feature.scenarios.length).toBeGreaterThan(0);
+    for (const scenario of feature.scenarios) {
+      expect(requirementsOf(scenario.tags), scenario.name).not.toEqual([]);
+    }
+  });
 
-  it.each(features.map((feature) => [feature.path, feature] as const))(
-    '%s: no scenario is skipped, left as work in progress or run alone',
-    (_, feature) => {
-      expect(feature.text).not.toMatch(/@(?:skip|wip|only|ignore|pending)\b/i);
-    },
-  );
+  it.each(byPath)('%s: no scenario is skipped, left as work in progress or run alone', (_, feature) => {
+    expect(feature.text).not.toMatch(/@(?:skip|wip|only|ignore|pending)\b/i);
+  });
 
-  it.each(features.map((feature) => [feature.path, feature] as const))(
-    '%s: names only requirements of PLAN.md §3 that still apply',
-    (_, feature) => {
-      const known = new Map(REQUIREMENTS.map((requirement) => [requirement.id, requirement]));
-      for (const id of feature.scenarios.flatMap((scenario) => requirementsOf(scenario.tags))) {
-        expect(known.has(id), id).toBe(true);
-        expect(known.get(id)?.retired, id).toBeUndefined();
-      }
-    },
-  );
+  it.each(byPath)('%s: names only requirements of PLAN.md §3 that still apply', (_, feature) => {
+    const known = new Map(REQUIREMENTS.map((requirement) => [requirement.id, requirement]));
+    for (const id of feature.scenarios.flatMap((scenario) => requirementsOf(scenario.tags))) {
+      expect(known.has(id), id).toBe(true);
+      expect(known.get(id)?.retired, id).toBeUndefined();
+    }
+  });
 
-  it.each(features.map((feature) => [feature.path, feature] as const))(
-    '%s: reads as plain English, with no URLs, JSON, SQL, selectors or code names',
-    (_, feature) => {
-      expect(feature.text).not.toMatch(/https?:|\/api\/|[{}]|\b(?:SELECT|INSERT|UPDATE|DELETE|WHERE)\b/);
-      expect(feature.text).not.toMatch(/#[a-z][\w-]*|\.[a-z][\w-]+\s*\{|\bdata-[a-z]|\b[a-z]+_[a-z_]+\b/);
-      // camelCase names such as sourceJobId; "LinkedIn" starts with a capital, so it doesn't count.
-      expect(feature.text).not.toMatch(/\b[a-z]+[A-Z]\w*\b/);
-    },
-  );
+  it.each(byPath)('%s: reads as plain English, with no URLs, JSON, SQL, selectors or code names', (_, feature) => {
+    expect(feature.text).not.toMatch(/https?:|\/api\/|[{}]|\b(?:SELECT|INSERT|UPDATE|DELETE|WHERE)\b/);
+    expect(feature.text).not.toMatch(/#[a-z][\w-]*|\.[a-z][\w-]+\s*\{|\bdata-[a-z]|\b[a-z]+_[a-z_]+\b/);
+    // camelCase names such as sourceJobId; "LinkedIn" starts with a capital, so it doesn't count.
+    expect(feature.text).not.toMatch(/\b[a-z]+[A-Z]\w*\b/);
+  });
 
-  it.each(features.map((feature) => [feature.path, feature] as const))(
-    '%s: opens with "As the owner, I want …, so that …" and has at most one Background',
-    (_, feature) => {
-      expect(feature.text).toMatch(/^\s*Feature: .+\n\s+As the owner,\n\s+I want .+\n\s+so that .+\.\n/m);
-      expect(feature.text.match(/^\s*Background:/gm)?.length ?? 0).toBeLessThanOrEqual(1);
-    },
-  );
+  it.each(byPath)('%s: opens with "As the owner, I want …, so that …" and has at most one Background', (_, feature) => {
+    expect(feature.text).toMatch(/^\s*Feature: .+\n\s+As the owner,\n\s+I want .+\n\s+so that .+\.\n/m);
+    expect(feature.text.match(/^\s*Background:/gm)?.length ?? 0).toBeLessThanOrEqual(1);
+  });
 
   // Phase 13 tasks 3 to 6: the requirements each suite has scenarios for.
   const EXPECTED: readonly (readonly [string, readonly string[]])[] = [
@@ -134,17 +127,12 @@ describe('feature files (PLAN.md §8.5)', () => {
   ];
 
   it.each(EXPECTED)('the %s scenarios cover %j', (suite, ids) => {
-    const covered = features
-      .filter((feature) => feature.suite === suite)
-      .flatMap((feature) => feature.scenarios.flatMap((scenario) => requirementsOf(scenario.tags)));
+    const covered = suiteRequirements(suite);
     for (const id of ids) expect(covered, id).toContain(id);
   });
 
   it('the API scenarios also cover NFR-01 and NFR-09', () => {
-    const covered = features
-      .filter((feature) => feature.suite === 'api')
-      .flatMap((feature) => feature.scenarios.flatMap((scenario) => requirementsOf(scenario.tags)));
-    expect(covered).toEqual(expect.arrayContaining(['NFR-01', 'NFR-09']));
+    expect(suiteRequirements('api')).toEqual(expect.arrayContaining(['NFR-01', 'NFR-09']));
   });
 
   it('the smoke scenarios are in e2e/smoke.feature, each tagged @smoke and with its requirement', () => {
