@@ -15,6 +15,7 @@ import { LinkedInSearchConfigError, parseLinkedInSearchConfig } from '../../src/
 import { SearchLinkedInSummarySchema } from '../../src/linkedin/search-summary.ts';
 import {
   CreateRunResponseSchema,
+  IngestStateResponseSchema,
   JobDetailSchema,
   JobListResponseSchema,
   RunSummarySchema,
@@ -390,8 +391,8 @@ describe('scripts/search-linkedin.ts', () => {
       const queue = ScoringQueueResponseSchema.parse((await testApp.get('/api/scoring/queue')).body);
       expect(queue.items.filter((item) => item.rubric === 'match-v1').map((item) => item.id)).toHaveLength(2);
       // A backfill names no search, so it doesn't move where since-last-run starts.
-      const state = (await testApp.get('/api/ingest/state')).body as { lastLinkedInSearchAt: string };
-      expect(Date.parse(state.lastLinkedInSearchAt)).toBeLessThan(Date.parse('2026-10-23T12:01:00.000Z'));
+      const state = IngestStateResponseSchema.parse((await testApp.get('/api/ingest/state')).body);
+      expect(Date.parse(state.lastLinkedInSearchAt ?? '')).toBeLessThan(Date.parse('2026-10-23T12:01:00.000Z'));
     });
   });
 

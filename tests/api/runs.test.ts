@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { CreateRunResponseSchema, IngestStateResponseSchema, RunSummarySchema } from '../../src/schemas/api.ts';
+import {
+  CreateRunResponseSchema,
+  IngestStateResponseSchema,
+  RunListResponseSchema,
+  RunSummarySchema,
+} from '../../src/schemas/api.ts';
 import { jobAt, LINKEDIN_LISTINGS, seedBoard, seedLinkedInListings, seedListings } from '../helpers/seed-board.ts';
 import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
@@ -247,8 +252,8 @@ describe('the /find-jobs run API', () => {
       const two = await testApp.get('/api/runs?limit=2');
 
       expect(all.status).toBe(200);
-      expect((all.body as { id: number }[]).map((run) => run.id)).toEqual([3, 2, 1]);
-      expect((two.body as { id: number }[]).map((run) => run.id)).toEqual([3, 2]);
+      expect(RunListResponseSchema.parse(all.body).map((run) => run.id)).toEqual([3, 2, 1]);
+      expect(RunListResponseSchema.parse(two.body).map((run) => run.id)).toEqual([3, 2]);
     });
 
     it.each(['limit=0', 'limit=101', 'limit=ten', 'limit=1&limit=2', 'page=2'])(

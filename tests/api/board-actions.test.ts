@@ -226,12 +226,12 @@ describe('Find Now', () => {
     expect(board).toContain('data-outcome="failed"');
   });
 
-  it.each([{}, { origin: 'all' }, { origin: 'linkedin', command: 'rm -rf /' }])(
+  it.each<Record<string, string>>([{}, { origin: 'all' }, { origin: 'linkedin', command: 'rm -rf /' }])(
     'NFR-09: the form %o is a 400 and starts nothing',
     async (fields) => {
       testApp = await startTestApp();
 
-      expect((await testApp.form('/board/find', fields as Record<string, string>)).status).toBe(400);
+      expect((await testApp.form('/board/find', fields)).status).toBe(400);
       expect(testApp.logs.filter((line) => line.includes('find now started'))).toEqual([]);
     },
   );

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { CreateRunResponseSchema, type JobSummary } from '../../src/schemas/api.ts';
+import { CreateRunResponseSchema, IngestListingsResponseSchema, type JobSummary } from '../../src/schemas/api.ts';
 import { jobAt, seedLinkedInListings } from '../helpers/seed-board.ts';
 import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
@@ -90,7 +90,7 @@ describe('LinkedIn search jobs on the pages', () => {
       ],
     });
     expect(response.status).toBe(200);
-    const id = (response.body as { newJobs: { id: number }[] }).newJobs[0]?.id ?? 0;
+    const id = IngestListingsResponseSchema.parse(response.body).newJobs[0]?.id ?? 0;
 
     const detail = await page(`/jobs/${String(id)}`);
 
