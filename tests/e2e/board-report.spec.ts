@@ -421,10 +421,10 @@ test.describe('board-report', () => {
 
     await open(page);
     expect(page.url().startsWith('file://')).toBe(true);
-    await page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: 'Timeline' }).click();
+    const views = page.getByRole('navigation', { name: 'Views' });
+    await views.getByRole('link', { name: 'Timeline' }).click();
     for (const route of ROUTES) {
-      await page
-        .getByRole('navigation', { name: 'Views' })
+      await views
         .getByRole('link')
         .filter({ hasText: viewName(route) })
         .click();
