@@ -10,9 +10,12 @@ Running **`/find-jobs`** in Claude Code runs the owner's own LinkedIn searches w
 
 ![The board: new jobs ranked by triage score, with filters and status actions](docs/screenshots/board.png)
 
-| Job detail                                                                                    | Dark mode, In progress tab                                                  | Phone (390 px)                                                          |
-| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| ![Job detail with status form, notes, history and sightings](docs/screenshots/job-detail.png) | ![The board in dark mode, In progress tab](docs/screenshots/board-dark.png) | ![The board on a phone-sized screen](docs/screenshots/board-mobile.png) |
+| Job detail                                                                                    | Dark mode, In progress tab                                                  | Phone (390 px)                                                                             |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| ![Job detail with status form, notes, history and sightings](docs/screenshots/job-detail.png) | ![The board in dark mode, In progress tab](docs/screenshots/board-dark.png) | ![The board on a phone-sized screen](docs/screenshots/board-mobile.png)                    |
+| ![Job detail in dark mode](docs/screenshots/job-detail-dark.png)                              | ![Runs](docs/screenshots/runs.png)                                          | ![The Other sources view on a phone, in dark mode](docs/screenshots/board-mobile-dark.png) |
+
+The board has board-report's look: its palette, the gradient header, rounded cards and pill-shaped controls (DEC-060). Every page follows the system's light or dark setting until you pick one with the toggle in the header; the choice holds on every page for a year, kept in a cookie, and works without JavaScript (FR-23, DEC-061).
 
 Screenshots are taken with Playwright from fake data (`node scripts/screenshots.ts`); no real job or person appears in them.
 
