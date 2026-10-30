@@ -5,7 +5,7 @@ import type { Totals } from '../history.ts';
 import type { Status } from '../result-schema.ts';
 import { STATUS_WORD, STATUSES_SHOWN, statusIcon, totalsLabel } from './badges.ts';
 import { el, svg, svgTitle } from './dom.ts';
-import { formatCount, formatDateTime, formatDuration, formatPercent, formatShortDate } from './format.ts';
+import { formatCount, formatDateTime, formatDuration, formatPercent, formatShortDate, plural } from './format.ts';
 import { totalOf } from './state.ts';
 
 export function passRing(totals: Totals): HTMLElement {
@@ -200,16 +200,16 @@ export function historyDots(history: readonly Status[]): HTMLElement {
   const label =
     history.length === 0
       ? 'No earlier results'
-      : `Last ${String(history.length)} ${history.length === 1 ? 'result' : 'results'}, oldest first: ${history.join(', ')}`;
+      : `Last ${plural(history.length, 'result')}, oldest first: ${history.join(', ')}`;
   const list = el('ol', { class: 'history-dots', 'aria-label': label });
   history.forEach((status, index) => {
-    const isLast = index === history.length - 1;
+    const ago = history.length - 1 - index;
     list.appendChild(
       el(
         'li',
         {
-          class: `history-dot fill-${status}${isLast ? ' history-dot-latest' : ''}`,
-          title: `${isLast ? 'This run' : `${String(history.length - 1 - index)} ${history.length - 1 - index === 1 ? 'run' : 'runs'} ago`}: ${STATUS_WORD[status]}`,
+          class: `history-dot fill-${status}${ago === 0 ? ' history-dot-latest' : ''}`,
+          title: `${ago === 0 ? 'This run' : `${plural(ago, 'run')} ago`}: ${STATUS_WORD[status]}`,
         },
         statusIcon(status, 'dot-icon'),
         el('span', { class: 'sr-only', text: STATUS_WORD[status] }),
