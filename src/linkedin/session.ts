@@ -77,12 +77,8 @@ export function isLinkedInSignInPage(url: string): boolean {
 }
 
 function isLinkedInOrigin(origin: string): boolean {
-  try {
-    const url = new URL(origin);
-    return url.protocol === 'https:' && isLinkedInDomain(url.hostname);
-  } catch {
-    return false;
-  }
+  const url = URL.parse(origin);
+  return url?.protocol === 'https:' && isLinkedInDomain(url.hostname);
 }
 
 function authCookie(state: StorageState) {
