@@ -1,7 +1,7 @@
 import type { ListingSource } from '../domain/job-source.ts';
 import type { IncomingListing } from '../ingest/listing-ingest.ts';
 import { DESCRIPTION_MAX, IncomingListingSchema } from '../schemas/api.ts';
-import { htmlToText, oneLine } from './html-text.ts';
+import { cut, htmlToText, oneLine } from './html-text.ts';
 
 // What every feed parser builds: one listing in the shape POST /api/runs/:id/listings accepts (FR-15).
 
@@ -37,10 +37,6 @@ export function toListing(raw: RawListing): IncomingListing | null {
     description: raw.description === null ? null : htmlToText(raw.description, DESCRIPTION_MAX),
   });
   return parsed.success ? parsed.data : null;
-}
-
-function cut(text: string, max: number): string {
-  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 }
 
 function toIsoTime(value: string | number | null): string | null {
