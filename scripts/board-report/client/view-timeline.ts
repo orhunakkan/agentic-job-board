@@ -1,7 +1,7 @@
 // Timeline: when each test ran, by step and worker, so slow stretches and parallel runs are visible. The lanes are a
 // picture (a click on a bar opens its test); the list under them holds the same tests as links for the keyboard.
 import type { TestEntry } from '../build/data-shape.ts';
-import { statusBadge, typeChip } from './badges.ts';
+import { statusBadge, STATUSES_SHOWN, typeChip } from './badges.ts';
 import { chunked, el, setVar } from './dom.ts';
 import { filterBar, filterTests, filtersFrom, withFilters, type Filters } from './filters.ts';
 import { formatDuration, plural } from './format.ts';
@@ -103,7 +103,7 @@ function laneLegend(): HTMLElement {
   return el(
     'ul',
     { class: 'legend' },
-    ...(['passed', 'failed', 'broken', 'skipped'] as const).map((status) =>
+    ...STATUSES_SHOWN.map((status) =>
       el('li', {}, el('span', { class: `swatch lane-bar-swatch bar-${status}`, 'aria-hidden': 'true' }), status),
     ),
   );

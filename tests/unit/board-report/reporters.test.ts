@@ -273,17 +273,13 @@ describe('the Playwright reporter', () => {
 
   it('NFR-13: maps every outcome to a status, and writes nothing without board-report', () => {
     const expected = { status: 'passed' } as PlaywrightResult;
-    expect(statusOf(playwrightCase('x', 'chromium', 'skipped'), expected)).toBe('skipped');
-    expect(statusOf(playwrightCase('x', 'chromium', 'expected'), expected)).toBe('passed');
-    expect(statusOf(playwrightCase('x', 'chromium', 'flaky'), expected)).toBe('passed');
-    expect(statusOf(playwrightCase('x', 'chromium', 'unexpected'), expected)).toBe('failed');
-    expect(statusOf(playwrightCase('x', 'chromium', 'unexpected'), { status: 'timedOut' })).toBe('broken');
-    expect(
-      statusOf(playwrightCase('x', 'chromium', 'unexpected'), {
-        status: 'failed',
-        error: { message: 'boom' },
-      }),
-    ).toBe('broken');
+    const withOutcome = (outcome: string) => playwrightCase('x', 'chromium', outcome);
+    expect(statusOf(withOutcome('skipped'), expected)).toBe('skipped');
+    expect(statusOf(withOutcome('expected'), expected)).toBe('passed');
+    expect(statusOf(withOutcome('flaky'), expected)).toBe('passed');
+    expect(statusOf(withOutcome('unexpected'), expected)).toBe('failed');
+    expect(statusOf(withOutcome('unexpected'), { status: 'timedOut' })).toBe('broken');
+    expect(statusOf(withOutcome('unexpected'), { status: 'failed', error: { message: 'boom' } })).toBe('broken');
     expect(errorInfo(undefined)).toBeNull();
     expect(errorInfo({ value: 'thrown string' })).toMatchObject({ message: 'thrown string', stack: null });
 

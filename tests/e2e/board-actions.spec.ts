@@ -47,7 +47,7 @@ test('FR-21: Clear All asks first, then dismisses the New jobs of the view only;
   await card(page, plain?.title ?? '')
     .getByRole('button', { name: /^Restore/ })
     .click();
-  await expect(page.locator('#notice')).toContainText('is now New');
+  await expect(notice).toContainText('is now New');
   await page.goto(`/?q=${tag}`);
   await expect(page.locator('.card-title')).toHaveText([plain?.title ?? '']);
 });
@@ -55,26 +55,27 @@ test('FR-21: Clear All asks first, then dismisses the New jobs of the view only;
 test('FR-22: Find Now runs in the background, is disabled meanwhile, and says when it has finished', async ({
   page,
 }) => {
-  await page.goto('/?origin=other');
-  await page.getByRole('button', { name: 'Find Now' }).click();
-
+  const findNow = page.getByRole('button', { name: 'Find Now' });
   const line = page.locator('#find-now');
+  await page.goto('/?origin=other');
+  await findNow.click();
+
   await expect(line).toContainText('Find Now is running for Other sources since');
   await expect(line).toBeFocused();
   await expect(page).toHaveURL(/\/\?origin=other&tab=new#find-now$/);
-  await expect(page.getByRole('button', { name: 'Find Now' })).toBeDisabled();
+  await expect(findNow).toBeDisabled();
   await expectNoViolations(page);
 
   // The LinkedIn view shows the same run and can't start another.
   await page.getByRole('link', { name: /^LinkedIn/ }).click();
-  await expect(page.locator('#find-now')).toContainText('Find Now is running for Other sources');
-  await expect(page.getByRole('button', { name: 'Find Now' })).toBeDisabled();
+  await expect(line).toContainText('Find Now is running for Other sources');
+  await expect(findNow).toBeDisabled();
 
   await expect(async () => {
     await page.reload();
-    await expect(page.locator('#find-now')).toContainText('Find Now for Other sources finished at', { timeout: 500 });
+    await expect(line).toContainText('Find Now for Other sources finished at', { timeout: 500 });
   }).toPass({ timeout: 15_000 });
-  await expect(page.locator('#find-now')).toContainText('other.log');
-  await expect(page.getByRole('button', { name: 'Find Now' })).toBeEnabled();
+  await expect(line).toContainText('other.log');
+  await expect(findNow).toBeEnabled();
   await expectNoViolations(page);
 });

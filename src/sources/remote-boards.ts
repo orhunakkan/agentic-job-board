@@ -9,6 +9,8 @@ import { formatSalary, remoteLocation } from './listing.ts';
 const Text = z.string();
 const MaybeText = z.string().nullish();
 const MaybeAmount = z.number().nullish();
+// The answer most of these boards send: { "jobs": [...] }.
+const JobsEnvelope = z.object({ jobs: z.array(z.unknown()) }).transform((answer) => answer.jobs);
 
 // --- Remote OK: remoteok.com/api, the latest ~100 jobs; the first item is its legal notice ----------------------
 
@@ -79,24 +81,18 @@ export function himalayasSearch(keyword: string): FeedRequest {
     name,
     url: `https://himalayas.app/jobs/api/search?q=${segment(keyword)}&country=US`,
     read: (body) => ({
-      ...readJobs(
-        name,
-        body,
-        z.object({ jobs: z.array(z.unknown()) }).transform((answer) => answer.jobs),
-        HimalayasJob,
-        (job) => ({
-          source: 'himalayas',
-          // The page path is the stable ID: https://himalayas.app/companies/<company>/jobs/<job>
-          sourceJobId: job.guid.replace(/^https:\/\/himalayas\.app\/companies\//, ''),
-          title: job.title,
-          company: job.companyName,
-          location: remoteLocation(job.locationRestrictions),
-          url: job.guid,
-          postedAt: job.pubDate ?? null,
-          salary: formatSalary(job.minSalary, job.maxSalary, job.currency, job.salaryPeriod),
-          description: job.description ?? null,
-        }),
-      ),
+      ...readJobs(name, body, JobsEnvelope, HimalayasJob, (job) => ({
+        source: 'himalayas',
+        // The page path is the stable ID: https://himalayas.app/companies/<company>/jobs/<job>
+        sourceJobId: job.guid.replace(/^https:\/\/himalayas\.app\/companies\//, ''),
+        title: job.title,
+        company: job.companyName,
+        location: remoteLocation(job.locationRestrictions),
+        url: job.guid,
+        postedAt: job.pubDate ?? null,
+        salary: formatSalary(job.minSalary, job.maxSalary, job.currency, job.salaryPeriod),
+        description: job.description ?? null,
+      })),
       followUps: [],
     }),
   };
@@ -125,23 +121,17 @@ export function jobicyFeed(): FeedRequest {
     name,
     url: 'https://jobicy.com/api/v2/remote-jobs?count=100&geo=usa',
     read: (body) => ({
-      ...readJobs(
-        name,
-        body,
-        z.object({ jobs: z.array(z.unknown()) }).transform((answer) => answer.jobs),
-        JobicyJob,
-        (job) => ({
-          source: 'jobicy',
-          sourceJobId: job.id,
-          title: job.jobTitle,
-          company: job.companyName,
-          location: remoteLocation(job.jobGeo?.split(/\s*,\s*/)),
-          url: job.url,
-          postedAt: job.pubDate ?? null,
-          salary: formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency, job.salaryPeriod),
-          description: job.jobDescription ?? null,
-        }),
-      ),
+      ...readJobs(name, body, JobsEnvelope, JobicyJob, (job) => ({
+        source: 'jobicy',
+        sourceJobId: job.id,
+        title: job.jobTitle,
+        company: job.companyName,
+        location: remoteLocation(job.jobGeo?.split(/\s*,\s*/)),
+        url: job.url,
+        postedAt: job.pubDate ?? null,
+        salary: formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency, job.salaryPeriod),
+        description: job.jobDescription ?? null,
+      })),
       followUps: [],
     }),
   };

@@ -71,27 +71,21 @@ export const CURRENT = raw('aria-current="page"');
 function themeToggle(returnPath: string): SafeHtml {
   return html`<form class="theme-form" method="post" action="/theme">
     <input type="hidden" name="return" value="${returnPath}" />
-    <button
-      type="submit"
-      class="theme-toggle"
-      name="theme"
-      value="dark"
-      data-next="dark"
-      aria-label="Switch to the dark theme"
-    >
-      <span class="theme-icon" aria-hidden="true"></span>Dark theme
-    </button>
-    <button
-      type="submit"
-      class="theme-toggle"
-      name="theme"
-      value="light"
-      data-next="light"
-      aria-label="Switch to the light theme"
-    >
-      <span class="theme-icon" aria-hidden="true"></span>Light theme
-    </button>
+    ${themeButton('dark', 'Dark theme')} ${themeButton('light', 'Light theme')}
   </form>`;
+}
+
+function themeButton(next: Theme, label: string): SafeHtml {
+  return html`<button
+    type="submit"
+    class="theme-toggle"
+    name="theme"
+    value="${next}"
+    data-next="${next}"
+    aria-label="Switch to the ${next} theme"
+  >
+    <span class="theme-icon" aria-hidden="true"></span>${label}
+  </button>`;
 }
 
 function lastRunLine(run: RunRecord | null): SafeHtml {

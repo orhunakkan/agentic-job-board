@@ -46,28 +46,19 @@ import {
 } from '../src/linkedin/session.ts';
 import { WORKPLACE_LABELS } from '../src/domain/workplace.ts';
 import {
-  CreateRunResponseSchema,
-  ErrorResponseSchema,
-  HealthResponseSchema,
-  IngestListingsResponseSchema,
   IngestStateResponseSchema,
   JobDetailSchema,
   JobListResponseSchema,
   KnownListingsResponseSchema,
   MAX_KNOWN_IDS_PER_CALL,
-  MAX_LISTINGS_PER_CALL,
   type JobSummary,
 } from '../src/schemas/api.ts';
 import { containsAny } from '../src/sources/filter.ts';
+import { AppRequestError, appClient, sendToRun } from './app-client.ts';
 import { defaultLoginOptions, ensureLinkedInSession } from './linkedin-login.ts';
 
 export const DEFAULT_CONFIG_PATH = 'data/linkedin-searches.json';
 const DAY_MS = 86_400_000;
-
-/** The app is not running or refused what was sent. */
-export class AppRequestError extends Error {
-  override name = 'AppRequestError';
-}
 
 /** LinkedIn sent the browser to its sign-in page: the saved session no longer works, so nothing else will either. */
 export class LinkedInSignedOutError extends Error {
@@ -140,7 +131,7 @@ export async function searchLinkedIn(options: SearchLinkedInOptions): Promise<Se
     repeated: 0,
     failures: [],
   };
-  const app = appClient(options.appUrl);
+  const app = linkedInAppClient(options.appUrl);
   if (!options.dryRun) await app.checkHealth();
 
   const state: RunState = { limited: false };
@@ -152,21 +143,14 @@ export async function searchLinkedIn(options: SearchLinkedInOptions): Promise<Se
     for (const listing of listings) options.log(`  ${describe(listing)}`);
     return summary;
   }
-  const runId = options.runId ?? (await app.startRun());
-  for (let start = 0; start < listings.length; start += MAX_LISTINGS_PER_CALL) {
-    const counts = await app.sendListings(runId, listings.slice(start, start + MAX_LISTINGS_PER_CALL));
-    summary.new += counts.new;
-    summary.seenAgain += counts.seenAgain;
-    summary.repeated += counts.repeated;
-  }
-  if (options.runId === null) await app.finishRun(runId);
+  const runId = await sendToRun(app, options.runId, listings, summary);
   return { ...summary, runId };
 }
 
 /** Runs the searches, then reads the pages of the jobs new to the board. */
 async function search(
   options: SearchLinkedInOptions,
-  app: AppClient,
+  app: LinkedInAppClient,
   summary: SearchLinkedInSummary,
   state: RunState,
 ): Promise<IncomingListing[]> {
@@ -249,7 +233,7 @@ async function search(
 /** Reads the job pages of LinkedIn jobs in New and Saved that have no description yet (--backfill). */
 async function backfill(
   options: SearchLinkedInOptions,
-  app: AppClient,
+  app: LinkedInAppClient,
   summary: SearchLinkedInSummary,
   state: RunState,
 ): Promise<IncomingListing[]> {
@@ -327,7 +311,7 @@ function postedBefore(card: SearchCard, cutoff: number): boolean {
   return Date.parse(card.listedAt) + (card.listedDayOnly ? DAY_MS : 0) < cutoff;
 }
 
-async function lastLinkedInSearch(options: SearchLinkedInOptions, app: AppClient): Promise<string | null> {
+async function lastLinkedInSearch(options: SearchLinkedInOptions, app: LinkedInAppClient): Promise<string | null> {
   try {
     return await app.lastLinkedInSearchAt();
   } catch (error) {
@@ -337,7 +321,7 @@ async function lastLinkedInSearch(options: SearchLinkedInOptions, app: AppClient
   }
 }
 
-async function knownJobs(options: SearchLinkedInOptions, app: AppClient, jobIds: readonly string[]) {
+async function knownJobs(options: SearchLinkedInOptions, app: LinkedInAppClient, jobIds: readonly string[]) {
   const known = new Set<string>();
   try {
     for (let start = 0; start < jobIds.length; start += MAX_KNOWN_IDS_PER_CALL) {
@@ -365,61 +349,31 @@ function reason(error: unknown): string {
   return error instanceof Error ? (error.message.split('\n')[0] ?? error.name) : String(error);
 }
 
-type AppClient = ReturnType<typeof appClient>;
+type LinkedInAppClient = ReturnType<typeof linkedInAppClient>;
 
-function appClient(appUrl: string) {
-  async function call<T>(method: string, path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
-    let response: Response;
-    try {
-      response = await fetch(
-        `${appUrl}${path}`,
-        body === undefined
-          ? { method }
-          : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-      );
-    } catch {
-      throw new AppRequestError(`The app is not running at ${appUrl}. Start it with npm start.`);
-    }
-    const json: unknown = await response.json().catch(() => null);
-    if (!response.ok) {
-      const error = ErrorResponseSchema.safeParse(json);
-      const detail = error.success ? `${error.data.error.code}: ${error.data.error.message}` : 'no details';
-      throw new AppRequestError(`${method} ${path} failed with HTTP ${String(response.status)} (${detail})`);
-    }
-    return schema.parse(json);
-  }
-
+/** The shared app client, plus what only this script asks the app. */
+function linkedInAppClient(appUrl: string) {
+  const app = appClient(appUrl);
   return {
-    async checkHealth() {
-      await call('GET', '/api/health', undefined, HealthResponseSchema);
-    },
+    ...app,
     async lastLinkedInSearchAt() {
-      return (await call('GET', '/api/ingest/state', undefined, IngestStateResponseSchema)).lastLinkedInSearchAt;
+      return (await app.call('GET', '/api/ingest/state', undefined, IngestStateResponseSchema)).lastLinkedInSearchAt;
     },
     async known(sourceJobIds: string[]) {
       const body = { source: 'linkedin', sourceJobIds };
-      return (await call('POST', '/api/listings/known', body, KnownListingsResponseSchema)).known;
+      return (await app.call('POST', '/api/listings/known', body, KnownListingsResponseSchema)).known;
     },
     async linkedInJobs(tab: 'new' | 'saved'): Promise<JobSummary[]> {
       const jobs: JobSummary[] = [];
       for (let offset = 0; ; offset += 100) {
         const path = `/api/jobs?origin=linkedin&tab=${tab}&limit=100&offset=${String(offset)}`;
-        const page = await call('GET', path, undefined, JobListResponseSchema);
+        const page = await app.call('GET', path, undefined, JobListResponseSchema);
         jobs.push(...page.items);
         if (jobs.length >= page.total || page.items.length === 0) return jobs;
       }
     },
     async description(jobId: number) {
-      return (await call('GET', `/api/jobs/${String(jobId)}`, undefined, JobDetailSchema)).description;
-    },
-    async startRun() {
-      return (await call('POST', '/api/runs', {}, CreateRunResponseSchema)).runId;
-    },
-    sendListings(runId: number, listings: IncomingListing[]) {
-      return call('POST', `/api/runs/${String(runId)}/listings`, { listings }, IngestListingsResponseSchema);
-    },
-    async finishRun(runId: number) {
-      await call('POST', `/api/runs/${String(runId)}/finish`, {}, z.unknown());
+      return (await app.call('GET', `/api/jobs/${String(jobId)}`, undefined, JobDetailSchema)).description;
     },
   };
 }

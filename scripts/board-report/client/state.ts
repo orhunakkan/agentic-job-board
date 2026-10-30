@@ -32,12 +32,6 @@ export function totalOf(totals: Totals): number {
   return totals.passed + totals.failed + totals.broken + totals.skipped;
 }
 
-export function totalsFor(tests: readonly TestEntry[]): Totals {
-  const totals = emptyTotalsOf();
-  for (const test of tests) totals[test.status] += 1;
-  return totals;
-}
-
 /** The result a group of tests adds up to: failed, broken, passed, skipped; null without tests. */
 export function resultOf(tests: readonly { status: Status }[]): Status | null {
   if (tests.length === 0) return null;

@@ -1,7 +1,7 @@
 // Environment: where and from what the run was made (Node, the OS, the browsers, k6, the commit, CI).
 import { el, externalLink } from './dom.ts';
 import { formatDateTime, formatDuration, plural } from './format.ts';
-import { card, viewHeader } from './shell.ts';
+import { card, emptyState, viewHeader } from './shell.ts';
 import { report } from './state.ts';
 
 function row(name: string, value: Node | string): HTMLTableRowElement {
@@ -44,7 +44,7 @@ export function renderEnvironment(main: HTMLElement): void {
         'Run environment',
         '',
         data.environment.length === 0
-          ? el('p', { class: 'empty', text: 'The run recorded no environment.' })
+          ? emptyState('The run recorded no environment.')
           : el(
               'div',
               { class: 'table-scroll', tabindex: 0, role: 'region', 'aria-label': 'Run environment' },

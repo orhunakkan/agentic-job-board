@@ -63,9 +63,9 @@ function block(css: string, selector: string): string {
   throw new Error(`"${selector}" is not closed`);
 }
 
-/** The custom properties a rule body declares, values with their whitespace collapsed. */
+/** The custom properties a rule body (comments already removed) declares, values with their whitespace collapsed. */
 function tokens(body: string): Map<string, string> {
-  const declarations = body.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g);
+  const declarations = body.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g);
   return new Map([...declarations].map(([, name = '', value = '']) => [name, value.replace(/\s+/g, ' ').trim()]));
 }
 

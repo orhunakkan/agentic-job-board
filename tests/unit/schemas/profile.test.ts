@@ -16,6 +16,9 @@ function validProfile(): Record<string, unknown> {
   };
 }
 
+// Valid locations with every list empty.
+const LOCATIONS = { remoteUS: true, hybridMetros: [], onsiteMetros: [], relocate: false };
+
 function without(source: Record<string, unknown>, key: string): Record<string, unknown> {
   return Object.fromEntries(Object.entries(source).filter(([k]) => k !== key));
 }
@@ -34,7 +37,7 @@ describe('ProfileSchema', () => {
       secondarySkills: [],
       dealBreakers: [],
       excludedCompanies: [],
-      locations: { remoteUS: true, hybridMetros: [], onsiteMetros: [], relocate: false },
+      locations: LOCATIONS,
     };
 
     expect(ProfileSchema.safeParse(profile).success).toBe(true);
@@ -67,7 +70,7 @@ describe('ProfileSchema', () => {
   });
 
   it.each(['remoteUS', 'hybridMetros', 'onsiteMetros', 'relocate'])('FR-01: rejects locations without %s', (field) => {
-    const locations = without({ remoteUS: true, hybridMetros: [], onsiteMetros: [], relocate: false }, field);
+    const locations = without(LOCATIONS, field);
 
     const result = ProfileSchema.safeParse({ ...validProfile(), locations });
 
@@ -96,7 +99,7 @@ describe('ProfileSchema', () => {
   });
 
   it('FR-01: rejects wrong types inside locations', () => {
-    const locations = { remoteUS: 'yes', hybridMetros: [], onsiteMetros: [], relocate: false };
+    const locations = { ...LOCATIONS, remoteUS: 'yes' };
 
     expect(ProfileSchema.safeParse({ ...validProfile(), locations }).success).toBe(false);
   });
@@ -109,7 +112,7 @@ describe('ProfileSchema', () => {
   });
 
   it('FR-01: rejects unknown fields inside locations', () => {
-    const locations = { remoteUS: true, hybridMetros: [], onsiteMetros: [], relocate: false, remoteEU: true };
+    const locations = { ...LOCATIONS, remoteEU: true };
 
     expect(ProfileSchema.safeParse({ ...validProfile(), locations }).success).toBe(false);
   });

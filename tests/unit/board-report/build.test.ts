@@ -39,6 +39,11 @@ function loadData(path: string): { index?: ReportIndex; tests: Map<string, TestD
   return loaded;
 }
 
+/** The detail of one test, from its own data script in the built report. */
+function testDetail(out: string, id: string): TestDetail | undefined {
+  return loadData(join(out, 'data', 'tests', `${id}.js`)).tests.get(id);
+}
+
 function files(dir: string): Map<string, string> {
   const found = new Map<string, string>();
   const walk = (folder: string): void => {
@@ -60,7 +65,7 @@ describe('the build', () => {
     const failed = index.tests.find(
       (test) => test.name === 'FR-07, FR-08: save a job from the board' && test.browser === 'Chromium',
     );
-    const detail = loadData(join(out, 'data', 'tests', `${failed?.id ?? ''}.js`)).tests.get(failed?.id ?? '');
+    const detail = testDetail(out, failed?.id ?? '');
 
     expect(data.index).toEqual(index);
     expect(index.tests).toHaveLength(20);
@@ -163,9 +168,7 @@ describe('the build', () => {
       environment: { ...FIXTURE_ENVIRONMENT, repository: null },
       builtAt: 't',
     });
-    const detail = loadData(join(out, 'data', 'tests', `${index.tests[0]?.id ?? ''}.js`)).tests.get(
-      index.tests[0]?.id ?? '',
-    );
+    const detail = testDetail(out, index.tests[0]?.id ?? '');
 
     expect(detail?.attachments).toEqual([]);
     expect(index.tests[0]?.sourceUrl).toBeNull();
@@ -186,7 +189,7 @@ describe('the build', () => {
     writeFileSync(join(dir, 'unit', unit), JSON.stringify(result));
     const out = join(temp(), 'report');
     buildReport({ resultsDir: dir, outDir: out, history: [], environment: FIXTURE_ENVIRONMENT, builtAt: 't' });
-    const detail = loadData(join(out, 'data', 'tests', `${result.id}.js`)).tests.get(result.id);
+    const detail = testDetail(out, result.id);
 
     expect(detail?.attachments[0]).toMatchObject({ kind: 'text', truncated: true });
     expect(detail?.attachments[0]?.text).toHaveLength(200_000);

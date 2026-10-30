@@ -3,7 +3,7 @@ import { canonicalizeJobUrl, canonicalJobUrl } from '../domain/linkedin-url.ts';
 import { parseWorkplace, type Workplace } from '../domain/workplace.ts';
 import type { IncomingListing } from '../ingest/listing-ingest.ts';
 import { DESCRIPTION_MAX, IncomingListingSchema } from '../schemas/api.ts';
-import { htmlToText, oneLine } from '../sources/html-text.ts';
+import { cut, htmlToText, oneLine } from '../sources/html-text.ts';
 
 // What scripts/search-linkedin.ts reads from LinkedIn's pages (PLAN.md Phase 11 task 3, FR-18, FR-19). The script
 // copies text out of a search card and out of a job's detail pane as it finds them on the page; this module checks
@@ -199,8 +199,4 @@ function description(html: string | null): string | null {
   if (html === null) return null;
   const text = (htmlToText(html) ?? '').replace(/^About the job\s*/i, '');
   return text === '' ? null : cut(text, DESCRIPTION_MAX);
-}
-
-function cut(text: string, max: number): string {
-  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 }

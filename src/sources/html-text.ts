@@ -57,7 +57,11 @@ export function htmlToText(html: string, max = Number.POSITIVE_INFINITY): string
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-  if (text === '') return null;
+  return text === '' ? null : cut(text, max);
+}
+
+/** `text` cut to at most `max` characters, ending in "…" when it was longer. */
+export function cut(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 }
 

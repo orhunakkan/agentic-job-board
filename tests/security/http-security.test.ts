@@ -36,6 +36,9 @@ describe('HTTP security', () => {
     await testApp.close();
   });
 
+  /** The test cases write PORT where the app's own port goes. */
+  const withPort = (value: string) => value.replace('PORT', String(testApp.port));
+
   describe('NFR-01: localhost only', () => {
     it('NFR-01: listens on 127.0.0.1 and nowhere else', async () => {
       expect(testApp.app.server.address()).toMatchObject({ address: '127.0.0.1', family: 'IPv4' });
@@ -63,26 +66,26 @@ describe('HTTP security', () => {
       'localhost.evil.example:PORT',
       '[::1]:PORT',
     ])('NFR-01: Host "%s" is refused with 421', async (host) => {
-      const response = await testApp.raw({
-        path: '/api/health',
-        headers: { Host: host.replace('PORT', String(testApp.port)) },
-      });
+      const response = await testApp.raw({ path: '/api/health', headers: { Host: withPort(host) } });
 
       expect(response.status).toBe(421);
       expect(JSON.parse(response.text)).toMatchObject({ error: { code: 'misdirected_request' } });
     });
 
     it.each(['127.0.0.1:PORT', 'localhost:PORT', 'LOCALHOST:PORT'])('NFR-01: Host "%s" is served', async (host) => {
-      const response = await testApp.raw({
-        path: '/api/health',
-        headers: { Host: host.replace('PORT', String(testApp.port)) },
-      });
+      const response = await testApp.raw({ path: '/api/health', headers: { Host: withPort(host) } });
 
       expect(response.status).toBe(200);
     });
   });
 
   describe('cross-site request guard', () => {
+    /** Starts a run (a write) with the given request headers. */
+    function postRun(headers: Record<string, string>) {
+      const withPorts = Object.fromEntries(Object.entries(headers).map(([name, value]) => [name, withPort(value)]));
+      return testApp.raw({ method: 'POST', path: '/api/runs', headers: { ...JSON_HEADERS, ...withPorts }, body: '{}' });
+    }
+
     it.each<[string, Record<string, string>]>([
       ['a foreign Origin', { Origin: 'http://evil.example' }],
       ['an Origin on another port', { Origin: 'http://127.0.0.1:1' }],
@@ -91,16 +94,7 @@ describe('HTTP security', () => {
       ['Sec-Fetch-Site: cross-site', { 'Sec-Fetch-Site': 'cross-site' }],
       ['Sec-Fetch-Site: same-site', { 'Sec-Fetch-Site': 'same-site' }],
     ])('NFR-01: a write with %s is refused with 403 and changes nothing', async (_case, headers) => {
-      const withPort = Object.fromEntries(
-        Object.entries(headers).map(([name, value]) => [name, value.replace('PORT', String(testApp.port))]),
-      );
-
-      const response = await testApp.raw({
-        method: 'POST',
-        path: '/api/runs',
-        headers: { ...JSON_HEADERS, ...withPort },
-        body: '{}',
-      });
+      const response = await postRun(headers);
 
       expect(response.status).toBe(403);
       expect(JSON.parse(response.text)).toMatchObject({ error: { code: 'cross_site_request' } });
@@ -114,16 +108,7 @@ describe('HTTP security', () => {
       ['Sec-Fetch-Site: same-origin', { 'Sec-Fetch-Site': 'same-origin', Origin: 'http://127.0.0.1:PORT' }],
       ['Sec-Fetch-Site: none (typed in the address bar)', { 'Sec-Fetch-Site': 'none' }],
     ])('NFR-01: a write with %s is allowed', async (_case, headers) => {
-      const withPort = Object.fromEntries(
-        Object.entries(headers).map(([name, value]) => [name, value.replace('PORT', String(testApp.port))]),
-      );
-
-      const response = await testApp.raw({
-        method: 'POST',
-        path: '/api/runs',
-        headers: { ...JSON_HEADERS, ...withPort },
-        body: '{}',
-      });
+      const response = await postRun(headers);
 
       expect(response.status).toBe(201);
     });

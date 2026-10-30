@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { JobDetailSchema, JobListResponseSchema, type JobSummary } from '../../src/schemas/api.ts';
+import {
+  CreateRunResponseSchema,
+  JobDetailSchema,
+  JobListResponseSchema,
+  type JobSummary,
+} from '../../src/schemas/api.ts';
 import { jobAt, seedBoard } from '../helpers/seed-board.ts';
 import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
@@ -145,8 +150,7 @@ describe('the jobs API', () => {
   describe('GET /api/jobs/:id', () => {
     it('FR-10: returns every field, with its email sighting, its search sighting and status history', async () => {
       const job = jobAt(jobs, 'ConsumerAffairs');
-      const again = await testApp.post('/api/runs');
-      const secondRun = (again.body as { runId: number }).runId;
+      const secondRun = CreateRunResponseSchema.parse((await testApp.post('/api/runs')).body).runId;
       await testApp.post(`/api/runs/${String(secondRun)}/listings`, {
         listings: [
           {

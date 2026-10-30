@@ -7,11 +7,8 @@ import { converted, plainDraft, type Converted } from './write.ts';
 const Metric = z.object({ total: z.number(), covered: z.number(), pct: z.union([z.number(), z.string()]) });
 const Summary = z.record(z.string(), z.object({ lines: Metric }));
 
-/** The `thresholds` of vitest.config.ts: a global `lines`, and `{ lines }` per glob. */
-const Thresholds = z.record(
-  z.string(),
-  z.union([z.number(), z.object({ lines: z.number().optional() }).loose(), z.unknown()]),
-);
+/** The `thresholds` of vitest.config.ts: a global `lines`, and `{ lines }` per glob; other keys are left out. */
+const Thresholds = z.record(z.string(), z.unknown());
 
 export interface Threshold {
   /** null for the threshold over every covered file. */

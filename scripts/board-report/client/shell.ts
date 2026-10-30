@@ -1,12 +1,11 @@
 // The page around the views: a skip link, the gradient header with the run's result and the theme toggle, the
 // sidebar that moves between views (a top bar on a phone), and the main region the views draw into.
 import type { TestEntry } from '../build/data-shape.ts';
-import type { Status } from '../result-schema.ts';
-import { statusIcon } from './badges.ts';
+import { statusIcon, STATUS_WORD } from './badges.ts';
 import { el, svg } from './dom.ts';
 import { formatCount, formatDateTime, formatDuration, shortCommit } from './format.ts';
 import { href, testHref, type ViewName } from './route.ts';
-import { report, resultOf, totalOf } from './state.ts';
+import { report, totalOf } from './state.ts';
 import { themeToggle } from './theme.ts';
 
 export interface Shell {
@@ -41,12 +40,12 @@ function logo(): SVGSVGElement {
   );
 }
 
-function runResult(tests: readonly TestEntry[]): { status: Status | null; text: string } {
-  const status = resultOf(tests);
-  if (status === null) return { status, text: 'No results' };
+/** The run as a whole: passed when no test failed or broke, failed otherwise; null without tests. */
+function runResult(tests: readonly TestEntry[]): { status: 'passed' | 'failed' | null; text: string } {
+  if (tests.length === 0) return { status: null, text: 'No results' };
   const bad = tests.filter((test) => test.status === 'failed' || test.status === 'broken').length;
   if (bad === 0) return { status: 'passed', text: `${formatCount(tests.length)} tests, all green` };
-  return { status, text: `${formatCount(bad)} failed of ${formatCount(tests.length)}` };
+  return { status: 'failed', text: `${formatCount(bad)} failed of ${formatCount(tests.length)}` };
 }
 
 function header(): HTMLElement {
@@ -62,9 +61,9 @@ function header(): HTMLElement {
       ? el('span', { class: 'run-pill status-none', text: result.text })
       : el(
           'span',
-          { class: `run-pill status-${result.status === 'passed' ? 'passed' : 'failed'}` },
-          statusIcon(result.status === 'passed' ? 'passed' : 'failed'),
-          result.status === 'passed' ? 'Passed' : 'Failed',
+          { class: `run-pill status-${result.status}` },
+          statusIcon(result.status),
+          STATUS_WORD[result.status],
         );
   return el(
     'header',

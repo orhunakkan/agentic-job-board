@@ -1,8 +1,7 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { profilesFor, runProfiles, UnknownSuiteError } from '../../../scripts/bdd.ts';
-import { messageFormat } from '../../../scripts/bdd.ts';
+import { messageFormat, profilesFor, runProfiles, UnknownSuiteError } from '../../../scripts/bdd.ts';
 
 // scripts/bdd.ts runs the Cucumber suites behind the test:bdd scripts (PLAN.md Phase 13).
 

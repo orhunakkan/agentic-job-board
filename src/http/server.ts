@@ -4,7 +4,7 @@ import { RunFinishedError, RunNotFoundError } from '../ingest/run-errors.ts';
 import { InvalidTransitionError, JobNotFoundError } from '../jobs/status-service.ts';
 import type { Logger } from '../logger.ts';
 import { parseCookies } from './cookies.ts';
-import { errorBody, HttpError, queryObject, type Reply } from './respond.ts';
+import { errorBody, html, HttpError, queryObject, type Reply } from './respond.ts';
 import { createRouter, type RouteMatch, type Route } from './router.ts';
 import {
   isAllowedHost,
@@ -80,10 +80,10 @@ async function handle(
     reply = await dispatch(request, method, url, match, cookies);
   } catch (error) {
     const failure = toFailure(error, logger, requestId);
-    const page = () => errorPage(failure.status, failure.message, { method, path: path || '/', query, cookies });
+    const errorRequest: ErrorRequest = { method, path: path || '/', query, cookies };
     reply = isApiPath(path)
       ? { status: failure.status, body: errorBody(failure.code, failure.message, failure.details) }
-      : { status: failure.status, text: page(), contentType: HTML };
+      : html(errorPage(failure.status, failure.message, errorRequest), failure.status);
     if (failure.headers !== undefined) reply.headers = failure.headers;
   }
 
@@ -96,8 +96,6 @@ async function handle(
     ms: Math.round(performance.now() - started),
   });
 }
-
-const HTML = 'text/html; charset=utf-8';
 
 function isApiPath(path: string): boolean {
   return path === '/api' || path.startsWith('/api/');

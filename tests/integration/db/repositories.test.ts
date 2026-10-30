@@ -75,6 +75,11 @@ describe('repositories', () => {
     testDb.close();
   });
 
+  /** Stores NEW_JOB outside any run, first seen at `seenAt`. */
+  function insertNewJob(seenAt: string): number {
+    return testDb.repos.jobs.insert(NEW_JOB, { runId: null, seenAt, createdAt: '2026-10-23T12:00:00.000Z' });
+  }
+
   describe('profile', () => {
     it('FR-01: is empty until a profile is stored', () => {
       expect(testDb.repos.profile.get()).toBeNull();
@@ -246,27 +251,15 @@ describe('repositories', () => {
     });
 
     it('FR-04: a second job with the same LinkedIn ID is refused', () => {
-      testDb.repos.jobs.insert(NEW_JOB, {
-        runId: null,
-        seenAt: '2026-10-22T14:10:48.000Z',
-        createdAt: '2026-10-23T12:00:00.000Z',
-      });
+      insertNewJob('2026-10-22T14:10:48.000Z');
 
-      expect(() =>
-        testDb.repos.jobs.insert(NEW_JOB, {
-          runId: null,
-          seenAt: '2026-10-22T15:00:00.000Z',
-          createdAt: '2026-10-23T12:00:00.000Z',
-        }),
-      ).toThrow(/UNIQUE constraint failed: jobs.source, jobs.source_job_id/);
+      expect(() => insertNewJob('2026-10-22T15:00:00.000Z')).toThrow(
+        /UNIQUE constraint failed: jobs.source, jobs.source_job_id/,
+      );
     });
 
     it('FR-04: repeat sightings count up and widen first/last seen, whatever order they arrive in', () => {
-      const id = testDb.repos.jobs.insert(NEW_JOB, {
-        runId: null,
-        seenAt: '2026-10-22T14:00:00.000Z',
-        createdAt: '2026-10-23T12:00:00.000Z',
-      });
+      const id = insertNewJob('2026-10-22T14:00:00.000Z');
 
       testDb.repos.jobs.recordSighting(id, NEW_JOB, '2026-10-21T09:00:00.000Z');
       testDb.repos.jobs.recordSighting(id, NEW_JOB, '2026-10-23T08:00:00.000Z');
@@ -280,11 +273,7 @@ describe('repositories', () => {
     });
 
     it('FR-04: a newer sighting refreshes the title, company, location and flags (DEC-023)', () => {
-      const id = testDb.repos.jobs.insert(NEW_JOB, {
-        runId: null,
-        seenAt: '2026-10-21T09:00:00.000Z',
-        createdAt: '2026-10-23T12:00:00.000Z',
-      });
+      const id = insertNewJob('2026-10-21T09:00:00.000Z');
       const newer = {
         ...NEW_JOB,
         title: 'Senior QA Automation Engineer (Remote)',
@@ -307,11 +296,7 @@ describe('repositories', () => {
     });
 
     it('FR-04: an older sighting arriving late, or one at the same time, keeps the current details (DEC-023)', () => {
-      const id = testDb.repos.jobs.insert(NEW_JOB, {
-        runId: null,
-        seenAt: '2026-10-22T14:00:00.000Z',
-        createdAt: '2026-10-23T12:00:00.000Z',
-      });
+      const id = insertNewJob('2026-10-22T14:00:00.000Z');
       const stale = {
         ...NEW_JOB,
         title: 'Old title',
@@ -334,11 +319,7 @@ describe('repositories', () => {
     });
 
     it('FR-04: a newer sighting never touches status, notes or score (DEC-023)', () => {
-      const id = testDb.repos.jobs.insert(NEW_JOB, {
-        runId: null,
-        seenAt: '2026-10-21T09:00:00.000Z',
-        createdAt: '2026-10-23T12:00:00.000Z',
-      });
+      const id = insertNewJob('2026-10-21T09:00:00.000Z');
       testDb.repos.jobs.updateStatus(id, 'applied', '2026-10-23T13:00:00.000Z');
       testDb.db
         .prepare("UPDATE jobs SET notes = 'called them', score = 88, score_label = 'strong' WHERE id = ?")
@@ -357,11 +338,7 @@ describe('repositories', () => {
     });
 
     it('FR-08: updates the status and its timestamp', () => {
-      const id = testDb.repos.jobs.insert(NEW_JOB, {
-        runId: null,
-        seenAt: '2026-10-22T14:00:00.000Z',
-        createdAt: '2026-10-23T12:00:00.000Z',
-      });
+      const id = insertNewJob('2026-10-22T14:00:00.000Z');
 
       testDb.repos.jobs.updateStatus(id, 'saved', '2026-10-23T13:00:00.000Z');
 
@@ -369,11 +346,7 @@ describe('repositories', () => {
     });
 
     it('FR-08: the database itself refuses an unknown status', () => {
-      const id = testDb.repos.jobs.insert(NEW_JOB, {
-        runId: null,
-        seenAt: '2026-10-22T14:00:00.000Z',
-        createdAt: '2026-10-23T12:00:00.000Z',
-      });
+      const id = insertNewJob('2026-10-22T14:00:00.000Z');
 
       expect(() => testDb.db.prepare("UPDATE jobs SET status = 'hired' WHERE id = ?").run(id)).toThrow(
         /CHECK constraint failed/,
@@ -381,11 +354,7 @@ describe('repositories', () => {
     });
 
     it('FR-06: the database itself refuses a score outside 0–100', () => {
-      const id = testDb.repos.jobs.insert(NEW_JOB, {
-        runId: null,
-        seenAt: '2026-10-22T14:00:00.000Z',
-        createdAt: '2026-10-23T12:00:00.000Z',
-      });
+      const id = insertNewJob('2026-10-22T14:00:00.000Z');
 
       expect(() => testDb.db.prepare('UPDATE jobs SET score = 101 WHERE id = ?').run(id)).toThrow(
         /CHECK constraint failed/,
@@ -485,11 +454,7 @@ describe('repositories', () => {
   describe('sightings and status history', () => {
     it('FR-10: lists a job’s email sightings from the email years by email time, with their saved search', () => {
       const runId = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
-      const jobId = testDb.repos.jobs.insert(NEW_JOB, {
-        runId: null,
-        seenAt: '2026-10-22T14:00:00.000Z',
-        createdAt: '2026-10-23T12:00:00.000Z',
-      });
+      const jobId = insertNewJob('2026-10-22T14:00:00.000Z');
       insertEmail(testDb, runId, 'later', '2026-10-23T08:00:00.000Z');
       insertEmail(testDb, runId, 'earlier', '2026-10-21T08:00:00.000Z');
 
@@ -551,11 +516,7 @@ describe('repositories', () => {
     });
 
     it('FR-08: lists a job’s status changes in the order they happened', () => {
-      const jobId = testDb.repos.jobs.insert(NEW_JOB, {
-        runId: null,
-        seenAt: '2026-10-22T14:00:00.000Z',
-        createdAt: '2026-10-23T12:00:00.000Z',
-      });
+      const jobId = insertNewJob('2026-10-22T14:00:00.000Z');
 
       testDb.repos.statusHistory.insert(jobId, {
         fromStatus: null,

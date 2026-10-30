@@ -10,6 +10,15 @@ import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 const HOSTILE_TITLE = '<script>alert(1)</script>';
 const HOSTILE_COMPANY = '<img src=x onerror=alert(2)>';
 
+const CSP = "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+
+// Form posts another site could make: the board must refuse every one.
+const CROSS_SITE_HEADERS: [string, Record<string, string>][] = [
+  ['a foreign Origin', { Origin: 'http://evil.example' }],
+  ['Sec-Fetch-Site: cross-site', { 'Sec-Fetch-Site': 'cross-site', Origin: 'http://evil.example' }],
+  ['an opaque "null" Origin', { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }],
+];
+
 describe('HTML page security', () => {
   let testApp: TestApp;
   let jobId: number;
@@ -76,9 +85,10 @@ describe('HTML page security', () => {
     }
 
     expect((await testApp.get('/?q=script')).text).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
-    expect((await testApp.get(`/jobs/${String(jobId)}`)).text).toContain('&lt;/textarea&gt;&lt;script&gt;alert(6)');
-    expect((await testApp.get(`/jobs/${String(jobId)}`)).text).toContain('&lt;script&gt;alert(5)&lt;/script&gt;');
-    expect((await testApp.get(`/jobs/${String(jobId)}`)).text).toContain('“&quot;&gt;&lt;svg onload=alert(3)&gt;”');
+    const detail = (await testApp.get(`/jobs/${String(jobId)}`)).text;
+    expect(detail).toContain('&lt;/textarea&gt;&lt;script&gt;alert(6)');
+    expect(detail).toContain('&lt;script&gt;alert(5)&lt;/script&gt;');
+    expect(detail).toContain('“&quot;&gt;&lt;svg onload=alert(3)&gt;”');
     expect((await testApp.get('/profile')).text).toContain('&quot;&gt;&lt;script&gt;alert(8)');
   });
 
@@ -107,9 +117,7 @@ describe('HTML page security', () => {
         'x-frame-options': 'DENY',
         'cache-control': 'no-store',
       });
-      expect(response.headers['content-security-policy']).toBe(
-        "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-      );
+      expect(response.headers['content-security-policy']).toBe(CSP);
     }
   });
 
@@ -125,22 +133,21 @@ describe('HTML page security', () => {
     }
   });
 
-  it.each<[string, Record<string, string>]>([
-    ['a foreign Origin', { Origin: 'http://evil.example' }],
-    ['Sec-Fetch-Site: cross-site', { 'Sec-Fetch-Site': 'cross-site', Origin: 'http://evil.example' }],
-    ['an opaque "null" Origin', { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }],
-  ])('NFR-01: a form post with %s is refused with 403 and changes nothing', async (_case, headers) => {
-    const status = await testApp.form(`/jobs/${String(jobId)}/status`, { status: 'dismissed' }, headers);
-    const notes = await testApp.form(`/jobs/${String(jobId)}/notes`, { notes: 'pwned' }, headers);
+  it.each(CROSS_SITE_HEADERS)(
+    'NFR-01: a form post with %s is refused with 403 and changes nothing',
+    async (_case, headers) => {
+      const status = await testApp.form(`/jobs/${String(jobId)}/status`, { status: 'dismissed' }, headers);
+      const notes = await testApp.form(`/jobs/${String(jobId)}/notes`, { notes: 'pwned' }, headers);
 
-    expect(status.status).toBe(403);
-    expect(notes.status).toBe(403);
-    expect(status.text).toContain('Requests from other sites are not allowed');
-    expect((await testApp.get(`/api/jobs/${String(jobId)}`)).body).toMatchObject({
-      status: 'new',
-      notes: '</textarea><script>alert(6)</script>',
-    });
-  });
+      expect(status.status).toBe(403);
+      expect(notes.status).toBe(403);
+      expect(status.text).toContain('Requests from other sites are not allowed');
+      expect((await testApp.get(`/api/jobs/${String(jobId)}`)).body).toMatchObject({
+        status: 'new',
+        notes: '</textarea><script>alert(6)</script>',
+      });
+    },
+  );
 
   it.each([
     '/static/..%2fpackage.json',
@@ -156,17 +163,16 @@ describe('HTML page security', () => {
     expect(response.text).not.toMatch(/"dependencies"|startApp|DB_PATH|prefers-color-scheme/);
   });
 
-  it.each<[string, Record<string, string>]>([
-    ['a foreign Origin', { Origin: 'http://evil.example' }],
-    ['Sec-Fetch-Site: cross-site', { 'Sec-Fetch-Site': 'cross-site', Origin: 'http://evil.example' }],
-    ['an opaque "null" Origin', { Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }],
-  ])('FR-23, NFR-01: a theme form post with %s is refused with 403 and sets no cookie', async (_case, headers) => {
-    const response = await testApp.form('/theme', { theme: 'dark', return: '/' }, headers);
+  it.each(CROSS_SITE_HEADERS)(
+    'FR-23, NFR-01: a theme form post with %s is refused with 403 and sets no cookie',
+    async (_case, headers) => {
+      const response = await testApp.form('/theme', { theme: 'dark', return: '/' }, headers);
 
-    expect(response.status).toBe(403);
-    expect(response.text).toContain('Requests from other sites are not allowed');
-    expect(response.headers.getSetCookie()).toEqual([]);
-  });
+      expect(response.status).toBe(403);
+      expect(response.text).toContain('Requests from other sites are not allowed');
+      expect(response.headers.getSetCookie()).toEqual([]);
+    },
+  );
 
   it('FR-23, NFR-01: the theme cookie is out of reach of scripts and is not sent on other sites’ posts', async () => {
     const response = await testApp.form('/theme', { theme: 'light', return: '/runs' });
@@ -187,9 +193,7 @@ describe('HTML page security', () => {
         const response = await testApp.raw({ path, headers: { Cookie: `theme=${encodeURIComponent(theme)}` } });
 
         expect(response.text, path).not.toMatch(/<script|<img|<svg|<[^>]*\s(?:on[a-z]+|style)=/i);
-        expect(response.headers['content-security-policy']).toBe(
-          "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-        );
+        expect(response.headers['content-security-policy']).toBe(CSP);
       }
     }
   });

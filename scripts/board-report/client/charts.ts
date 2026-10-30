@@ -5,7 +5,7 @@ import type { Totals } from '../history.ts';
 import type { Status } from '../result-schema.ts';
 import { STATUS_WORD, STATUSES_SHOWN, statusIcon, totalsLabel } from './badges.ts';
 import { el, svg, svgTitle } from './dom.ts';
-import { formatCount, formatDateTime, formatDuration, formatPercent, formatShortDate } from './format.ts';
+import { formatCount, formatDateTime, formatDuration, formatPercent, formatShortDate, plural } from './format.ts';
 import { totalOf } from './state.ts';
 
 export function passRing(totals: Totals): HTMLElement {
@@ -53,6 +53,18 @@ export function passRing(totals: Totals): HTMLElement {
 const WIDTH = 640;
 const HEIGHT = 220;
 const PAD = { top: 16, right: 16, bottom: 30, left: 44 };
+const INNER_WIDTH = WIDTH - PAD.left - PAD.right;
+const INNER_HEIGHT = HEIGHT - PAD.top - PAD.bottom;
+
+/** An empty trend chart; the figure around it carries the text alternative. */
+function chartSvg(): SVGSVGElement {
+  return svg('svg', {
+    class: 'chart',
+    viewBox: `0 0 ${String(WIDTH)} ${String(HEIGHT)}`,
+    'aria-hidden': 'true',
+    focusable: 'false',
+  });
+}
 
 function niceMax(value: number): number {
   if (value <= 0) return 1;
@@ -62,9 +74,8 @@ function niceMax(value: number): number {
 }
 
 function axes(chart: SVGSVGElement, max: number, label: (value: number) => string, points: readonly RunPoint[]): void {
-  const innerHeight = HEIGHT - PAD.top - PAD.bottom;
   for (const fraction of [0, 0.5, 1]) {
-    const y = PAD.top + innerHeight * (1 - fraction);
+    const y = PAD.top + INNER_HEIGHT * (1 - fraction);
     chart.appendChild(svg('line', { class: 'grid-line', x1: PAD.left, x2: WIDTH - PAD.right, y1: y, y2: y }));
     chart.appendChild(
       svg('text', {
@@ -108,25 +119,18 @@ function runLabel(point: RunPoint, index: number): string {
 
 /** Each run as a bar of its results, stacked passed, skipped, broken, failed from the bottom. */
 export function trendBars(points: readonly RunPoint[]): HTMLElement {
-  const chart = svg('svg', {
-    class: 'chart',
-    viewBox: `0 0 ${String(WIDTH)} ${String(HEIGHT)}`,
-    'aria-hidden': 'true',
-    focusable: 'false',
-  });
+  const chart = chartSvg();
   const max = niceMax(Math.max(0, ...points.map((point) => totalOf(point.totals))));
   axes(chart, max, (value) => formatCount(Math.round(value)), points);
-  const innerWidth = WIDTH - PAD.left - PAD.right;
-  const innerHeight = HEIGHT - PAD.top - PAD.bottom;
-  const band = innerWidth / Math.max(points.length, 1);
+  const band = INNER_WIDTH / Math.max(points.length, 1);
   const barWidth = Math.min(band * 0.64, 44);
   const order: readonly Status[] = ['passed', 'skipped', 'broken', 'failed'];
   points.forEach((point, index) => {
     const x = PAD.left + band * index + (band - barWidth) / 2;
     const group = svg('g', { class: 'bar-group' }, svgTitle(`${runLabel(point, index)}: ${totalsLabel(point.totals)}`));
-    let base = PAD.top + innerHeight;
+    let base = PAD.top + INNER_HEIGHT;
     for (const status of order) {
-      const height = (point.totals[status] / max) * innerHeight;
+      const height = (point.totals[status] / max) * INNER_HEIGHT;
       if (height <= 0) continue;
       base -= height;
       group.appendChild(svg('rect', { class: `fill-${status}`, x, y: base, width: barWidth, height, rx: 3 }));
@@ -143,19 +147,12 @@ export function trendBars(points: readonly RunPoint[]): HTMLElement {
 
 /** The run's wall time as an area over the runs. */
 export function durationArea(points: readonly RunPoint[]): HTMLElement {
-  const chart = svg('svg', {
-    class: 'chart',
-    viewBox: `0 0 ${String(WIDTH)} ${String(HEIGHT)}`,
-    'aria-hidden': 'true',
-    focusable: 'false',
-  });
+  const chart = chartSvg();
   const max = niceMax(Math.max(0, ...points.map((point) => point.duration)));
   axes(chart, max, formatDuration, points);
-  const innerWidth = WIDTH - PAD.left - PAD.right;
-  const innerHeight = HEIGHT - PAD.top - PAD.bottom;
   const xOf = (index: number) =>
-    points.length === 1 ? PAD.left + innerWidth / 2 : PAD.left + (innerWidth * index) / (points.length - 1);
-  const yOf = (value: number) => PAD.top + innerHeight * (1 - value / max);
+    points.length === 1 ? PAD.left + INNER_WIDTH / 2 : PAD.left + (INNER_WIDTH * index) / (points.length - 1);
+  const yOf = (value: number) => PAD.top + INNER_HEIGHT * (1 - value / max);
   const coords = points.map((point, index) => [xOf(index), yOf(point.duration)] as const);
   const gradient = svg(
     'linearGradient',
@@ -168,7 +165,7 @@ export function durationArea(points: readonly RunPoint[]): HTMLElement {
     const line = coords.map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
     const firstX = coords[0]?.[0] ?? PAD.left;
     const lastX = coords.at(-1)?.[0] ?? PAD.left;
-    const baseY = PAD.top + innerHeight;
+    const baseY = PAD.top + INNER_HEIGHT;
     if (coords.length > 1) {
       chart.appendChild(
         svg('path', {
@@ -203,16 +200,16 @@ export function historyDots(history: readonly Status[]): HTMLElement {
   const label =
     history.length === 0
       ? 'No earlier results'
-      : `Last ${String(history.length)} ${history.length === 1 ? 'result' : 'results'}, oldest first: ${history.join(', ')}`;
+      : `Last ${plural(history.length, 'result')}, oldest first: ${history.join(', ')}`;
   const list = el('ol', { class: 'history-dots', 'aria-label': label });
   history.forEach((status, index) => {
-    const isLast = index === history.length - 1;
+    const ago = history.length - 1 - index;
     list.appendChild(
       el(
         'li',
         {
-          class: `history-dot fill-${status}${isLast ? ' history-dot-latest' : ''}`,
-          title: `${isLast ? 'This run' : `${String(history.length - 1 - index)} ${history.length - 1 - index === 1 ? 'run' : 'runs'} ago`}: ${STATUS_WORD[status]}`,
+          class: `history-dot fill-${status}${ago === 0 ? ' history-dot-latest' : ''}`,
+          title: `${ago === 0 ? 'This run' : `${plural(ago, 'run')} ago`}: ${STATUS_WORD[status]}`,
         },
         statusIcon(status, 'dot-icon'),
         el('span', { class: 'sr-only', text: STATUS_WORD[status] }),

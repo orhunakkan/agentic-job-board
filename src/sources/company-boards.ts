@@ -7,6 +7,8 @@ import { formatSalary, remoteLocation } from './listing.ts';
 
 const Text = z.string();
 const MaybeText = z.string().nullish();
+// The answer most of these boards send: { "jobs": [...] }.
+const JobsEnvelope = z.object({ jobs: z.array(z.unknown()) }).transform((answer) => answer.jobs);
 
 // --- Greenhouse: boards-api.greenhouse.io/v1/boards/<slug>/jobs ------------------------------------------------
 
@@ -28,23 +30,17 @@ export function greenhouseBoard(slug: string): FeedRequest {
     name,
     url: `https://boards-api.greenhouse.io/v1/boards/${segment(slug)}/jobs?content=true`,
     read: (body) => ({
-      ...readJobs(
-        name,
-        body,
-        z.object({ jobs: z.array(z.unknown()) }).transform((answer) => answer.jobs),
-        GreenhouseJob,
-        (job) => ({
-          source: 'greenhouse',
-          sourceJobId: job.id,
-          title: job.title,
-          company: job.company_name ?? slug,
-          location: job.location?.name ?? '',
-          url: job.absolute_url,
-          postedAt: job.first_published ?? job.updated_at ?? null,
-          salary: null,
-          description: job.content ?? null,
-        }),
-      ),
+      ...readJobs(name, body, JobsEnvelope, GreenhouseJob, (job) => ({
+        source: 'greenhouse',
+        sourceJobId: job.id,
+        title: job.title,
+        company: job.company_name ?? slug,
+        location: job.location?.name ?? '',
+        url: job.absolute_url,
+        postedAt: job.first_published ?? job.updated_at ?? null,
+        salary: null,
+        description: job.content ?? null,
+      })),
       followUps: [],
     }),
   };
@@ -121,30 +117,22 @@ export function ashbyBoard(slug: string): FeedRequest {
     name,
     url: `https://api.ashbyhq.com/posting-api/job-board/${segment(slug)}?includeCompensation=true`,
     read: (body) => ({
-      ...readJobs(
-        name,
-        body,
-        z.object({ jobs: z.array(z.unknown()) }).transform((answer) => answer.jobs),
-        AshbyJob,
-        (job) => {
-          if (job.isListed === false) return null;
-          const places = [job.location, ...(job.secondaryLocations ?? []).map((place) => place.location)];
-          return {
-            source: 'ashby',
-            sourceJobId: job.id,
-            title: job.title,
-            company: slug,
-            location: workplace(places.filter(Boolean).join(' / '), job.workplaceType),
-            url: job.jobUrl,
-            postedAt: job.publishedAt ?? null,
-            salary:
-              job.compensation?.scrapeableCompensationSalarySummary ??
-              job.compensation?.compensationTierSummary ??
-              null,
-            description: job.descriptionPlain ?? null,
-          };
-        },
-      ),
+      ...readJobs(name, body, JobsEnvelope, AshbyJob, (job) => {
+        if (job.isListed === false) return null;
+        const places = [job.location, ...(job.secondaryLocations ?? []).map((place) => place.location)];
+        return {
+          source: 'ashby',
+          sourceJobId: job.id,
+          title: job.title,
+          company: slug,
+          location: workplace(places.filter(Boolean).join(' / '), job.workplaceType),
+          url: job.jobUrl,
+          postedAt: job.publishedAt ?? null,
+          salary:
+            job.compensation?.scrapeableCompensationSalarySummary ?? job.compensation?.compensationTierSummary ?? null,
+          description: job.descriptionPlain ?? null,
+        };
+      }),
       followUps: [],
     }),
   };
@@ -231,26 +219,20 @@ export function workableBoard(slug: string): FeedRequest {
     read: (body) => {
       const company = z.object({ name: MaybeText }).safeParse(body);
       return {
-        ...readJobs(
-          name,
-          body,
-          z.object({ jobs: z.array(z.unknown()) }).transform((answer) => answer.jobs),
-          WorkableJob,
-          (job) => {
-            const place = [job.city, job.state, job.country].filter(Boolean).join(', ');
-            return {
-              source: 'workable',
-              sourceJobId: job.shortcode,
-              title: job.title,
-              company: (company.success ? company.data.name : null) ?? slug,
-              location: job.telecommuting === true ? remoteLocation(place) : place,
-              url: job.url,
-              postedAt: job.published_on ?? null,
-              salary: null,
-              description: job.description ?? null,
-            };
-          },
-        ),
+        ...readJobs(name, body, JobsEnvelope, WorkableJob, (job) => {
+          const place = [job.city, job.state, job.country].filter(Boolean).join(', ');
+          return {
+            source: 'workable',
+            sourceJobId: job.shortcode,
+            title: job.title,
+            company: (company.success ? company.data.name : null) ?? slug,
+            location: job.telecommuting === true ? remoteLocation(place) : place,
+            url: job.url,
+            postedAt: job.published_on ?? null,
+            salary: null,
+            description: job.description ?? null,
+          };
+        }),
         followUps: [],
       };
     },

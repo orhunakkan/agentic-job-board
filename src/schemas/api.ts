@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TABS } from '../domain/board-tabs.ts';
 import { JOB_SOURCES, ORIGINS } from '../domain/job-source.ts';
+import { canonicalJobUrl } from '../domain/linkedin-url.ts';
 import { isLabelConsistent, RUBRICS, SCORE_LABELS } from '../domain/score.ts';
 import { STATUSES } from '../domain/status.ts';
 import { WORKPLACES } from '../domain/workplace.ts';
@@ -69,8 +70,7 @@ const JobSummaryFields = z.strictObject({
 // ever be served.
 const LINKEDIN_CANONICAL = {
   check: (job: { source: string; sourceJobId: string; url: string }) =>
-    job.source !== 'linkedin' ||
-    (/^\d+$/.test(job.sourceJobId) && job.url === `https://www.linkedin.com/jobs/view/${job.sourceJobId}/`),
+    job.source !== 'linkedin' || (/^\d+$/.test(job.sourceJobId) && job.url === canonicalJobUrl(job.sourceJobId)),
   issue: { message: 'a LinkedIn job must link to its canonical URL', path: ['url'] },
 };
 
