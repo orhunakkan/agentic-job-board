@@ -1190,6 +1190,66 @@ Definition of done: every quality gate in §8.4 is green, and also as one `npm r
 - [x] The `board-report` artifact of one CI run holds the results of every job and opens from disk after download
 - [x] `package.json` gains no dependency, only the scripts of task 10; `git diff main -- src` is empty; the existing test files show 0 deleted lines
 
+### Phase 15: The board gets board-report's look (owner, DEC-060, DEC-061)
+
+**Goal:** every page of the board (board, job detail, runs, profile, error pages) takes board-report's look: its palette in light and dark, the gradient header, rounded cards with soft shadows, pill-shaped controls and chips, and a light/dark toggle in the header. The owner chose the look from a mockup on 2026-10-29 (light and dark side by side) and said it "looks really good". **It is a reskin.** Nothing on a page moves to another place, no wording changes, and every link, form, label and accessible name stays as it is. The one new behaviour is the theme toggle (FR-23). The board still has **no client-side JavaScript** (DEC-006): the toggle is a form, and the page reloads when it's used (the owner chose this over adding a script, DEC-061). No new package.
+
+**Non-goals:** board-report's sidebar, charts, icons or filters; a "follow the system again" choice (board-report has none either); sharing the theme choice between the board and board-report (the report opens from `file://` and keeps its own); any change to board-report itself apart from one comment line (task 1).
+
+Tasks:
+
+1. **One palette, copied from board-report (DEC-060).** `public/app.css` replaces its colour tokens with board-report's (`scripts/board-report/styles/report.css`, `:root` and both dark blocks): `--bg`, `--bg-glow`, `--surface`, `--surface-2`, `--surface-3`, `--text`, `--muted`, `--border`, `--border-strong`, `--shadow`, `--shadow-hover`, `--focus`, `--link`, `--code-bg`, `--code-text`, `--accent`, `--accent-soft`, `--accent-on-soft`, `--header`, `--radius`, `--radius-sm`, `--font`, `--mono`, and the `passed`, `broken`, `skipped`, `none` fill, ink, soft and on-soft tokens. The values are **copied**, not imported: the app serves only `public/`, and the report must open on its own from disk. Tokens only the board needs (for example the text colour on an accent-filled button) are added with a comment and checked for contrast like the rest. Like the report, each theme is defined three times: light on `:root`; dark under `@media (prefers-color-scheme: dark)` for `:root:not([data-theme='light'])`; and dark again on `:root[data-theme='dark']`. The top comment of each stylesheet names the other file, so whoever changes one knows about the other. A contract test (task 6) keeps the shared tokens equal in both files.
+2. **What each part becomes.** Class names and markup stay as they are wherever the CSS alone can do it. The header gains new elements (the logo tile and the toggle), and a few wrappers may be added.
+
+   | Part of the board | Now | Becomes (as in the mockup) |
+   |---|---|---|
+   | Page background | flat `--bg` | `--bg` with the report's two faint violet glows |
+   | Header | white bar, thin border | the report's gradient (`--header`) with its soft glow overlay, white text; white focus ring inside it |
+   | Brand | "Job Board" text | a logo tile (the favicon as the CSS background of a `<span aria-hidden="true">` on a translucent rounded square; an `<img>` or inline `<svg>` would trip the XSS checks in `tests/security/`, which stay as they are) and "Job Board" in heavy type |
+   | Board / Runs / Profile | links, current one tinted | pills on a translucent track; the current page is a white pill with indigo text |
+   | Last run, LinkedIn status | grey text | translucent chips on the gradient, the same text. The LinkedIn dot is green when signed in and amber otherwise, and the text still says which |
+   | Theme toggle | none | the report's toggle (moon to switch to dark, sun to switch to light), last in the header (task 3) |
+   | Job cards, filters, panels, the runs table, Find Now line, Clear All form, empty state | 8 px corners, border | `--radius` (18 px) corners, border, `--shadow` |
+   | LinkedIn / Other sources switch | segmented box, current one inverted | pills on a surface track; the current one in `--accent-soft` with an accent ring |
+   | Status tabs | pills, current one blue | pills, the current one filled with `--accent`; counts in a small chip |
+   | Buttons | 6 px corners, blue | pills filled with `--accent`; quiet buttons on `--surface` with `--link` text and a `--border-strong` edge; disabled stays visibly disabled |
+   | Score badge: strong / possible / weak / none | green / amber / grey / dashed | `passed` / `broken` / `skipped` soft and on-soft pairs, with a faint ring of the fill colour; none stays dashed, in `--border-strong` |
+   | Flags, status labels, tags | outlined pills | the report's chips (`--surface-3`); status labels in `--accent-soft` |
+   | Notices | blue tint | `--accent-soft` with `--accent-on-soft` text |
+   | Inputs, selects, textarea | 6 px corners | `--radius-sm` corners, `--surface-2`, `--border-strong` edge |
+   | Tables (runs) | lines between rows | header row on `--surface-2`, lines in `--border` |
+   | Code | monospace | `--mono` on `--code-bg` |
+   | Text | system font, 16 px | the report's `--font` at its 15 px / 1.55 |
+   | Favicon | blue square | the same lines on `--accent` (`#7c3aed`) |
+
+   **The header's layout** (as in the mockup) stays one row that wraps, as today: the brand, then the nav pills, then on the right the last-run chip, the LinkedIn chip and the toggle. Below 40 rem the brand and the nav share the first line and the chips and the toggle wrap under them; a long LinkedIn line (expired, with its sign-in command) wraps inside its chip. The page width (`.wrap`, 64 rem) and the layout at 375 px (NFR-11) stay as they are. Hover states use `--shadow-hover` or a tint, never only a colour change that carries meaning.
+3. **The theme toggle (FR-23, DEC-061).** No client JavaScript:
+   - **In the header**, one form (`POST /theme`) with two submit buttons, `name="theme"`, values `dark` and `light`, plus a hidden `return` field holding the current page's path and query **without the one-time notice parameters** (`changed`, `cleared`, `notes` and any like them), as the board's own forms already do (`boardHref` in `src/ui/pages/board.ts`), so switching the theme never repeats a notice. The stylesheet shows only the button that switches away from the theme in effect, whether that came from the system or from the cookie, and hides the other with `display: none`, so the keyboard and screen readers meet exactly one. Their text and accessible names are the report's: "Dark theme" with `aria-label="Switch to the dark theme"`, and "Light theme" with "Switch to the light theme". Error pages get the toggle too.
+   - **`POST /theme`** takes a form like every page form (the same Host, cross-site and content-type checks, PLAN.md §6.2). `theme` must be `light` or `dark`, otherwise 400 like any bad form. `return` goes through `safeReturnPath` (fallback `/`). The reply is a 303 to the return path with `Set-Cookie: theme=<light|dark>; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly`. The redirect has no `#notice`, since there is no message to show.
+   - **Every page reads the `theme` cookie.** `light` or `dark` puts `data-theme="<value>"` on `<html>`. Anything else, or no cookie, leaves it off, and the page follows the system. The request object the page routes get gains the request's cookies, parsed (a header without cookies, or a malformed one, gives none). Error pages honour the cookie where the request reached the app.
+   - The cookie holds only the word `light` or `dark`. It is the app's first cookie and the only one it sets. It changes nothing in NFR-03 (no outbound request) or the CSP.
+4. **FR-23 (new).** Added to §3.1: "**Light or dark (DEC-061).** Every page follows the system's light or dark setting until the owner picks one with the header's toggle. The choice applies to every page, is kept for a year in a cookie, and works without JavaScript." Verified by the tests of task 6. FR-23 joins the requirement list in `scripts/traceability.ts`. §6.2 gains `POST /theme` (form `theme`, `return` → 303 back, sets the theme cookie), and so does `docs/api.md`.
+5. **Screenshots.** `node scripts/screenshots.ts` remakes the README's board screenshots in the new look, in light and dark (fake data, as now).
+6. **Tests.** Every new test name for the toggle starts with `FR-23`.
+   - **Unit:** reading cookies from a header (none, several, malformed, a repeated name); the theme form schema; the layout puts `data-theme` on `<html>` only for `light` or `dark`, and renders the toggle form with the page's return path, escaped.
+   - **API** (`tests/api/pages.test.ts`): `POST /theme` sets the cookie with exactly the attributes of task 3 and returns 303 to the return path; an unsafe `return` (`//evil.example`, `https://…`) goes to `/`; a missing or other `theme` → 400; a page requested with `theme=dark` has `data-theme="dark"`, and one with `theme=junk` has none.
+   - **Security:** a cross-site `POST /theme` is refused like the other forms; the cookie is `HttpOnly` and `SameSite=Lax`; no page gains a `<script>`, and the CSP is unchanged.
+   - **Contract:** every token both stylesheets define has the same value in both, for light and dark (task 1).
+   - **E2E** (all four browser projects): with the system light, the toggle reads "Dark theme"; using it reloads the same page (filters kept) dark, and the choice holds on Runs, Profile, a job page and after a reload; then back to light. With the system dark, the toggle starts as "Light theme". Exactly one toggle button can be reached with Tab.
+   - **Accessibility** (`tests/e2e/a11y.spec.ts`): the existing light and dark runs stay; new runs check every page with the theme forced by the cookie against the system (dark cookie with a light system, and light with dark), axe 0 violations on all four projects.
+   - **BDD:** `tests/features/e2e/theme.feature` (`@FR-23`): "As the owner, I want to choose light or dark, so that the board is comfortable to read." Scenarios: choosing dark keeps every page dark, also after reopening the board; choosing light again brings it back.
+   - **Existing tests only gain lines.** There are two exceptions. The first is the requirement counts in `tests/unit/scripts/traceability.test.ts` (FR-23 joins the list). The second is the line in `tests/api/pages.test.ts` ("FR-01: shows every profile field, read-only") that checks that the Profile page has no `<form`: it now checks only the page's `<main>`, because the header's toggle is a form on every page (owner, 2026-10-29). The profile itself stays read-only. If any other existing test checks something the reskin has to change, stop and report it before changing that test.
+7. **Docs.** §3.1 FR-23; §6.2; DEC-060 and DEC-061 in §12 and `docs/decisions.md`; `docs/api.md`; the README (the look, the toggle, the new screenshots); the top comments of `public/app.css` and `report.css`; `docs/traceability.md` rebuilt.
+
+Definition of done: every quality gate in §8.4 is green, also as one `npm run test:all`. axe finds 0 violations on every page, in light and dark set by the system and by the toggle, on all four projects. Every page works at 375 px with no horizontal scroll. No page has a `<script>`, and `package.json` is unchanged. Existing test files only gain lines, apart from the two exceptions in task 6.
+
+**🛑 CP-15. The owner checks:**
+- [ ] `npm start` and open the board: the header, cards, tabs, chips, buttons and score badges look like board-report, in light and in dark
+- [ ] The toggle switches the theme. The same page reloads with its filters kept, and the choice holds on Runs, Profile, a job's page, and after closing and reopening the browser
+- [ ] The board at phone width (375 px) still works and has no sideways scrolling
+- [ ] The README screenshots show the new look
+- [ ] `package.json` is unchanged; `git diff main --numstat -- tests` shows deleted lines only in the two exceptions of task 6 (the traceability requirement counts and the Profile page's no-form check)
+
 ---
 
 ## 11. Post-MVP roadmap (not to be started without a new approved plan)
