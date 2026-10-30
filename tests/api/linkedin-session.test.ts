@@ -10,6 +10,19 @@ import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
 const SAVED_AT = '2026-10-23T09:00:00.000Z';
 
+/** Saves a session as the login script does; without `expires`, its cookie expires on 2027-04-23. */
+function saveSession(testApp: TestApp, expires?: number): void {
+  saveLinkedInSession(
+    testApp.linkedinSessionPath,
+    createLinkedInSessionFile(fakeLinkedInStorageState(expires), SAVED_AT),
+  );
+}
+
+function saveUnreadableSession(testApp: TestApp): void {
+  mkdirSync(dirname(testApp.linkedinSessionPath), { recursive: true });
+  writeFileSync(testApp.linkedinSessionPath, 'garbage');
+}
+
 describe('GET /api/linkedin/session', () => {
   let testApp: TestApp;
   beforeEach(async () => {
@@ -19,13 +32,6 @@ describe('GET /api/linkedin/session', () => {
     await testApp.close();
   });
 
-  function save(expires: number): void {
-    saveLinkedInSession(
-      testApp.linkedinSessionPath,
-      createLinkedInSessionFile(fakeLinkedInStorageState(expires), SAVED_AT),
-    );
-  }
-
   it('FR-14: missing before the owner has signed in', async () => {
     const response = await testApp.get('/api/linkedin/session');
 
@@ -34,7 +40,7 @@ describe('GET /api/linkedin/session', () => {
   });
 
   it('FR-14: active after the login script saved a session', async () => {
-    save(Date.parse('2027-04-23T12:00:00.000Z') / 1000);
+    saveSession(testApp, Date.parse('2027-04-23T12:00:00.000Z') / 1000);
 
     expect((await testApp.get('/api/linkedin/session')).body).toEqual({
       status: 'active',
@@ -44,14 +50,13 @@ describe('GET /api/linkedin/session', () => {
   });
 
   it('FR-14: expired once the sign-in cookie has expired', async () => {
-    save(Date.parse('2026-10-01T00:00:00.000Z') / 1000);
+    saveSession(testApp, Date.parse('2026-10-01T00:00:00.000Z') / 1000);
 
     expect((await testApp.get('/api/linkedin/session')).body).toMatchObject({ status: 'expired' });
   });
 
   it('FR-14: invalid when the saved file cannot be used', async () => {
-    mkdirSync(dirname(testApp.linkedinSessionPath), { recursive: true });
-    writeFileSync(testApp.linkedinSessionPath, 'garbage');
+    saveUnreadableSession(testApp);
 
     expect((await testApp.get('/api/linkedin/session')).body).toEqual({
       status: 'invalid',
@@ -62,7 +67,7 @@ describe('GET /api/linkedin/session', () => {
 
   it('FR-14: the status is read fresh on every request, so a new sign-in shows without a restart', async () => {
     expect((await testApp.get('/api/linkedin/session')).body).toMatchObject({ status: 'missing' });
-    save(-1);
+    saveSession(testApp, -1);
     expect((await testApp.get('/api/linkedin/session')).body).toMatchObject({ status: 'active', expiresAt: null });
   });
 });
@@ -90,10 +95,7 @@ describe('LinkedIn status in the page header', () => {
   });
 
   it('FR-14: shows signed in, with when the session was last checked', async () => {
-    saveLinkedInSession(
-      testApp.linkedinSessionPath,
-      createLinkedInSessionFile(fakeLinkedInStorageState(), '2026-10-23T09:00:00.000Z'),
-    );
+    saveSession(testApp);
     const line = header((await testApp.get('/')).text);
 
     expect(line).toContain('data-status="active"');
@@ -102,16 +104,12 @@ describe('LinkedIn status in the page header', () => {
   });
 
   it('FR-14: shows an expired session', async () => {
-    saveLinkedInSession(
-      testApp.linkedinSessionPath,
-      createLinkedInSessionFile(fakeLinkedInStorageState(Date.parse('2026-10-01T00:00:00Z') / 1000), SAVED_AT),
-    );
+    saveSession(testApp, Date.parse('2026-10-01T00:00:00Z') / 1000);
     expect(header((await testApp.get('/')).text)).toContain('LinkedIn: <strong>session expired</strong>');
   });
 
   it('FR-14: shows an unreadable session file', async () => {
-    mkdirSync(dirname(testApp.linkedinSessionPath), { recursive: true });
-    writeFileSync(testApp.linkedinSessionPath, 'garbage');
+    saveUnreadableSession(testApp);
 
     expect(header((await testApp.get('/')).text)).toContain('LinkedIn: <strong>saved session unreadable</strong>');
   });
