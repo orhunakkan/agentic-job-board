@@ -10,19 +10,13 @@ import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import { SOURCE_LABELS } from '../src/domain/job-source.ts';
 import type { IncomingListing } from '../src/ingest/listing-ingest.ts';
-import {
-  CreateRunResponseSchema,
-  ErrorResponseSchema,
-  HealthResponseSchema,
-  IngestListingsResponseSchema,
-  MAX_LISTINGS_PER_CALL,
-} from '../src/schemas/api.ts';
 import type { AdzunaKey } from '../src/sources/adzuna.ts';
 import { FeedFormatError } from '../src/sources/feed.ts';
 import { planFeeds } from '../src/sources/feeds.ts';
 import type { FetchSourcesSummary } from '../src/sources/fetch-summary.ts';
 import { isWanted } from '../src/sources/filter.ts';
 import { parseSourcesConfig, SourcesConfigError, type SourcesConfig } from '../src/sources/source-config.ts';
+import { AppRequestError, appClient, sendToRun } from './app-client.ts';
 
 export const DEFAULT_CONFIG_PATH = 'data/sources.json';
 const FEED_TIMEOUT_MS = 20_000;
@@ -31,11 +25,6 @@ const USER_AGENT = 'agentic-job-board/1.0 (personal job search; github.com/orhun
 /** A feed could not be read: no answer, an error status, or not JSON. */
 export class FeedRequestError extends Error {
   override name = 'FeedRequestError';
-}
-
-/** The app is not running or refused what was sent. */
-export class AppRequestError extends Error {
-  override name = 'AppRequestError';
 }
 
 export interface FetchSourcesOptions {
@@ -101,53 +90,8 @@ export async function fetchSources(options: FetchSourcesOptions): Promise<FetchS
 
   const app = appClient(options.appUrl);
   await app.checkHealth();
-  const runId = options.runId ?? (await app.startRun());
-  for (let start = 0; start < listings.length; start += MAX_LISTINGS_PER_CALL) {
-    const counts = await app.sendListings(runId, listings.slice(start, start + MAX_LISTINGS_PER_CALL));
-    summary.new += counts.new;
-    summary.seenAgain += counts.seenAgain;
-    summary.repeated += counts.repeated;
-  }
-  if (options.runId === null) await app.finishRun(runId);
+  const runId = await sendToRun(app, options.runId, listings, summary);
   return { ...summary, runId };
-}
-
-function appClient(appUrl: string) {
-  async function call<T>(method: string, path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
-    let response: Response;
-    try {
-      response = await fetch(
-        `${appUrl}${path}`,
-        body === undefined
-          ? { method }
-          : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-      );
-    } catch {
-      throw new AppRequestError(`The app is not running at ${appUrl}. Start it with npm start.`);
-    }
-    const json: unknown = await response.json().catch(() => null);
-    if (!response.ok) {
-      const error = ErrorResponseSchema.safeParse(json);
-      const detail = error.success ? `${error.data.error.code}: ${error.data.error.message}` : 'no details';
-      throw new AppRequestError(`${method} ${path} failed with HTTP ${String(response.status)} (${detail})`);
-    }
-    return schema.parse(json);
-  }
-
-  return {
-    async checkHealth() {
-      await call('GET', '/api/health', undefined, HealthResponseSchema);
-    },
-    async startRun() {
-      return (await call('POST', '/api/runs', {}, CreateRunResponseSchema)).runId;
-    },
-    sendListings(runId: number, listings: IncomingListing[]) {
-      return call('POST', `/api/runs/${String(runId)}/listings`, { listings }, IngestListingsResponseSchema);
-    },
-    async finishRun(runId: number) {
-      await call('POST', `/api/runs/${String(runId)}/finish`, {}, z.unknown());
-    },
-  };
 }
 
 /** GETs a feed's JSON. An error never includes the URL, which holds the Adzuna key. */
