@@ -80,10 +80,10 @@ async function handle(
     reply = await dispatch(request, method, url, match, cookies);
   } catch (error) {
     const failure = toFailure(error, logger, requestId);
-    const page = () => errorPage(failure.status, failure.message, { method, path: path || '/', query, cookies });
+    const errorRequest: ErrorRequest = { method, path: path || '/', query, cookies };
     reply = isApiPath(path)
       ? { status: failure.status, body: errorBody(failure.code, failure.message, failure.details) }
-      : { status: failure.status, text: page(), contentType: HTML };
+      : { status: failure.status, text: errorPage(failure.status, failure.message, errorRequest), contentType: HTML };
     if (failure.headers !== undefined) reply.headers = failure.headers;
   }
 
