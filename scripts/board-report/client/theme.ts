@@ -32,6 +32,11 @@ export function currentTheme(): Theme {
   return set === 'light' || set === 'dark' ? set : systemTheme();
 }
 
+/** The theme the toggle switches to. */
+function nextTheme(): Theme {
+  return currentTheme() === 'dark' ? 'light' : 'dark';
+}
+
 /** Applies a theme picked earlier, before anything is drawn. */
 export function applyStoredTheme(): void {
   const theme = storedTheme();
@@ -47,13 +52,13 @@ export function themeToggle(): HTMLButtonElement {
     label,
   );
   const update = (): void => {
-    const next: Theme = currentTheme() === 'dark' ? 'light' : 'dark';
+    const next = nextTheme();
     label.textContent = next === 'dark' ? 'Dark theme' : 'Light theme';
     button.setAttribute('aria-label', `Switch to the ${next} theme`);
     button.dataset['next'] = next;
   };
   button.addEventListener('click', () => {
-    const next: Theme = currentTheme() === 'dark' ? 'light' : 'dark';
+    const next = nextTheme();
     document.documentElement.setAttribute('data-theme', next);
     rememberTheme(next);
     update();
