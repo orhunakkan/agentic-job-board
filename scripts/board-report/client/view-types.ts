@@ -10,7 +10,7 @@ import { filterBar, filterTests, filtersFrom, hasFilters, withFilters, type Filt
 import { formatDuration, plural } from './format.ts';
 import { replaceQuery, type Route } from './route.ts';
 import { emptyState, testLink, viewHeader } from './shell.ts';
-import { emptyTotalsOf, report, totalOf } from './state.ts';
+import { emptyTotalsOf, report, totalOf, typeTitle } from './state.ts';
 
 interface TreeNode {
   label: string;
@@ -33,7 +33,7 @@ function buildTree(tests: readonly TestEntry[]): TreeNode[] {
   for (const test of tests) {
     let current = roots.get(test.type);
     if (current === undefined) {
-      current = node(data.typeInfo.get(test.type)?.title ?? test.type, test.type);
+      current = node(typeTitle(test.type), test.type);
       roots.set(test.type, current);
     }
     current.totals[test.status] += 1;
