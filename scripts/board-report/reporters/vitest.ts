@@ -2,7 +2,7 @@
 // the default reporter. It keeps every test with its describe blocks as suites, its duration, its error with expected
 // and actual and stack, and its console output. It writes only when scripts/board-report.ts names a results folder.
 import type { Reporter, SerializedError, TestCase, TestModule } from 'vitest/node';
-import { labelResult, stripAnsi } from '../labels.ts';
+import { labelResult, stripAnsi, type ResultDraft } from '../labels.ts';
 import { writeResult, type ErrorInfo, type Status, type TestType } from '../result-schema.ts';
 import { repoPath, resultsTarget, type ResultsTarget } from '../target.ts';
 
@@ -39,9 +39,8 @@ export function errorOf(errors: readonly VitestError[]): ErrorInfo | null {
 
 export class BoardReportVitestReporter implements Reporter {
   private readonly target: ResultsTarget | null;
-  private readonly logs = new Map<string, { stdout: string[]; stderr: string[] }>();
-
   private readonly root: string;
+  private readonly logs = new Map<string, { stdout: string[]; stderr: string[] }>();
 
   constructor(env: Readonly<Record<string, string | undefined>> = process.env, root: string = process.cwd()) {
     this.target = resultsTarget(env);
@@ -129,7 +128,7 @@ export class BoardReportVitestReporter implements Reporter {
     });
   }
 
-  private write(file: string | null, draft: Parameters<typeof labelResult>[0]): void {
+  private write(file: string | null, draft: ResultDraft): void {
     if (this.target === null) return;
     // Real tests get their type from their folder; an error outside any test file takes the step's own type.
     const { step } = this.target;
