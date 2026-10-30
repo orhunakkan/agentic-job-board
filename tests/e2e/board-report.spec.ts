@@ -72,6 +72,16 @@ async function expectNoSideScroll(page: Page): Promise<void> {
 
 const ROUTES = ['#/overview', '#/types', '#/requirements', '#/failures', '#/timeline', '#/environment'] as const;
 
+/** The name of each view's link in the Views navigation. */
+const VIEW_NAMES: Readonly<Record<(typeof ROUTES)[number], string>> = {
+  '#/overview': 'Overview',
+  '#/types': 'By test type',
+  '#/requirements': 'By requirement',
+  '#/failures': 'Failures',
+  '#/timeline': 'Timeline',
+  '#/environment': 'Environment',
+};
+
 test.describe('board-report', () => {
   // Several tests here walk every view of the report, with axe or a click on each. WebKit draws the views two to three
   // times slower than the other engines, and on the CI runner those tests took 22–34 s of the 30 s budget once the
@@ -424,10 +434,7 @@ test.describe('board-report', () => {
     const views = page.getByRole('navigation', { name: 'Views' });
     await views.getByRole('link', { name: 'Timeline' }).click();
     for (const route of ROUTES) {
-      await views
-        .getByRole('link')
-        .filter({ hasText: viewName(route) })
-        .click();
+      await views.getByRole('link').filter({ hasText: VIEW_NAMES[route] }).click();
       await expect(page).toHaveURL((url) => url.hash === route);
       await settle(page);
     }
@@ -493,15 +500,3 @@ test.describe('board-report', () => {
     await expectNoViolations(page);
   });
 });
-
-function viewName(route: (typeof ROUTES)[number]): string {
-  const names: Record<(typeof ROUTES)[number], string> = {
-    '#/overview': 'Overview',
-    '#/types': 'By test type',
-    '#/requirements': 'By requirement',
-    '#/failures': 'Failures',
-    '#/timeline': 'Timeline',
-    '#/environment': 'Environment',
-  };
-  return names[route];
-}
