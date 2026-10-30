@@ -406,7 +406,8 @@ describe('the HTML pages', () => {
       ]) {
         expect(profile).toContain(text);
       }
-      expect(profile).not.toContain('<form');
+      // The header's theme toggle is a form on every page (FR-23); the profile itself stays read-only.
+      expect(/<main[\s\S]*<\/main>/.exec(profile)?.[0]).not.toContain('<form');
     });
 
     it('FR-01: empty lists read "None"', async () => {
@@ -453,6 +454,93 @@ describe('the HTML pages', () => {
       expect(response.status).toBe(500);
       expect(response.text).toContain('Something went wrong; see the server log');
       expect(response.text).not.toMatch(/sqlite|stack|database is not open/i);
+    });
+  });
+
+  describe('the theme toggle (FR-23, DEC-061)', () => {
+    const htmlTag = (text: string) => /<html[^>]*>/.exec(text)?.[0] ?? '';
+    const returnField = (text: string) =>
+      /<form class="theme-form"[\s\S]*?name="return" value="([^"]*)"/.exec(text)?.[1]?.replaceAll('&amp;', '&');
+
+    it('FR-23: POST /theme keeps the choice in a cookie and goes back to the page it came from', async () => {
+      const response = await testApp.form('/theme', { theme: 'dark', return: '/?origin=other&tab=saved&q=sdet' });
+
+      expect(response.status).toBe(303);
+      expect(response.headers.get('location')).toBe('/?origin=other&tab=saved&q=sdet');
+      expect(response.headers.getSetCookie()).toEqual(['theme=dark; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly']);
+    });
+
+    it('FR-23: choosing light sets the light cookie, and no return path goes to the board', async () => {
+      const response = await testApp.form('/theme', { theme: 'light' });
+
+      expect(response.status).toBe(303);
+      expect(response.headers.get('location')).toBe('/');
+      expect(response.headers.getSetCookie()).toEqual([
+        'theme=light; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly',
+      ]);
+    });
+
+    it.each(['//evil.example', '//evil.example/x', 'https://evil.example/', '/\\evil.example', 'javascript:alert(1)'])(
+      'FR-23, NFR-07: an unsafe return of %j goes to the board',
+      async (target) => {
+        const response = await testApp.form('/theme', { theme: 'dark', return: target });
+
+        expect(response.status).toBe(303);
+        expect(response.headers.get('location')).toBe('/');
+      },
+    );
+
+    it.each<[string, Record<string, string>]>([
+      ['no theme', { return: '/' }],
+      ['another theme', { theme: 'sepia', return: '/' }],
+      ['an extra field', { theme: 'dark', admin: '1' }],
+    ])('FR-23, NFR-09: a theme form with %s is a 400 page and sets no cookie', async (_case, fields) => {
+      const response = await testApp.form('/theme', fields);
+
+      expect(response.status).toBe(400);
+      expect(response.text).toContain('The form is invalid');
+      expect(response.headers.getSetCookie()).toEqual([]);
+    });
+
+    it('FR-23: every page with the dark cookie is dark, error pages included', async () => {
+      for (const path of ['/', '/?origin=other', `/jobs/${String(id('Workiva'))}`, '/runs', '/profile', '/nope']) {
+        const response = await testApp.raw({ path, headers: { Cookie: 'theme=dark' } });
+
+        expect(htmlTag(response.text), path).toBe('<html lang="en" data-theme="dark">');
+      }
+      const light = await testApp.raw({ path: '/runs', headers: { Cookie: 'other=1; theme=light' } });
+      expect(htmlTag(light.text)).toBe('<html lang="en" data-theme="light">');
+    });
+
+    it.each(['theme=junk', 'theme=', 'theme', 'Theme=dark', ''])(
+      'FR-23: a page with the cookie %j follows the system',
+      async (cookie) => {
+        const response = await testApp.raw({ path: '/', headers: cookie === '' ? {} : { Cookie: cookie } });
+
+        expect(response.status).toBe(200);
+        expect(response.text).not.toContain('data-theme');
+      },
+    );
+
+    it('FR-23: the toggle comes back to the page with its filters, without the one-time notice', async () => {
+      const jobId = id('Workiva');
+
+      expect(returnField(await page(`/?origin=other&tab=saved&q=sdet&changed=${String(jobId)}`))).toBe(
+        '/?origin=other&tab=saved&q=sdet',
+      );
+      expect(returnField(await page('/?origin=other&tab=new&cleared=3'))).toBe('/?origin=other&tab=new');
+      expect(returnField(await page(`/jobs/${String(jobId)}?notes=saved`))).toBe(`/jobs/${String(jobId)}`);
+      expect(returnField(await page('/runs'))).toBe('/runs');
+      expect(returnField(await page('/profile'))).toBe('/profile');
+    });
+
+    it('FR-23: an error page has the toggle; after a failed form post it comes back to the board', async () => {
+      expect(returnField(await page('/nope?x=1', 404))).toBe('/nope?x=1');
+
+      const failed = await testApp.form(`/jobs/${String(id('Optum'))}/status`, { status: 'offer' });
+
+      expect(failed.status).toBe(409);
+      expect(returnField(failed.text)).toBe('/');
     });
   });
 });

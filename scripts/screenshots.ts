@@ -32,8 +32,10 @@ try {
     { name: 'board', path: '/', width: 1280, height: 900 },
     { name: 'board-dark', path: '/?tab=in-progress', width: 1280, height: 900, dark: true },
     { name: 'job-detail', path: '/jobs/12', width: 1280, height: 1100 },
+    { name: 'job-detail-dark', path: '/jobs/12', width: 1280, height: 1100, dark: true },
     { name: 'runs', path: '/runs', width: 1280, height: 700 },
     { name: 'board-mobile', path: '/', width: 390, height: 844 },
+    { name: 'board-mobile-dark', path: '/?origin=other', width: 390, height: 844, dark: true },
   ];
   for (const shot of shots) {
     const page = await browser.newPage({

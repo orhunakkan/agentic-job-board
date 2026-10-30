@@ -22,7 +22,7 @@ describe('scripts/traceability.ts', () => {
     const ids = REQUIREMENTS.map((requirement) => requirement.id);
 
     expect(ids).toEqual([
-      ...Array.from({ length: 22 }, (_, index) => `FR-${String(index + 1).padStart(2, '0')}`),
+      ...Array.from({ length: 23 }, (_, index) => `FR-${String(index + 1).padStart(2, '0')}`),
       ...Array.from({ length: 13 }, (_, index) => `NFR-${String(index + 1).padStart(2, '0')}`),
     ]);
   });

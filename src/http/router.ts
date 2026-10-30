@@ -10,6 +10,9 @@ export interface ApiRequest {
   params: Readonly<Record<string, string>>;
   query: URLSearchParams;
   body: unknown; // POST/PUT/PATCH: parsed JSON, or the form fields as a string record; undefined for GET
+  // The Cookie header, parsed (FR-23: the pages read the theme from it). The server always sets it; a request built
+  // by hand may leave it out, which reads as no cookies.
+  cookies?: Readonly<Record<string, string>>;
 }
 
 export type Handler = (request: ApiRequest) => Reply;
