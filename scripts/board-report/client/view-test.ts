@@ -283,14 +283,13 @@ function summary(test: TestEntry): HTMLElement {
       el('li', {}, el('a', { class: 'chip chip-link chip-tag', href: href('types', { tag }), text: tag })),
     );
   }
+  const where = `${test.file ?? ''}${test.line === null ? '' : `:${String(test.line)}`}`;
   const source =
     test.file === null
       ? null
       : test.sourceUrl === null
-        ? el('span', { class: 'mono', text: `${test.file}${test.line === null ? '' : `:${String(test.line)}`}` })
-        : externalLink(test.sourceUrl, `${test.file}${test.line === null ? '' : `:${String(test.line)}`}`, {
-            class: 'mono',
-          });
+        ? el('span', { class: 'mono', text: where })
+        : externalLink(test.sourceUrl, where, { class: 'mono' });
   const facts = el('dl', { class: 'facts' });
   const fact = (name: string, value: Node | string | null): void => {
     if (value === null) return;
