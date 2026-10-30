@@ -471,7 +471,10 @@ test.describe('board-report', () => {
   });
 
   for (const scheme of ['light', 'dark'] as const) {
-    test(`NFR-13: axe finds no violations in ${scheme} mode`, async ({ page }) => {
+    test(`NFR-13: axe finds no violations in ${scheme} mode`, async ({ page, browserName }) => {
+      // Eight views with axe on each: on the CI runner Firefox went from 20 s to past the 30 s budget as the suite
+      // grew (DEF-023), so it gets the triple budget here as WebKit does above. Every assertion stays as it is.
+      test.slow(browserName === 'firefox', 'Firefox runs axe on eight views slowly (DEF-023)');
       await page.emulateMedia({ colorScheme: scheme });
       for (const route of [...ROUTES, `#/types?status=failed`, `#/test/${failedE2e().id}`]) {
         await open(page, route);
