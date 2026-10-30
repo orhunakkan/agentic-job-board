@@ -454,6 +454,25 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
   // for a busy machine.
   const fast = { pauseMs: 0, busyWaitMs: 0, settleMs: 50, cardTimeoutMs: 300, timeoutMs: 8000 };
 
+  /** The whole script, with one SDET search, reading the saved pages in Chromium. */
+  function searchSavedPages(dryRun: boolean, log: string[]) {
+    return searchLinkedIn({
+      config: parseLinkedInSearchConfig(
+        JSON.stringify({ excludeKeywords: ['junior'], searches: [{ name: 'SDET', keywords: 'sdet' }] }),
+        'test',
+      ),
+      appUrl: testApp.url,
+      runId: null,
+      dryRun,
+      only: null,
+      details: true,
+      backfill: false,
+      pages: browserPages(context, fast),
+      now: () => NOW,
+      log: (line) => log.push(line),
+    });
+  }
+
   it('FR-18: reads every filled card of a search page, as LinkedIn shows it', async () => {
     const cards = await browserPages(context, fast).searchPage('https://www.linkedin.com/jobs/search/?keywords=sdet');
 
@@ -507,24 +526,7 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
   });
 
   it('FR-18, FR-19: the whole script on the saved pages stores the open jobs of the window, with their details', async () => {
-    const config = parseLinkedInSearchConfig(
-      JSON.stringify({ excludeKeywords: ['junior'], searches: [{ name: 'SDET', keywords: 'sdet' }] }),
-      'test',
-    );
-    const log: string[] = [];
-
-    const summary = await searchLinkedIn({
-      config,
-      appUrl: testApp.url,
-      runId: null,
-      dryRun: false,
-      only: null,
-      details: true,
-      backfill: false,
-      pages: browserPages(context, fast),
-      now: () => NOW,
-      log: (line) => log.push(line),
-    });
+    const summary = await searchSavedPages(false, []);
 
     // 6 cards: one never filled in, one junior, one 3 weeks old, one closed; Sample Freight has no saved job page.
     expect(summary).toMatchObject({ cards: 5, excluded: 1, older: 1, closed: 1, new: 2, detailsRead: 2 });
@@ -561,18 +563,7 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
 
   it('NFR-12: the session cookie goes only to linkedin.com and never into what the script prints', async () => {
     const log: string[] = [];
-    const summary = await searchLinkedIn({
-      config: readConfigFrom({ excludeKeywords: ['junior'], searches: [{ name: 'SDET', keywords: 'sdet' }] }),
-      appUrl: testApp.url,
-      runId: null,
-      dryRun: true,
-      only: null,
-      details: true,
-      backfill: false,
-      pages: browserPages(context, fast),
-      now: () => NOW,
-      log: (line) => log.push(line),
-    });
+    const summary = await searchSavedPages(true, log);
 
     const linkedin = requests.filter((request) => new URL(request.url).hostname === 'www.linkedin.com');
     expect(linkedin.length).toBeGreaterThan(0);
@@ -583,7 +574,3 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
     expect(JSON.stringify([log, summary, testApp.logs])).not.toContain(FAKE_LINKEDIN_COOKIE_VALUE);
   }, 30_000);
 });
-
-function readConfigFrom(value: unknown) {
-  return parseLinkedInSearchConfig(JSON.stringify(value), 'test');
-}
