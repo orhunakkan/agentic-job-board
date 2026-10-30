@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { expect, type APIRequestContext } from '@playwright/test';
 import type { ListingSource } from '../../src/domain/job-source.ts';
+import type { IncomingListing } from '../../src/ingest/listing-ingest.ts';
 import { CreateRunResponseSchema, IngestListingsResponseSchema } from '../../src/schemas/api.ts';
 
 // Every E2E test seeds its own jobs through the JSON API, as /find-jobs and its scripts would, into the one shared
@@ -30,36 +31,41 @@ export function uniqueTag(): string {
 }
 
 /** LinkedIn jobs as one of the owner's searches finds them (FR-18), sent as scripts/search-linkedin.ts would. */
-export async function seedJobs(
+export function seedJobs(request: APIRequestContext, tag: string, jobs: readonly SeedJob[]): Promise<SeededJob[]> {
+  return sendInOneRun(
+    request,
+    jobs,
+    jobs.map((job) => {
+      const id = `${String(randomInt(1e9, 9e9))}${String(randomInt(1e3, 1e4))}`;
+      return {
+        source: 'linkedin',
+        sourceJobId: id,
+        title: `${job.title} ${tag}`,
+        company: job.company,
+        location: job.location ?? 'United States',
+        url: `https://www.linkedin.com/jobs/view/${id}/`,
+        postedAt: new Date().toISOString(),
+        salary: null,
+        description: job.description ?? null,
+        workplace: job.workplace ?? null,
+        easyApply: job.easyApply ?? false,
+        searchName: job.searchName ?? 'E2E search',
+      };
+    }),
+  );
+}
+
+/** Sends the listings in a run of their own, scores the jobs that have a score, and finishes the run. */
+async function sendInOneRun(
   request: APIRequestContext,
-  tag: string,
   jobs: readonly SeedJob[],
+  listings: readonly IncomingListing[],
 ): Promise<SeededJob[]> {
   const run = await request.post('/api/runs', { data: {} });
   expect(run.status()).toBe(201);
   const { runId } = CreateRunResponseSchema.parse(await run.json());
 
-  const sent = await request.post(`/api/runs/${String(runId)}/listings`, {
-    data: {
-      listings: jobs.map((job) => {
-        const id = `${String(randomInt(1e9, 9e9))}${String(randomInt(1e3, 1e4))}`;
-        return {
-          source: 'linkedin',
-          sourceJobId: id,
-          title: `${job.title} ${tag}`,
-          company: job.company,
-          location: job.location ?? 'United States',
-          url: `https://www.linkedin.com/jobs/view/${id}/`,
-          postedAt: new Date().toISOString(),
-          salary: null,
-          description: job.description ?? null,
-          workplace: job.workplace ?? null,
-          easyApply: job.easyApply ?? false,
-          searchName: job.searchName ?? 'E2E search',
-        };
-      }),
-    },
-  });
+  const sent = await request.post(`/api/runs/${String(runId)}/listings`, { data: { listings } });
   expect(sent.status()).toBe(200);
   const { newJobs } = IngestListingsResponseSchema.parse(await sent.json());
   expect(newJobs).toHaveLength(jobs.length);
@@ -97,44 +103,32 @@ async function score(
 export interface SeedListing extends SeedJob {
   source: ListingSource;
   salary?: string;
-  description?: string;
 }
 
 /** Jobs from the public feeds, sent as scripts/fetch-sources.ts would (FR-15), each with the tag in its title. */
-export async function seedListings(
+export function seedListings(
   request: APIRequestContext,
   tag: string,
   listings: readonly SeedListing[],
 ): Promise<SeededJob[]> {
-  const run = await request.post('/api/runs', { data: {} });
-  const { runId } = CreateRunResponseSchema.parse(await run.json());
-
-  const sent = await request.post(`/api/runs/${String(runId)}/listings`, {
-    data: {
-      listings: listings.map((listing) => {
-        const id = `${tag}-${String(randomInt(1e9))}`;
-        return {
-          source: listing.source,
-          sourceJobId: id,
-          title: `${listing.title} ${tag}`,
-          company: listing.company,
-          location: listing.location ?? 'Remote (United States)',
-          url: `https://jobs.example.com/${listing.source}/${id}`,
-          postedAt: new Date().toISOString(),
-          salary: listing.salary ?? null,
-          description: listing.description ?? null,
-        };
-      }),
-    },
-  });
-  expect(sent.status()).toBe(200);
-  const { newJobs } = IngestListingsResponseSchema.parse(await sent.json());
-  expect(newJobs).toHaveLength(listings.length);
-
-  await score(request, runId, listings, newJobs);
-  expect((await request.post(`/api/runs/${String(runId)}/finish`, { data: {} })).status()).toBe(200);
-
-  return newJobs.map((job) => ({ id: job.id, title: job.title, company: job.company }));
+  return sendInOneRun(
+    request,
+    listings,
+    listings.map((listing) => {
+      const id = `${tag}-${String(randomInt(1e9))}`;
+      return {
+        source: listing.source,
+        sourceJobId: id,
+        title: `${listing.title} ${tag}`,
+        company: listing.company,
+        location: listing.location ?? 'Remote (United States)',
+        url: `https://jobs.example.com/${listing.source}/${id}`,
+        postedAt: new Date().toISOString(),
+        salary: listing.salary ?? null,
+        description: listing.description ?? null,
+      };
+    }),
+  );
 }
 
 export const PROFILE = {
