@@ -22,6 +22,8 @@ import {
   ResultFileError,
   TestResult,
   writeResult,
+  type Step,
+  type TestType,
 } from '../../../scripts/board-report/result-schema.ts';
 import { repoPath, resultsTarget, ResultsTargetError } from '../../../scripts/board-report/target.ts';
 
@@ -146,18 +148,11 @@ describe('labels', () => {
   });
 
   it('NFR-13: the browser and the smoke run are parameters that change the history ID', () => {
-    const chromium = labelResult(
-      draft({ file: 'tests/features/e2e/a.feature', labels: { tags: [], browser: 'Chromium', worker: null } }),
-      'bdd-e2e',
-    );
-    const firefox = labelResult(
-      draft({ file: 'tests/features/e2e/a.feature', labels: { tags: [], browser: 'Firefox', worker: null } }),
-      'bdd-e2e',
-    );
-    const smoke = labelResult(
-      draft({ file: 'tests/features/e2e/a.feature', labels: { tags: [], browser: 'Chromium', worker: null } }),
-      'bdd-smoke',
-    );
+    const scenario = (browser: string, step: Step) =>
+      labelResult(draft({ file: 'tests/features/e2e/a.feature', labels: { tags: [], browser, worker: null } }), step);
+    const chromium = scenario('Chromium', 'bdd-e2e');
+    const firefox = scenario('Firefox', 'bdd-e2e');
+    const smoke = scenario('Chromium', 'bdd-smoke');
 
     expect(chromium.parameters).toEqual([{ name: 'browser', value: 'Chromium' }]);
     expect(smoke.parameters).toEqual([
@@ -233,6 +228,11 @@ describe('failure categories', () => {
       testType === undefined ? 'unit' : 'coverage',
     ).labels,
   });
+  // A failed result relabelled as a test type no test file path gives.
+  const failedAs = (testType: TestType) => {
+    const failed = result(undefined, 'failed');
+    return { ...failed, labels: { ...failed.labels, testType } };
+  };
 
   it('NFR-13: puts every failed or broken test in one category', () => {
     expect(categoryOf(result(undefined, 'passed'))).toBeNull();
@@ -243,23 +243,8 @@ describe('failure categories', () => {
     expect(categoryOf(result(undefined, 'broken', 'locator.click: Timeout 10000ms exceeded.'))).toBe('timeouts');
     expect(categoryOf(result(undefined, 'broken', 'TypeError: x is undefined'))).toBe('crashes');
     expect(categoryOf(result('coverage', 'failed'))).toBe('thresholds');
-    expect(
-      categoryOf({
-        ...result(undefined, 'failed'),
-        labels: { ...result(undefined, 'failed').labels, testType: 'performance' },
-      }),
-    ).toBe('thresholds');
-    expect(
-      categoryOf({
-        ...result(undefined, 'failed'),
-        labels: { ...result(undefined, 'failed').labels, testType: 'accessibility' },
-      }),
-    ).toBe('accessibility');
-    expect(
-      categoryOf({
-        ...result(undefined, 'failed'),
-        labels: { ...result(undefined, 'failed').labels, testType: 'static' },
-      }),
-    ).toBe('static');
+    expect(categoryOf(failedAs('performance'))).toBe('thresholds');
+    expect(categoryOf(failedAs('accessibility'))).toBe('accessibility');
+    expect(categoryOf(failedAs('static'))).toBe('static');
   });
 });
