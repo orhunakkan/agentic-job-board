@@ -84,8 +84,13 @@ function testRow(test: TestEntry): HTMLLIElement {
 /** How each group draws its children, the first time it is opened. */
 const drawers = new WeakMap<HTMLLIElement, () => void>();
 
+/** A group's own toggle, not the toggle of a group inside it. */
+function toggleOf(item: HTMLLIElement): HTMLButtonElement | null {
+  return item.querySelector<HTMLButtonElement>(':scope > .tree-row .tree-toggle');
+}
+
 function setOpen(item: HTMLLIElement, open: boolean): void {
-  const toggle = item.querySelector<HTMLButtonElement>(':scope > .tree-row .tree-toggle');
+  const toggle = toggleOf(item);
   const group = item.querySelector<HTMLElement>(':scope > .tree-group');
   if (toggle === null || group === null) return;
   if (open && group.dataset['drawn'] !== 'yes') {
@@ -175,7 +180,7 @@ function onTreeKey(root: HTMLElement, event: KeyboardEvent): void {
         break;
       }
       const owner = isToggle ? item?.parentElement?.closest<HTMLLIElement>('li.tree-item') : item;
-      owner?.querySelector<HTMLElement>(':scope > .tree-row .tree-toggle')?.focus();
+      if (owner !== null && owner !== undefined) toggleOf(owner)?.focus();
       break;
     }
     default:
@@ -214,7 +219,7 @@ export function renderTypes(main: HTMLElement, route: Route): void {
     // Opening draws one level at a time, so repeat until nothing closed is left (each level is drawn once).
     for (;;) {
       const closed = [...results.querySelectorAll<HTMLLIElement>('li.tree-item')].filter(
-        (item) => item.querySelector(':scope > .tree-row .tree-toggle')?.getAttribute('aria-expanded') !== String(open),
+        (item) => toggleOf(item)?.getAttribute('aria-expanded') !== String(open),
       );
       if (closed.length === 0) break;
       for (const item of closed) setOpen(item, open);

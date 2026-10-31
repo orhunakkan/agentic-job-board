@@ -87,30 +87,13 @@ function axes(chart: SVGSVGElement, max: number, label: (value: number) => strin
       }),
     );
   }
+  // The first run's date at the left end of the time axis, and the last run's at the right end when there are two.
+  const dateLabel = (point: RunPoint, x: number, anchor: 'start' | 'end'): SVGTextElement =>
+    svg('text', { class: 'axis-label', x, y: HEIGHT - 8, 'text-anchor': anchor, text: formatShortDate(point.time) });
   const first = points[0];
   const last = points.at(-1);
-  if (first !== undefined) {
-    chart.appendChild(
-      svg('text', {
-        class: 'axis-label',
-        x: PAD.left,
-        y: HEIGHT - 8,
-        'text-anchor': 'start',
-        text: formatShortDate(first.time),
-      }),
-    );
-  }
-  if (last !== undefined && points.length > 1) {
-    chart.appendChild(
-      svg('text', {
-        class: 'axis-label',
-        x: WIDTH - PAD.right,
-        y: HEIGHT - 8,
-        'text-anchor': 'end',
-        text: formatShortDate(last.time),
-      }),
-    );
-  }
+  if (first !== undefined) chart.appendChild(dateLabel(first, PAD.left, 'start'));
+  if (last !== undefined && points.length > 1) chart.appendChild(dateLabel(last, WIDTH - PAD.right, 'end'));
 }
 
 function runLabel(point: RunPoint, index: number): string {
