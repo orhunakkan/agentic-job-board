@@ -59,8 +59,14 @@ export function formatSalary(
   const code = (currency ?? 'USD').toUpperCase();
   const sign = CURRENCY_SIGNS[code] ?? `${code} `;
   const shown = [...new Set(amounts)].map((amount) => `${sign}${shortAmount(amount)}`).join(' – ');
-  const per = /hour/i.test(period ?? '') ? ' per hour' : /month/i.test(period ?? '') ? ' per month' : '';
-  return `${shown}${per}`;
+  return `${shown}${perPeriod(period)}`;
+}
+
+/** " per hour" or " per month" when the feed says so; nothing for a yearly salary or no period. */
+function perPeriod(period: string | null | undefined): string {
+  if (/hour/i.test(period ?? '')) return ' per hour';
+  if (/month/i.test(period ?? '')) return ' per month';
+  return '';
 }
 
 function shortAmount(amount: number): string {
