@@ -16,6 +16,12 @@ async function open(page: Page, path: string, scheme: 'light' | 'dark'): Promise
 }
 
 test.describe('accessibility', () => {
+  // Skipped on Firefox for now (owner, 2026-10-31, DEC-070). In a full run with the default workers, axe hangs in
+  // whichever of these Firefox runs fall in the busiest stretch, about 7 a run (DEF-024, open; main does the same).
+  // Chromium, WebKit and mobile run every test here; Firefox still runs axe on setup and the profile form
+  // (setup.spec.ts) and on board-report. Remove this line once DEF-024 is fixed.
+  test.skip(({ browserName }) => browserName === 'firefox', 'DEF-024: axe hangs on Firefox in a full local run');
+
   let jobId = 0;
   let listedId = 0;
   let tag = '';

@@ -27,7 +27,7 @@ Every defect found while building the Agentic Job Board (PLAN.md Phase 8 task 2)
 | DEF-023 | board-report's Firefox axe tests time out on the CI runner            | Medium   | CI on `main` (after DEF-022)     | Fixed  | `9882e2c`  |
 | DEF-024 | The board's Firefox axe tests hang in a full local E2E run            | Medium   | E2E suite (Phase 16)             | Open   |            |
 
-Open defects: DEF-024 (the owner decides the fix at CP-16).
+Open defects: DEF-024 (its tests are skipped on Firefox for now, DEC-070).
 
 ## Details
 
@@ -189,4 +189,4 @@ Open defects: DEF-024 (the owner decides the fix at CP-16).
 - **Steps:** `npx playwright test` with the default number of workers on the owner's Windows 11 machine, 2026-10-31.
 - **Expected:** every test passes, as at CP-15.
 - **Actual:** 7 of the board's accessibility tests on Firefox (`tests/e2e/a11y.spec.ts`, light and dark, different ones each run) run past the 30 s limit inside `AxeBuilder.analyze()` (`frame.evaluate`), and closing one context once failed with a Firefox protocol error. The same 7 failures happen on `main` (checked in a temporary worktree), so Phase 16 didn't cause them. The file passes on Firefox on its own (49 of 49), the Firefox project passes on its own (90 of 90), and the full suite passes with `--workers=3` (359 of 359).
-- **Fix:** none yet. Options for the owner: fewer Playwright workers locally, `test.slow` for the Firefox accessibility tests as in DEF-023, or looking for the hang in Firefox itself. **Status:** Open.
+- **Fix:** none yet. For now the file's tests are skipped on Firefox, with a note in the file (owner, DEC-070). Skipping only the tests that had failed didn't help: the hang moved to the file's other Firefox tests. With the skip, the full suite passes with the default workers (311 passed, 48 skipped). Options for a real fix: fewer Playwright workers locally, `test.slow` for the Firefox accessibility tests as in DEF-023, or looking for the hang in Firefox itself. **Status:** Open (worked around).
