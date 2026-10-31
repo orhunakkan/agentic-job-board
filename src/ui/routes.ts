@@ -2,7 +2,7 @@ import { readSetup, type AppContext } from '../api/context.ts';
 import type { JobRecord } from '../db/repositories/jobs.ts';
 import { defaultSortForTab, statusesForTab, TABS, tabForStatus, type Tab } from '../domain/board-tabs.ts';
 import { ORIGINS, originOf, sourcesForOrigin, type Origin } from '../domain/job-source.ts';
-import { viewReady } from '../domain/setup.ts';
+import { viewReady, type ProfileStatus } from '../domain/setup.ts';
 import { html as htmlReply, parseInput, queryObject, redirect, type TextReply } from '../http/respond.ts';
 import type { ApiRequest, Route } from '../http/router.ts';
 import type { ErrorRequest } from '../http/server.ts';
@@ -33,7 +33,7 @@ import { layout, type NavItem } from './layout.ts';
 import { boardPage } from './pages/board.ts';
 import { errorPage, errorTitle } from './pages/error.ts';
 import { jobDetailPage } from './pages/job-detail.ts';
-import { profileFormPage, profilePage } from './pages/profile.ts';
+import { profileFormPage, profilePage, type ProfileFormView } from './pages/profile.ts';
 import { runsPage } from './pages/runs.ts';
 import { setupPage } from './pages/setup.ts';
 import { themeCookie, themeOf, themeReturnPath } from './theme.ts';
@@ -220,7 +220,7 @@ export function pageRoutes(context: AppContext): Route[] {
       path: '/profile',
       handler: (request) => {
         const query = parseInput(ProfilePageQuerySchema, pageQuery(request), 'query string');
-        return page(request, 'Profile', 'profile', profilePage(repos.profile.get(), query.saved === 'yes'));
+        return page(request, 'Profile', 'profile', profilePage(repos.profile.state(), query.saved === 'yes'));
       },
     },
     {
@@ -251,7 +251,7 @@ export function pageRoutes(context: AppContext): Route[] {
           repos.profile.put(result.profile, context.now());
           return redirect('/profile?saved=yes#notice');
         }
-        const reason = repos.profile.state().status === 'saved' ? 'edit' : 'new';
+        const reason = FORM_REASONS[repos.profile.state().status];
         const body = profileFormPage({ values: result.values, errors: result.errors, reason });
         return { ...page(request, 'Edit profile', 'profile', body), status: 400 };
       },
@@ -271,6 +271,13 @@ export function pageRoutes(context: AppContext): Route[] {
     ...staticRoutes(),
   ];
 }
+
+/** Why the profile form is being filled in, from the stored profile's state (FR-01). */
+const FORM_REASONS: Readonly<Record<ProfileStatus, ProfileFormView['reason']>> = {
+  missing: 'new',
+  outdated: 'outdated',
+  saved: 'edit',
+};
 
 /** LinkedIn is the board's default view, so its URLs carry no origin (DEC-036). */
 function originQuery(origin: Origin): string {

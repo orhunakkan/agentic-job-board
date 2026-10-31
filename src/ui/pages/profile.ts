@@ -1,3 +1,4 @@
+import type { ProfileState } from '../../db/repositories/profile.ts';
 import type { Profile } from '../../schemas/profile.ts';
 import type { ProfileFormErrorKey, ProfileFormTextField, ProfileFormValues } from '../../schemas/profile-form.ts';
 import { notice } from '../components.ts';
@@ -17,8 +18,17 @@ export const SENIORITY_LABELS: Readonly<Record<Profile['seniority'], string>> = 
   executive: 'Executive',
 };
 
-export function profilePage(profile: Profile | null, saved: boolean): SafeHtml {
-  if (profile === null) {
+export function profilePage(state: ProfileState, saved: boolean): SafeHtml {
+  if (state.status === 'outdated') {
+    return html`
+      <h1>Profile</h1>
+      <p class="empty">
+        Your saved profile is from an older version of the board. Fill it in again; what still fits is filled in for
+        you. <a class="button" href="/profile/edit">Fill it in again</a>
+      </p>
+    `;
+  }
+  if (state.status === 'missing') {
     return html`
       <h1>Profile</h1>
       <p class="empty">
@@ -28,6 +38,7 @@ export function profilePage(profile: Profile | null, saved: boolean): SafeHtml {
     `;
   }
 
+  const { profile } = state;
   const { locations } = profile;
   const where = [
     ...locations.remote.map((region) => `Remote: ${region}`),

@@ -116,6 +116,18 @@ describe('parseProfileForm', () => {
     expect(result.values).toEqual({ ...typed, relocate: true });
   });
 
+  it('FR-01: text pasted far past a limit is an error next to its field, with the input kept, not a bad form', () => {
+    const pasted = 'x'.repeat(25_000);
+
+    const result = parseProfileForm({ ...form(), summary: pasted, targetRoles: pasted });
+
+    expect(result).toEqual({
+      ok: false,
+      values: expect.objectContaining({ summary: pasted, targetRoles: pasted }) as unknown,
+      errors: { summary: 'Keep it to 1,000 characters.', targetRoles: 'Keep each line to 200 characters.' },
+    });
+  });
+
   it('FR-01: refuses a body that is not the board’s own form (an unknown field)', () => {
     expect(() => parseProfileForm({ ...form(), admin: 'yes' })).toThrow();
   });

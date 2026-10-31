@@ -161,6 +161,39 @@ describe('the profile form', () => {
     expect(form).toContain('<option value="" selected>Choose your level</option>');
   });
 
+  it('FR-01: an outdated profile keeps saying so when its form comes back with an error', async () => {
+    testApp.app.db
+      .prepare('INSERT INTO profile (id, data, updated_at) VALUES (1, ?, ?)')
+      .run(JSON.stringify({ targetRoles: ['Dispatcher'], locations: { remoteUS: true } }), 'x');
+
+    const response = await testApp.form('/profile', { ...NURSE, field: '' });
+
+    expect(response.status).toBe(400);
+    expect(response.text).toContain('from an older version of the board');
+  });
+
+  it('FR-01: the profile page says an outdated profile needs filling in again, not that there is none', async () => {
+    testApp.app.db
+      .prepare('INSERT INTO profile (id, data, updated_at) VALUES (1, ?, ?)')
+      .run(JSON.stringify({ targetRoles: ['Dispatcher'], locations: { remoteUS: true } }), 'x');
+
+    const page = (await testApp.get('/profile')).text;
+
+    expect(page).toContain('Your saved profile is from an older version of the board.');
+    expect(page).toContain('<a class="button" href="/profile/edit">Fill it in again</a>');
+    expect(page).not.toContain('No profile yet.');
+  });
+
+  it('FR-01: a 25,000-character paste comes back as an error next to its field, with the rest of the form kept', async () => {
+    const response = await testApp.form('/profile', { ...NURSE, summary: 'x'.repeat(25_000) });
+
+    expect(response.status).toBe(400);
+    expect(response.text).toContain(
+      '<p class="field-error" id="profile-summary-error">Keep it to 1,000 characters.</p>',
+    );
+    expect(response.text).toContain('value="Registered nursing, critical care"');
+  });
+
   it('NFR-09: a body that is not the board’s form is a 400 page and stores nothing', async () => {
     const response = await testApp.form('/profile', { ...NURSE, isAdmin: 'yes' });
 

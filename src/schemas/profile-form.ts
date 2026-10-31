@@ -41,8 +41,9 @@ export const EMPTY_PROFILE_FORM: ProfileFormValues = {
   relocate: false,
 };
 
-// Generous limits on the raw text: the real limits are ProfileSchema's, reported field by field.
-const FormText = z.string().max(20_000).default('');
+// No length limit on the raw text (the 1 MB body limit bounds it): the real limits are ProfileSchema's, reported next
+// to each field, so a long paste keeps the rest of the form.
+const FormText = z.string().default('');
 
 /** The body only the board's own form posts; anything else is a 400 like any bad form (NFR-09). */
 export const ProfileFormSchema = z.strictObject({
