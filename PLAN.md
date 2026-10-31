@@ -1323,13 +1323,13 @@ Tasks:
 Definition of done: every quality gate in §8.4 is green, also as one `npm run test:all`. The NFR-14 guard passes with only its own file excepted. axe finds 0 violations on every page, including `/setup` and the profile form, in light and dark, on all four projects. Coverage thresholds are unchanged or higher. Every deleted test or assertion is listed in the checkpoint report with the behaviour it covered. `package.json` has no new package.
 
 **🛑 CP-16. The owner checks:**
-- [ ] On an empty database, `npm start` opens on `/setup`, and filling in the profile for a field that isn't software opens the board
-- [ ] A wrong entry in the profile form shows its error next to the field and keeps what was typed; editing the profile later works
-- [ ] Find Now stays off, with its reason, until that view's searches or feeds file is there
-- [ ] The calibration report: how many of the fixture jobs land on their expected label with `match-v2` and `triage-v2`
-- [ ] The NFR-14 guard passes, and a search of the tracked files for the old field's terms finds only the guard test
-- [ ] The list of deleted or rewritten test assertions, each with the behaviour it covered
-- [ ] The local clean-up list, approved before anything was deleted; afterwards the owner fills in their own profile and runs Find Now
+- [x] On an empty database, `npm start` opens on `/setup`, and filling in the profile for a field that isn't software opens the board
+- [x] A wrong entry in the profile form shows its error next to the field and keeps what was typed; editing the profile later works
+- [x] Find Now stays off, with its reason, until that view's searches or feeds file is there
+- [x] The calibration report: how many of the fixture jobs land on their expected label with `match-v2` and `triage-v2`
+- [x] The NFR-14 guard passes, and a search of the tracked files for the old field's terms finds only the guard test
+- [x] The list of deleted or rewritten test assertions, each with the behaviour it covered
+- [x] The local clean-up list, approved before anything was deleted; afterwards the owner fills in their own profile and runs Find Now
 
 ---
 
@@ -1445,6 +1445,7 @@ Agents update this table **only** after the owner's explicit `Approve CP-<n>`.
 | CP-13 | Cucumber BDD layer (DEC-056) | Approved | 2026-10-29 | @cucumber/cucumber 13.3.0 runs TypeScript steps natively; DEC-055 (dependencies may be added, listed in §7), DEC-057 (an app per scenario, smoke profile, Playwright timeouts). 21 integration, 46 API and 16 E2E scenarios on Chromium, Firefox, WebKit and Pixel 7, plus 4 @smoke: 131 scenario runs green; scripts/bdd.ts runs every profile even after a failure; traceability lists the scenarios per requirement. Independent review: 11 findings, all fixed. 1,482 tests green (1,328 Vitest, 154 Playwright); k6 p95 42.7 ms |
 | CP-14 | board-report for every test type (DEC-058) | Approved | 2026-10-29 | board-report built in this repository with no new package (DEC-059): one result format (Zod), Vitest and Playwright reporters, converters for Cucumber messages, tsc, ESLint, Prettier, npm audit, coverage thresholds and k6; every test:* script runs through scripts/board-report.ts; test:all, test:static and report added; NFR-13. The report opens from file:// under a strict CSP, light and dark, 375 px. `npm run test:all` twice: 2,006 tests green across 15 types, k6 p95 39.5 and 37.1 ms. CI run 40969564713 on the branch: 6 jobs green, the board-report artifact holds the same 2,006 results. One existing test line changed (traceability.test.ts, 12 → 13 NFRs) |
 | CP-15 | The board gets board-report's look (DEC-060, DEC-061) | Approved | 2026-10-29 | public/app.css copies board-report's palette (contract test keeps the shared tokens equal); gradient header, logo tile, pills, chips, rounded cards, status-coloured score badges; favicon #7c3aed. FR-23: light/dark toggle as a form (POST /theme, HttpOnly SameSite=Lax cookie for a year, data-theme on <html>), no client script. DEC-062 (lenient cookie parsing, optional request cookies, error-page return path, Firefox colour-scheme workaround); DEF-021 (Firefox dark axe runs had checked light) fixed. `npm run test:all`: 2,196 tests green across 15 types, coverage 97.1 % lines, k6 p95 42.1 ms; package.json unchanged; deleted test lines only in the two allowed exceptions |
+| CP-16 | Any line of work (DEC-064 to DEC-070) | Approved | 2026-10-31 | The profile works for any field (field, summary, credentials, entry to executive, remote regions plus hybrid and on-site areas) and is filled in and edited on the board (`/profile/edit`, `POST /profile`, no script). Setup comes first (FR-24): `GET /api/setup`, the board redirects to `/setup` until a profile is saved, Find Now waits per view for its own source, `POST /api/runs` answers 409 `setup_required`. Rubric v2 judges only against the profile; calibration 12/12 on invented fixtures (self-scored). `/find-jobs` procedure version 5. Mixed-field test data everywhere; NFR-14 guard (only its own file names the old field). Independent review: 3 small findings, all fixed. `npm run test:all`: 2,269 of 2,271 (2 Firefox axe timeouts, DEF-024, also on main); the board's accessibility tests skipped on Firefox for now (DEC-070), after which the full Playwright suite passes (311 passed, 48 skipped); 1,650 Vitest tests, coverage 97.3 % lines; k6 p95 42.4 ms run alone. Local clean-up done after the owner's go; `session.json` kept and still active. No test file deleted; rewritten assertions listed in the CP-16 report |
 
 ---
 
