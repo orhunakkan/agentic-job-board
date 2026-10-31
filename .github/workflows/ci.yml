@@ -6,9 +6,11 @@
 #   → board-report (every job's results in one report, PLAN.md Phase 14, DEC-058).
 # Every job runs its tests through scripts/board-report.ts with BOARD_REPORT_APPEND=1, so it only keeps its results in
 # reports/test-results/ and uploads them, even after a failure; the last job builds the report from all of them.
-# Jobs run on the owner's self-hosted runner when the repository variable CI_RUNNER names its label (DEC-039),
-# otherwise on GitHub's ubuntu-26.04, pinned rather than ubuntu-latest so an image migration never changes CI unannounced.
-# Pull requests from forks always go to GitHub's runners, so code from outside never runs on the owner's laptop.
+# Pushes to main, the nightly run and manual runs use the owner's self-hosted runner when the repository variable
+# CI_RUNNER names its label (DEC-039); everything else runs on GitHub's ubuntu-26.04, pinned rather than ubuntu-latest
+# so an image migration never changes CI unannounced. Every pull request, the owner's or a fork's, goes to GitHub's
+# runners (DEC-063). That is no defence on its own, since a pull request brings its own copy of this file: the repo also
+# requires approval before workflows from any external contributor run.
 name: CI
 
 on:
@@ -16,6 +18,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # Nightly at 08:00 UTC (03:00 in Chicago in summer, 02:00 in winter), so dependency, audit and flaky-test drift shows
+  # up even on days without a push (DEC-063).
+  schedule:
+    - cron: '0 8 * * *'
 
 permissions:
   contents: read
@@ -31,7 +37,7 @@ env:
 jobs:
   static:
     name: Static checks and unit tests
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
+    runs-on: ${{ (github.event_name != 'pull_request' && vars.CI_RUNNER) || 'ubuntu-26.04' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -55,7 +61,7 @@ jobs:
   vitest:
     name: Integration, API, contract and security tests (with coverage)
     needs: static
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
+    runs-on: ${{ (github.event_name != 'pull_request' && vars.CI_RUNNER) || 'ubuntu-26.04' }}
     timeout-minutes: 10
     # The integration tests open saved copies of LinkedIn's pages in Chromium (scripts/search-linkedin.ts, Phase 11),
     # so this job runs in the same Playwright image as the browser job below.
@@ -89,7 +95,7 @@ jobs:
   browsers:
     name: E2E, accessibility and smoke (Playwright)
     needs: vitest
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
+    runs-on: ${{ (github.event_name != 'pull_request' && vars.CI_RUNNER) || 'ubuntu-26.04' }}
     timeout-minutes: 20
     # Browsers and their system libraries come preinstalled, so no slow apt mirror can stall the job (DEF-014).
     # The tag must equal the installed @playwright/test version (tests/unit/toolchain.test.ts checks it).
@@ -125,7 +131,7 @@ jobs:
   bdd:
     name: Cucumber BDD (integration, API, E2E, smoke)
     needs: vitest
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
+    runs-on: ${{ (github.event_name != 'pull_request' && vars.CI_RUNNER) || 'ubuntu-26.04' }}
     timeout-minutes: 20
     # The E2E scenarios drive the same Playwright browsers as the job above, so they run in the same image and user.
     container:
@@ -161,7 +167,7 @@ jobs:
     name: Load test (k6)
     # Last, so a functional failure is reported before the two minutes the load test takes.
     needs: [browsers, bdd]
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
+    runs-on: ${{ (github.event_name != 'pull_request' && vars.CI_RUNNER) || 'ubuntu-26.04' }}
     timeout-minutes: 15
     env:
       PORT: '3000'
@@ -196,7 +202,7 @@ jobs:
     # After every other job, and even when one failed or was skipped, so a failure is in the report too.
     needs: [static, vitest, browsers, bdd, perf]
     if: ${{ !cancelled() }}
-    runs-on: ${{ (github.event.pull_request.head.repo.fork && 'ubuntu-26.04') || vars.CI_RUNNER || 'ubuntu-26.04' }}
+    runs-on: ${{ (github.event_name != 'pull_request' && vars.CI_RUNNER) || 'ubuntu-26.04' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7

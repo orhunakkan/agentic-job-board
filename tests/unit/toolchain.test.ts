@@ -19,4 +19,15 @@ describe('toolchain', () => {
     // A mismatch would run the tests against browsers built for another Playwright version.
     expect(workflow).toContain(`image: mcr.microsoft.com/playwright:v${String(installed)}-noble`);
   });
+
+  it('NFR-10: CI keeps every pull request off the self-hosted runner and runs nightly (DEC-063)', () => {
+    const workflow = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+    const runsOn = [...workflow.matchAll(/^ {4}runs-on: (.+)$/gm)].map((match) => match[1]);
+
+    expect(runsOn).toHaveLength(6);
+    for (const runner of runsOn) {
+      expect(runner).toBe("${{ (github.event_name != 'pull_request' && vars.CI_RUNNER) || 'ubuntu-26.04' }}");
+    }
+    expect(workflow).toMatch(/^ {2}schedule:\r?\n {4}- cron: '0 8 \* \* \*'$/m);
+  });
 });
