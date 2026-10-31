@@ -1252,6 +1252,73 @@ Definition of done: every quality gate in §8.4 is green, also as one `npm run t
 - [x] The README screenshots show the new look
 - [x] `package.json` is unchanged; `git diff main --numstat -- tests` shows deleted lines only in the two exceptions of task 6 (the traceability requirement counts and the Profile page's no-form check)
 
+### Phase 16: Any line of work (owner, DEC-064 to DEC-069)
+
+**Goal:** the board works for any job in any field: a nurse, an accountant, a dispatcher, or the owner hunting in software testing. Today one field is built into the scoring rubric, the `/find-jobs` instructions, the example configs, the test data and the docs. After this phase, **the user's profile is the only place a field, role, skill or location preference comes from**. The app asks for that profile, and for searches or feeds, before it does anything else. Every trace of the old target field is removed from the repository's files and from the owner's git-ignored local files. **The git history keeps it** (owner, 2026-10-30). The full design, with its reasons, is `docs/superpowers/specs/2026-10-30-job-agnostic-design.md`, which the owner approved on 2026-10-30. Read it before task 1. If it and this phase disagree, this phase wins. Branch: `phase/16-any-line-of-work`.
+
+**Non-goals:** editing the LinkedIn searches or the feed list on the board (they stay files); filling in the profile from a résumé or by a Claude interview; several profiles or users; new job sources; rewriting git history; any change to the app's own testing (Playwright, Vitest, Cucumber, k6, board-report and the ten test types test the app and have nothing to do with the user's field).
+
+**Anti-goals:** a non-software user's jobs score badly because the rubric still talks about "stack" or "engineer"; the owner's own preferences (remote US, no relocation) stay in the rubric or the code instead of their profile; tests go green because assertions were removed; old-field terms are "removed" by renaming them to words that mean the same.
+
+Tasks:
+
+1. **The profile, for any field (FR-01 changed, DEC-065).** `src/schemas/profile.ts` gains `field` (required text), `summary` (up to 1,000 characters, may be empty) and `credentials` (list: licenses, certifications, clearances held). `seniority` becomes `entry | mid | senior | lead | manager | director | executive`. `locations` becomes `{ remote: string[] (regions; empty = not open to remote), hybridAreas, onsiteAreas, relocate }`, and at least one of the three lists must be non-empty. `targetRoles`, `yearsExperience`, `coreSkills`, `secondarySkills`, `workAuthorization`, `dealBreakers` and `excludedCompanies` stay. No field has a default value. A stored profile that fails the new schema reads as **outdated**: the repository reports it instead of throwing, and the form opens prefilled with the old values that still fit. §5.2 is rewritten to match.
+2. **Setup comes first (FR-24 new, DEC-066).** The app is set up when a valid profile is saved and at least one source is ready: `data/linkedin-searches.json` with at least one valid search, or a valid `data/sources.json` with at least one feed or company board on.
+   - `GET /api/setup` → `{ profile: 'missing' | 'outdated' | 'saved', linkedinSearches: 'missing' | 'invalid' | 'ready', sources: 'missing' | 'invalid' | 'ready', ready }`. It uses the existing config parsers and never returns file contents.
+   - While the profile isn't `saved`, `/` and the board views redirect (303) to **`/setup`**. Runs, Profile, job pages and error pages still open. `/setup` is a checklist: the profile (with a link to its form), the LinkedIn searches (how to create the file from the example, and how to sign in) and the feeds (how to create the file from the example). With a profile but no ready source, the board opens and shows a notice that links to `/setup`.
+   - Each view's Find Now is disabled, with its reason on screen, until the profile is saved and that view's own source is ready.
+   - `POST /api/runs` answers **409 `setup_required`**, with `details` naming what's missing, while `ready` is false.
+3. **The profile form (FR-01).** `/profile` shows the profile and an **Edit** button; `/setup` links to the same form. It is one form, `POST /profile`, with the same Host, cross-site and content-type checks as every form. Lists are textareas with one item per line, trimmed, with blank lines dropped. Seniority is a select, years a number input, relocate a checkbox. **Valid:** store the profile, then 303 to `/profile` with a one-time notice. **Invalid:** 400, the form again with the input kept, each error next to its field (`aria-describedby`), an error summary at the top that gets the focus. Labels and hints are plain and fit any field; examples go only in hint text. `PUT /api/profile` stays, with the new schema. No client JavaScript (DEC-006). Works at 375 px.
+4. **Rubric v2 (FR-20 changed, DEC-067).** `agent/scoring-rubric.md` is rewritten as **`match-v2`** and **`triage-v2`**, and `src/domain/score.ts` and the API schemas move to v2. A v1 score already in a database still shows with its version name. Factors for `match-v2`, judged only against the profile:
+   - role fit 0–35 (responsibilities against `targetRoles`, `field`, `summary`)
+   - seniority 0–15
+   - skills and credentials 0–25 (a required license, certification or clearance the user doesn't hold = 0–6, and the reason names it)
+   - location and workplace 0–25 (against `locations` and `workAuthorization`; nothing about any country is built in)
+   - deal-breakers and excluded companies cap the score at 30
+
+   `triage-v2` uses the same factors on title, company and location, weighted 40/20/20/20. The point bands within each factor are as in the design spec §4. There are no field-specific word lists. The safety rule, the label bands and "salary and visa text never change the score" stay word for word. Worked examples come from three sample profiles: an ICU nurse, a staff accountant and a backend developer. §6.5's calibration set is replaced by `tests/fixtures/calibration/`: about 12 invented, clearly fake jobs across those profiles, each with its profile and expected label. A contract test checks that the fixtures parse. At CP-16 the agent scores them with v2 and reports how many land on their label.
+5. **`/find-jobs` procedure version 5.** Step 1 also calls `GET /api/setup`. If `ready` is false, or the argument names a source that isn't ready, it stops before starting a run and prints what's missing and where to fix it. Its JSON examples and summary use jobs from mixed fields. `.claude/commands/find-jobs.md` is written again from it, and Find Now's tool list stays equal to it (security test).
+6. **Examples and code comments.** `linkedin-searches.example.json` and `sources.example.json` use one made-up accountant. The example turns on Adzuna and company boards (a few well-known employers with public boards). Remote OK, Himalayas, Jobicy and Hacker News are off, and the README says these four mostly carry tech jobs. Comments and messages in `src/` and `scripts/` that use old-field examples get neutral ones; `filter.ts` keeps a whole-word example.
+7. **Test data from several fields.** Every old-field value in tests, fixtures, feature files, `scripts/seed.ts`, `tests/helpers/seed-board.ts` and the screenshots becomes jobs from a mix of fields (nursing, accounting, logistics, teaching, sales, software). The LinkedIn HTML fixtures keep every structure the parser reads; only their job content changes, and it stays sanitized. §8.2's example name becomes `Test User (Example Role)`. **Changing a test's data is not weakening it:** every assertion stays and checks the new value. A test or assertion is deleted only when its behaviour is removed, and the checkpoint report lists each one with the behaviour it covered. Expected removals:
+   - the Profile page's read-only checks
+   - checks of the `remoteUS` display and of the old seniority values
+   - checks that `POST /api/runs` always starts a run
+8. **New tests.** Every new test name starts with its requirement.
+   - **Unit:** the profile schema (each field, limits, at least one location kind, old shape rejected); form-to-profile parsing; setup status for every combination.
+   - **Integration:** an outdated row; setup status from real temporary files.
+   - **API:** `GET /api/setup` in every state, never leaking file contents; `POST /api/runs` 409 then 201 once ready; `POST /profile` valid (303, stored) and invalid (400, errors, input kept); `PUT /api/profile` with the new schema; the board → 303 `/setup` while there is no profile.
+   - **Contract:** find-jobs.md's JSON blocks including the setup reply; the calibration fixtures; both example configs against the real config schemas.
+   - **Security:** `POST /profile` refused cross-site; profile text escaped everywhere it shows; setup never returns file contents.
+   - **E2E** (all four browser projects): empty database → `/setup` → fill in the form → the board opens; errors with the input kept; editing later; Find Now disabled with its reason.
+   - **Accessibility:** `/setup` and the form, empty, filled and with errors, light and dark, axe 0 violations.
+   - **BDD:** `setup.feature` (`@FR-24`: "As the owner, I want the board to ask for what it needs first, so that every score is based on my own line of work") and `profile.feature` (`@FR-01`: filling in and editing a profile for a field that isn't software).
+   - **Perf:** k6 on the new mixed-field seed, same thresholds.
+9. **NFR-14: no line of work is assumed (DEC-068).** A contract test lists every file git tracks (`git ls-files`, minus `package-lock.json` and binary files) and fails if any of them contains one of the old field's terms (the list lives only in the test; whole words, any case). It also fails if the profile schema, the rubric or the agent instructions give a default role, skill, field or location. The test's own file is the only exception. The app's test tools are not field terms.
+10. **Docs, rewritten without the old field.**
+    - CLAUDE.md, README (the new setup flow: start → `/setup` profile → the two files from the examples → LinkedIn sign-in → Find Now), `docs/api.md` (`GET /api/setup`, `POST /profile`, the 409), `docs/test-strategy.md`, `docs/defects.md`, `docs/decisions.md`, and `docs/traceability.md` rebuilt (FR-24 and NFR-14 join `scripts/traceability.ts`).
+    - PLAN.md §1, §1.4's example rows, §2, §3 (FR-01, FR-20, FR-24, NFR-14), §5.2, §6.1, §6.2, §6.4, §6.5, §8.2.
+    - The historical logs (decisions, checkpoints, defects, phases 0–15) keep what they record, with neutral wording in place of old-field titles and search names. DEC-016 stays as a past preference, and DEC-064 notes that the location preference now lives in the profile. Where old wording meant the app's own testing, it becomes "testing" (Phase 8's title becomes "Test documentation and MVP acceptance").
+    - The design spec gets the same rewording, so the NFR-14 guard has no exceptions.
+    - DEC-064 to DEC-069 go in §12 and `docs/decisions.md`.
+11. **Local clean-up, last (DEC-069).** The agent lists every path first and deletes only after the owner says go:
+    - `data/jobboard.db*` and `data/perf.db*`: deleted. The next start opens an empty board on `/setup`.
+    - `data/linkedin-searches.json`, `data/sources.json` and `data/find-now/`: deleted.
+    - The caches and browsing history under `data/linkedin/browser-profile/`: deleted, keeping `session.json`. If `node scripts/linkedin-login.ts --check` then fails, the owner signs in again.
+    - `reports/`, `coverage/`, `test-results/` and `playwright-report/`: deleted.
+    - `.claude/commands/find-jobs.md`: written again (task 5).
+    - `.env`: unchanged.
+
+Definition of done: every quality gate in §8.4 is green, also as one `npm run test:all`. The NFR-14 guard passes with only its own file excepted. axe finds 0 violations on every page, including `/setup` and the profile form, in light and dark, on all four projects. Coverage thresholds are unchanged or higher. Every deleted test or assertion is listed in the checkpoint report with the behaviour it covered. `package.json` has no new package.
+
+**🛑 CP-16. The owner checks:**
+- [ ] On an empty database, `npm start` opens on `/setup`, and filling in the profile for a field that isn't software opens the board
+- [ ] A wrong entry in the profile form shows its error next to the field and keeps what was typed; editing the profile later works
+- [ ] Find Now stays off, with its reason, until that view's searches or feeds file is there
+- [ ] The calibration report: how many of the fixture jobs land on their expected label with `match-v2` and `triage-v2`
+- [ ] The NFR-14 guard passes, and a search of the tracked files for the old field's terms finds only the guard test
+- [ ] The list of deleted or rewritten test assertions, each with the behaviour it covered
+- [ ] The local clean-up list, approved before anything was deleted; afterwards the owner fills in their own profile and runs Find Now
+
 ---
 
 ## 11. Post-MVP roadmap (not to be started without a new approved plan)
