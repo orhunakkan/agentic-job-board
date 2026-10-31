@@ -27,6 +27,8 @@ const app = await startApp({
   port: 0,
   dbPath: join(dir, 'shots.db'),
   linkedinSessionPath: join(dir, 'session.json'),
+  linkedinSearchesPath: join(dir, 'linkedin-searches.json'),
+  sourcesPath: join(dir, 'sources.json'),
   claudeCommand: ['claude-is-never-started-here'], // the screenshots never press Find Now
   logger: createLogger('warn'),
 });

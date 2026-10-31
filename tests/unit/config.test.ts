@@ -9,6 +9,8 @@ describe('loadConfig', () => {
       logLevel: 'warn',
       logFormat: null,
       linkedinSessionPath: 'data/linkedin/session.json',
+      linkedinSearchesPath: 'data/linkedin-searches.json',
+      sourcesPath: 'data/sources.json',
       claudeCommand: ['claude'],
     });
   });
@@ -20,6 +22,8 @@ describe('loadConfig', () => {
       logLevel: 'info',
       logFormat: null,
       linkedinSessionPath: 'data/linkedin/session.json',
+      linkedinSearchesPath: 'data/linkedin-searches.json',
+      sourcesPath: 'data/sources.json',
       claudeCommand: ['claude'],
     });
   });
@@ -33,6 +37,12 @@ describe('loadConfig', () => {
     expect(loadConfig({ DB_PATH: 'x.db', LINKEDIN_SESSION_PATH: ' tmp/li.json ' })).toMatchObject({
       linkedinSessionPath: 'tmp/li.json',
     });
+  });
+
+  it('FR-24: LINKEDIN_SEARCHES_PATH and SOURCES_PATH set where setup looks for the two files', () => {
+    expect(
+      loadConfig({ DB_PATH: 'x.db', LINKEDIN_SEARCHES_PATH: ' tmp/searches.json ', SOURCES_PATH: ' tmp/feeds.json ' }),
+    ).toMatchObject({ linkedinSearchesPath: 'tmp/searches.json', sourcesPath: 'tmp/feeds.json' });
   });
 
   it('FR-22: CLAUDE_COMMAND sets how Find Now starts Claude Code, as a JSON array (DEC-052)', () => {

@@ -375,7 +375,12 @@ describe('the HTML pages', () => {
     });
 
     it('FR-01: the profile page explains how to load a profile until one exists', async () => {
-      expect(await page('/profile')).toContain('No profile loaded yet.');
+      const empty = await startTestApp({ setup: 'none' });
+      try {
+        expect((await empty.get('/profile')).text).toContain('No profile loaded yet.');
+      } finally {
+        await empty.close();
+      }
     });
 
     it('FR-01: shows every profile field, read-only', async () => {

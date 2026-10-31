@@ -35,6 +35,8 @@ try {
     port: config.port,
     dbPath: config.dbPath,
     linkedinSessionPath: config.linkedinSessionPath,
+    linkedinSearchesPath: config.linkedinSearchesPath,
+    sourcesPath: config.sourcesPath,
     claudeCommand: config.claudeCommand,
     logger,
   });

@@ -1,15 +1,19 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { request as httpRequest, type IncomingHttpHeaders } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startApp, type RunningApp } from '../../src/app.ts';
+import { createRepositories } from '../../src/db/repositories/index.ts';
 import { createLogger } from '../../src/logger.ts';
 import { fakeClaudeCommand } from './fake-claude.ts';
 import { fakeClock } from './fixtures.ts';
+import { SAMPLE_PROFILE } from './profiles.ts';
 
 // The real app on 127.0.0.1 with a free port, its own temporary database and its own LinkedIn session path
 // (PLAN.md §8.2, DEC-032), so tests never read the owner's data/. Find Now runs tests/helpers/fake-claude.ts, never
 // Claude Code (FR-22).
+// By default the app starts set up (FR-24): the sample profile is saved and both the LinkedIn searches and the feeds
+// files are there, since most tests are about something else. `setup: 'none'` starts it empty, as on a first run.
 // `call` uses the built-in fetch (API tests); `raw` uses node:http so tests can set any header,
 // including Host, which fetch does not allow.
 
@@ -33,6 +37,9 @@ export interface TestApp {
   logs: string[];
   /** Where this app looks for the saved LinkedIn login; tests write a fake one here. */
   linkedinSessionPath: string;
+  /** Where this app looks for the LinkedIn searches and the feeds (FR-24); tests may write their own here. */
+  linkedinSearchesPath: string;
+  sourcesPath: string;
   dbPath: string;
   call(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<ApiResponse>;
   get(path: string): Promise<ApiResponse>;
@@ -48,19 +55,44 @@ export interface TestApp {
   close(): Promise<void>;
 }
 
-export async function startTestApp(options: { claudeCommand?: readonly string[] } = {}): Promise<TestApp> {
+/** One made-up LinkedIn search, valid for setup (FR-24). */
+export const TEST_LINKEDIN_SEARCHES = { searches: [{ name: 'Dispatch jobs', keywords: 'dispatcher' }] };
+
+/** A valid feeds file with one company board on and every other feed off, so setup counts it as ready (FR-24). */
+export const TEST_SOURCES = {
+  keywords: ['dispatcher'],
+  companies: { greenhouse: ['examplefreight'] },
+  feeds: { remoteok: false, himalayas: false, jobicy: false, hackernews: false, adzuna: false },
+};
+
+export interface TestAppOptions {
+  claudeCommand?: readonly string[];
+  /** 'ready' (default): profile and both files there; 'none': an empty board, as on a first run. */
+  setup?: 'ready' | 'none';
+}
+
+export async function startTestApp(options: TestAppOptions = {}): Promise<TestApp> {
   const dir = mkdtempSync(join(tmpdir(), 'jobboard-api-'));
   const logs: string[] = [];
   const linkedinSessionPath = join(dir, 'linkedin', 'session.json');
+  const linkedinSearchesPath = join(dir, 'linkedin-searches.json');
+  const sourcesPath = join(dir, 'sources.json');
   const dbPath = join(dir, 'test.db');
   const app = await startApp({
     port: 0,
     dbPath,
     linkedinSessionPath,
+    linkedinSearchesPath,
+    sourcesPath,
     claudeCommand: options.claudeCommand ?? fakeClaudeCommand(),
     logger: createLogger('debug', (line) => logs.push(line)),
     now: fakeClock('2026-10-23T12:00:00.000Z'),
   });
+  if ((options.setup ?? 'ready') === 'ready') {
+    createRepositories(app.db).profile.put(SAMPLE_PROFILE, '2026-10-23T11:00:00.000Z');
+    writeFileSync(linkedinSearchesPath, JSON.stringify(TEST_LINKEDIN_SEARCHES));
+    writeFileSync(sourcesPath, JSON.stringify(TEST_SOURCES));
+  }
 
   async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
     const init: RequestInit = { method, headers: { ...headers } };
@@ -114,6 +146,8 @@ export async function startTestApp(options: { claudeCommand?: readonly string[] 
     port: app.port,
     logs,
     linkedinSessionPath,
+    linkedinSearchesPath,
+    sourcesPath,
     dbPath,
     call,
     get: (path) => call('GET', path),

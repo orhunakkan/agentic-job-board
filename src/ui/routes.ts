@@ -1,7 +1,8 @@
-import type { AppContext } from '../api/context.ts';
+import { readSetup, type AppContext } from '../api/context.ts';
 import type { JobRecord } from '../db/repositories/jobs.ts';
 import { defaultSortForTab, statusesForTab, TABS, tabForStatus, type Tab } from '../domain/board-tabs.ts';
 import { ORIGINS, originOf, sourcesForOrigin, type Origin } from '../domain/job-source.ts';
+import { viewReady } from '../domain/setup.ts';
 import { html as htmlReply, parseInput, queryObject, redirect, type TextReply } from '../http/respond.ts';
 import type { ApiRequest, Route } from '../http/router.ts';
 import type { ErrorRequest } from '../http/server.ts';
@@ -26,6 +27,7 @@ import { errorPage, errorTitle } from './pages/error.ts';
 import { jobDetailPage } from './pages/job-detail.ts';
 import { profilePage } from './pages/profile.ts';
 import { runsPage } from './pages/runs.ts';
+import { setupPage } from './pages/setup.ts';
 import { themeCookie, themeOf, themeReturnPath } from './theme.ts';
 
 // The HTML pages of PLAN.md §6.2. Forms post, then redirect back with 303 (post/redirect/get), so reloading a
@@ -67,6 +69,9 @@ export function pageRoutes(context: AppContext): Route[] {
       method: 'GET',
       path: '/',
       handler: (request) => {
+        // Setup comes first (FR-24): until a valid profile is saved, the board shows setup instead of jobs.
+        const setup = readSetup(context);
+        if (setup.profile !== 'saved') return redirect('/setup');
         const query = parseInput(BoardQuerySchema, pageQuery(request), 'query string');
         const sources = sourcesForOrigin(query.origin);
         const filter = {
@@ -108,6 +113,7 @@ export function pageRoutes(context: AppContext): Route[] {
           changed: query.changed === undefined ? null : repos.jobs.get(query.changed),
           cleared: query.cleared ?? null,
           findNow: context.findNow.last(),
+          setup,
           now: context.now(),
         });
         return page(request, 'Board', 'board', body);
@@ -132,6 +138,8 @@ export function pageRoutes(context: AppContext): Route[] {
       accepts: 'form',
       handler: (request) => {
         const { origin } = parseInput(BoardActionFormSchema, request.body, 'form');
+        // The button is disabled until the view is set up (FR-24); a post anyway starts nothing and shows why.
+        if (!viewReady(readSetup(context), origin)) return redirect(`/?${originQuery(origin)}tab=new#find-now-reason`);
         context.findNow.start(origin);
         return redirect(`/?${originQuery(origin)}tab=new#find-now`);
       },
@@ -186,6 +194,18 @@ export function pageRoutes(context: AppContext): Route[] {
       method: 'GET',
       path: '/runs',
       handler: (request) => page(request, 'Runs', 'runs', runsPage({ runs: repos.runs.list(RECENT) })),
+    },
+    {
+      method: 'GET',
+      path: '/setup',
+      handler: (request) => {
+        const body = setupPage({
+          status: readSetup(context),
+          linkedinSearchesPath: context.linkedinSearchesPath,
+          sourcesPath: context.sourcesPath,
+        });
+        return page(request, 'Setup', null, body);
+      },
     },
     {
       method: 'GET',

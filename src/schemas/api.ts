@@ -3,6 +3,7 @@ import { TABS } from '../domain/board-tabs.ts';
 import { JOB_SOURCES, ORIGINS } from '../domain/job-source.ts';
 import { canonicalJobUrl } from '../domain/linkedin-url.ts';
 import { isLabelConsistent, RUBRICS, SCORE_LABELS } from '../domain/score.ts';
+import { FILE_STATUSES, PROFILE_STATUSES } from '../domain/setup.ts';
 import { STATUSES } from '../domain/status.ts';
 import { WORKPLACES } from '../domain/workplace.ts';
 import { LINKEDIN_SESSION_STATES } from '../linkedin/session.ts';
@@ -125,6 +126,16 @@ export const LinkedInSessionResponseSchema = z.strictObject({
 
 /** When a run last stored a job a LinkedIn search found: where `postedWithin: since-last-run` starts (Phase 11). */
 export const IngestStateResponseSchema = z.strictObject({ lastLinkedInSearchAt: IsoTimestamp.nullable() });
+
+// --- GET /api/setup ---------------------------------------------------------------------------------------------
+
+/** Whether the board is set up (FR-24, DEC-066): the profile, and whether each source's file is there and valid. */
+export const SetupResponseSchema = z.strictObject({
+  profile: z.enum(PROFILE_STATUSES),
+  linkedinSearches: z.enum(FILE_STATUSES),
+  sources: z.enum(FILE_STATUSES),
+  ready: z.boolean(),
+});
 
 // --- POST /api/runs ----------------------------------------------------------------------------------------------
 

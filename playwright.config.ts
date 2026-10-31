@@ -30,6 +30,10 @@ function server(port: number, name: string, claudeCommand: string) {
       // Never the owner's saved LinkedIn login (DEC-032).
       LINKEDIN_SESSION_PATH: join(tmpdir(), 'agentic-job-board-e2e', 'no-linkedin-session.json'),
       CLAUDE_COMMAND: claudeCommand,
+      // Setup (FR-24): the committed examples stand in for the LinkedIn searches and the feeds; tests/e2e/profile.setup.ts
+      // saves the profile before any other test runs.
+      LINKEDIN_SEARCHES_PATH: resolve('linkedin-searches.example.json'),
+      SOURCES_PATH: resolve('sources.example.json'),
     },
   };
 }
@@ -48,11 +52,18 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: ACTIONS_SPEC },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: ACTIONS_SPEC },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] }, testIgnore: ACTIONS_SPEC },
-    { name: 'mobile', use: { ...devices['Pixel 7'] }, testIgnore: ACTIONS_SPEC },
-    { name: 'board-actions', use: { ...devices['Desktop Chrome'], baseURL: actionsURL }, testMatch: ACTIONS_SPEC },
+    // The board opens only once a profile is saved (FR-24), so the profile goes onto both servers first.
+    { name: 'profile', testMatch: /profile\.setup\.ts/ },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: ACTIONS_SPEC, dependencies: ['profile'] },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: ACTIONS_SPEC, dependencies: ['profile'] },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] }, testIgnore: ACTIONS_SPEC, dependencies: ['profile'] },
+    { name: 'mobile', use: { ...devices['Pixel 7'] }, testIgnore: ACTIONS_SPEC, dependencies: ['profile'] },
+    {
+      name: 'board-actions',
+      use: { ...devices['Desktop Chrome'], baseURL: actionsURL },
+      testMatch: ACTIONS_SPEC,
+      dependencies: ['profile'],
+    },
   ],
   // Starts the real app (src/main.ts) with a fresh temporary database for every test run (DEC-012, DEC-013).
   webServer: [server(PORT, 'shared', fakeClaude(0)), server(ACTIONS_PORT, 'actions', fakeClaude(3000))],

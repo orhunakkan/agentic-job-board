@@ -39,7 +39,7 @@ describe('GET /api/health', () => {
 describe('/api/profile', () => {
   let testApp: TestApp;
   beforeEach(async () => {
-    testApp = await startTestApp();
+    testApp = await startTestApp({ setup: 'none' });
   });
   afterEach(async () => {
     await testApp.close();
@@ -51,6 +51,19 @@ describe('/api/profile', () => {
     expect(response.status).toBe(404);
     expect(response.body).toMatchObject({
       error: { code: 'not_found', message: expect.stringContaining('PUT') as unknown },
+    });
+  });
+
+  it('FR-01: a profile saved in the old shape is 404 and asks to fill it in again', async () => {
+    testApp.app.db
+      .prepare('INSERT INTO profile (id, data, updated_at) VALUES (1, ?, ?)')
+      .run(JSON.stringify({ targetRoles: ['Dispatcher'], locations: { remoteUS: true } }), 'x');
+
+    const response = await testApp.get('/api/profile');
+
+    expect(response.status).toBe(404);
+    expect(response.body).toMatchObject({
+      error: { code: 'not_found', message: expect.stringContaining('older version') as unknown },
     });
   });
 

@@ -20,6 +20,9 @@ export interface StartOptions {
   port: number; // 0 picks a free port (tests)
   dbPath: string;
   linkedinSessionPath: string;
+  /** The LinkedIn searches and feeds files setup checks for (FR-24). Required, so no test reads the owner's data/. */
+  linkedinSearchesPath: string;
+  sourcesPath: string;
   /** How Find Now starts Claude Code (FR-22). Required, so no test starts the real one by accident. */
   claudeCommand: readonly string[];
   logger: Logger;
@@ -54,6 +57,8 @@ export async function startApp(options: StartOptions): Promise<RunningApp> {
       now,
       version: readVersion(),
       linkedinSessionPath: options.linkedinSessionPath,
+      linkedinSearchesPath: options.linkedinSearchesPath,
+      sourcesPath: options.sourcesPath,
       findNow,
     };
     const server = createAppServer([...apiRoutes(context), ...pageRoutes(context)], options.logger, renderErrorPage);
