@@ -14,13 +14,13 @@ function listing(overrides: Partial<IncomingListing> = {}): IncomingListing {
   return {
     source: 'greenhouse',
     sourceJobId: '5550001',
-    title: 'Senior SDET',
+    title: 'Senior Dispatcher',
     company: 'Example Labs',
     location: 'Remote, United States',
     url: 'https://job-boards.greenhouse.io/examplelabs/jobs/5550001',
     postedAt: '2026-10-20T09:00:00-04:00',
     salary: '$150K – $180K',
-    description: 'Build the test platform.',
+    description: 'Plan the routes for our fleet.',
     ...overrides,
   };
 }
@@ -30,16 +30,16 @@ function linkedInListing(overrides: Partial<IncomingListing> = {}): IncomingList
   return {
     source: 'linkedin',
     sourceJobId: '4473592349',
-    title: 'Senior QA Automation Test Engineer (Playwright)',
+    title: 'Senior Logistics Coordinator (Spanish)',
     company: 'Example Markets',
     location: 'United States (Remote)',
     url: 'https://www.linkedin.com/jobs/view/4473592349/',
     postedAt: '2026-10-23T08:00:00.000Z',
     salary: '$150K/yr - $170K/yr',
-    description: 'About the role\n\nOwn our Playwright suite.',
+    description: 'About the role\n\nLead our dispatch team.',
     workplace: 'remote',
     easyApply: true,
-    searchName: 'Senior QA',
+    searchName: 'Senior accounting',
     ...overrides,
   };
 }
@@ -79,7 +79,7 @@ describe('ingestListings', () => {
     expect(testDb.repos.jobs.get(jobId)).toMatchObject({
       source: 'greenhouse',
       sourceJobId: '5550001',
-      title: 'Senior SDET',
+      title: 'Senior Dispatcher',
       company: 'Example Labs',
       location: 'Remote, United States',
       url: 'https://job-boards.greenhouse.io/examplelabs/jobs/5550001',
@@ -92,7 +92,7 @@ describe('ingestListings', () => {
       firstSeenAt: '2026-10-23T12:00:00.000Z',
       firstRunId: runId,
     });
-    expect(testDb.repos.jobs.descriptionOf(jobId)).toBe('Build the test platform.');
+    expect(testDb.repos.jobs.descriptionOf(jobId)).toBe('Plan the routes for our fleet.');
     expect(testDb.repos.statusHistory.listForJob(jobId)).toEqual([
       { fromStatus: null, toStatus: 'new', changedAt: '2026-10-23T12:00:00.000Z' },
     ]);
@@ -113,14 +113,14 @@ describe('ingestListings', () => {
     const laterRun = testDb.repos.runs.create('2026-10-24T12:00:00.000Z');
 
     const result = ingest(
-      [listing({ title: 'Staff SDET', salary: null })],
+      [listing({ title: 'Staff Dispatcher', salary: null })],
       laterRun,
       fakeClock('2026-10-24T12:00:00Z'),
     );
 
     expect(result).toEqual({ received: 1, new: 0, seenAgain: 1, repeated: 0, newJobIds: [] });
     expect(testDb.repos.jobs.get(jobId ?? 0)).toMatchObject({
-      title: 'Staff SDET',
+      title: 'Staff Dispatcher',
       salary: '$150K – $180K',
       seenCount: 2,
       lastSeenAt: '2026-10-24T12:00:00.000Z',
@@ -139,7 +139,7 @@ describe('ingestListings', () => {
     expect(result).toMatchObject({ received: 2, new: 1, repeated: 1 });
     expect(again).toMatchObject({ received: 1, new: 0, seenAgain: 0, repeated: 1 });
     expect(countAll(testDb.db)).toMatchObject({ jobs: 1, listing_sightings: 1, status_history: 1 });
-    expect(testDb.repos.jobs.get(result.newJobIds[0] ?? 0)).toMatchObject({ title: 'Senior SDET', seenCount: 1 });
+    expect(testDb.repos.jobs.get(result.newJobIds[0] ?? 0)).toMatchObject({ title: 'Senior Dispatcher', seenCount: 1 });
     expect(testDb.repos.runs.get(runId)).toMatchObject({ listingsSeen: 3, jobsNew: 1, jobsSeenAgain: 0 });
   });
 
@@ -155,7 +155,7 @@ describe('ingestListings', () => {
       {
         source: 'linkedin',
         sourceJobId: '5550001',
-        title: 'SDET',
+        title: 'Dispatcher',
         company: 'Example Co',
         location: 'Remote',
         url: 'https://www.linkedin.com/jobs/view/5550001/',
@@ -184,9 +184,9 @@ describe('ingestListings', () => {
       activelyHiring: false,
       postedAt: '2026-10-23T08:00:00.000Z',
     });
-    expect(testDb.repos.jobs.descriptionOf(jobId)).toBe('About the role\n\nOwn our Playwright suite.');
+    expect(testDb.repos.jobs.descriptionOf(jobId)).toBe('About the role\n\nLead our dispatch team.');
     expect(testDb.repos.listingSightings.listForJob(jobId)).toEqual([
-      { runId, seenAt: '2026-10-23T12:00:00.000Z', searchName: 'Senior QA' },
+      { runId, seenAt: '2026-10-23T12:00:00.000Z', searchName: 'Senior accounting' },
     ]);
   });
 
@@ -199,7 +199,7 @@ describe('ingestListings', () => {
     expect(result).toMatchObject({ new: 0, seenAgain: 1 });
     expect(countAll(testDb.db)).toMatchObject({ jobs: 1, sightings: 1, listing_sightings: 1, emails: 1 });
     expect(testDb.repos.jobs.get(jobId)).toMatchObject({
-      title: 'Senior QA Automation Test Engineer (Playwright)',
+      title: 'Senior Logistics Coordinator (Spanish)',
       location: 'United States (Remote)',
       workplace: 'remote',
       status: 'saved',
@@ -209,11 +209,11 @@ describe('ingestListings', () => {
       seenCount: 2,
       firstSeenAt: '2026-10-20T14:10:48.000Z',
     });
-    expect(testDb.repos.jobs.descriptionOf(jobId)).toBe('About the role\n\nOwn our Playwright suite.');
+    expect(testDb.repos.jobs.descriptionOf(jobId)).toBe('About the role\n\nLead our dispatch team.');
     expect(testDb.repos.sightings.listForJob(jobId)).toEqual([
       {
         gmailMessageId: 'msg-email-years',
-        savedSearch: 'senior quality assurance engineer in United States',
+        savedSearch: 'senior underwriting analyst in United States',
         receivedAt: '2026-10-20T14:10:48.000Z',
       },
     ]);
@@ -225,7 +225,15 @@ describe('ingestListings', () => {
     const later = testDb.repos.runs.create('2026-10-24T12:00:00.000Z');
 
     const result = ingest(
-      [linkedInListing({ description: null, salary: null, workplace: null, postedAt: null, searchName: 'QA family' })],
+      [
+        linkedInListing({
+          description: null,
+          salary: null,
+          workplace: null,
+          postedAt: null,
+          searchName: 'Dispatch family',
+        }),
+      ],
       later,
       fakeClock('2026-10-24T12:00:00.000Z'),
     );
@@ -233,19 +241,19 @@ describe('ingestListings', () => {
 
     expect(result).toMatchObject({ seenAgain: 1 });
     expect(job).toMatchObject({ workplace: 'remote', salary: '$150K/yr - $170K/yr', seenCount: 2 });
-    expect(testDb.repos.jobs.descriptionOf(job?.id ?? 0)).toBe('About the role\n\nOwn our Playwright suite.');
+    expect(testDb.repos.jobs.descriptionOf(job?.id ?? 0)).toBe('About the role\n\nLead our dispatch team.');
     expect(testDb.repos.listingSightings.listForJob(job?.id ?? 0).map((sighting) => sighting.searchName)).toEqual([
-      'Senior QA',
-      'QA family',
+      'Senior accounting',
+      'Dispatch family',
     ]);
   });
 
   it('FR-18: two searches that find one job in one run count one sighting, under the first search', () => {
-    const result = ingest([linkedInListing(), linkedInListing({ searchName: 'QA family' })]);
+    const result = ingest([linkedInListing(), linkedInListing({ searchName: 'Dispatch family' })]);
 
     expect(result).toMatchObject({ new: 1, repeated: 1 });
     expect(testDb.repos.listingSightings.listForJob(result.newJobIds[0] ?? 0)).toEqual([
-      { runId, seenAt: '2026-10-23T12:00:00.000Z', searchName: 'Senior QA' },
+      { runId, seenAt: '2026-10-23T12:00:00.000Z', searchName: 'Senior accounting' },
     ]);
   });
 

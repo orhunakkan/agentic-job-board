@@ -24,7 +24,7 @@ test.describe('smoke', () => {
 
   test('FR-07, FR-10: the board renders and a job detail opens @smoke', async ({ page, request }) => {
     const tag = uniqueTag();
-    const [job] = await seedJobs(request, tag, [{ title: 'Smoke SDET', company: 'Smoke Co', score: 88 }]);
+    const [job] = await seedJobs(request, tag, [{ title: 'Smoke Dispatcher', company: 'Smoke Co', score: 88 }]);
 
     await page.goto(`/?q=${tag}`);
     await expect(page).toHaveTitle('Board · Job Board');
@@ -41,33 +41,33 @@ test.describe('board', () => {
   test('FR-07: ranks by score, filters by min score and search, and keeps the filters', async ({ page, request }) => {
     const tag = uniqueTag();
     await seedJobs(request, tag, [
-      { title: 'Possible QA', company: 'Mid Co', score: 60 },
-      { title: 'Unscored QA', company: 'Plain Co' },
+      { title: 'Possible Nurse', company: 'Mid Co', score: 60 },
+      { title: 'Unscored Nurse', company: 'Plain Co' },
       // The company is unique too, so searching for it can't match other tests' jobs.
-      { title: 'Strong SDET', company: `Top Co ${tag}`, score: 91, easyApply: true },
-      { title: 'Weak Tester', company: 'Low Co', score: 20 },
+      { title: 'Strong Dispatcher', company: `Top Co ${tag}`, score: 91, easyApply: true },
+      { title: 'Weak Courier', company: 'Low Co', score: 20 },
     ]);
 
     await page.goto(`/?q=${tag}`);
     const titles = page.locator('.card-title');
     await expect(titles).toHaveText([
-      `Strong SDET ${tag}`,
-      `Possible QA ${tag}`,
-      `Weak Tester ${tag}`,
-      `Unscored QA ${tag}`,
+      `Strong Dispatcher ${tag}`,
+      `Possible Nurse ${tag}`,
+      `Weak Courier ${tag}`,
+      `Unscored Nurse ${tag}`,
     ]);
-    await expect(card(page, `Strong SDET ${tag}`)).toContainText('Easy Apply');
-    await expect(card(page, `Unscored QA ${tag}`)).toContainText('Unscored');
+    await expect(card(page, `Strong Dispatcher ${tag}`)).toContainText('Easy Apply');
+    await expect(card(page, `Unscored Nurse ${tag}`)).toContainText('Unscored');
 
     await page.getByLabel('Min score').selectOption('50');
     await page.getByRole('button', { name: 'Apply' }).click();
-    await expect(titles).toHaveText([`Strong SDET ${tag}`, `Possible QA ${tag}`]);
+    await expect(titles).toHaveText([`Strong Dispatcher ${tag}`, `Possible Nurse ${tag}`]);
     await expect(page.getByLabel('Min score')).toHaveValue('50');
     await expect(page.getByLabel('Search')).toHaveValue(tag);
 
     await page.getByLabel('Search').fill(`Top Co ${tag}`);
     await page.getByRole('button', { name: 'Apply' }).click();
-    await expect(titles).toHaveText([`Strong SDET ${tag}`]);
+    await expect(titles).toHaveText([`Strong Dispatcher ${tag}`]);
 
     await page.getByLabel('Search').fill(`${tag}-nothing`);
     await page.getByRole('button', { name: 'Apply' }).click();
@@ -81,7 +81,7 @@ test.describe('board', () => {
     request,
   }) => {
     const tag = uniqueTag();
-    const [job] = await seedJobs(request, tag, [{ title: 'Workflow SDET', company: 'Flow Co', score: 85 }]);
+    const [job] = await seedJobs(request, tag, [{ title: 'Workflow Dispatcher', company: 'Flow Co', score: 85 }]);
     const title = job?.title ?? '';
 
     await page.goto(`/?q=${tag}`);
@@ -189,13 +189,13 @@ test.describe('board', () => {
 
   test('FR-17: LinkedIn jobs and jobs from other sources are on separate views', async ({ page, request }) => {
     const tag = uniqueTag();
-    await seedJobs(request, tag, [{ title: 'LinkedIn SDET', company: 'Alert Co', score: 80 }]);
+    await seedJobs(request, tag, [{ title: 'LinkedIn Dispatcher', company: 'Alert Co', score: 80 }]);
     await seedListings(request, tag, [
-      { source: 'greenhouse', title: 'Board SDET', company: 'Feed Co', score: 85, salary: '$150K – $180K' },
+      { source: 'greenhouse', title: 'Board Dispatcher', company: 'Feed Co', score: 85, salary: '$150K – $180K' },
     ]);
 
     await page.goto(`/?q=${tag}`);
-    await expect(page.locator('.card-title')).toHaveText([`LinkedIn SDET ${tag}`]);
+    await expect(page.locator('.card-title')).toHaveText([`LinkedIn Dispatcher ${tag}`]);
     const views = page.getByRole('navigation', { name: 'Job sources' });
     await expect(views.getByRole('link', { name: /LinkedIn/ })).toHaveAttribute('aria-current', 'page');
 
@@ -204,8 +204,8 @@ test.describe('board', () => {
     await page.getByRole('searchbox', { name: 'Search' }).fill(tag);
     await page.getByRole('button', { name: 'Apply' }).click();
     await expect(page).toHaveURL(/origin=other/);
-    await expect(page.locator('.card-title')).toHaveText([`Board SDET ${tag}`]);
-    const listed = card(page, `Board SDET ${tag}`);
+    await expect(page.locator('.card-title')).toHaveText([`Board Dispatcher ${tag}`]);
+    const listed = card(page, `Board Dispatcher ${tag}`);
     await expect(listed).toContainText('Greenhouse');
     await expect(listed).toContainText('$150K – $180K');
     await expect(listed.getByRole('link', { name: /Open on Greenhouse/ })).toHaveAttribute('target', '_blank');
@@ -215,7 +215,7 @@ test.describe('board', () => {
     await expect(page).toHaveURL(/origin=other/);
     await expect(page.getByRole('status')).toContainText('is now Saved.');
     await page.goto(`/?origin=other&tab=saved&q=${tag}`);
-    await expect(page.locator('.card-title')).toHaveText([`Board SDET ${tag}`]);
+    await expect(page.locator('.card-title')).toHaveText([`Board Dispatcher ${tag}`]);
     await page.goto(`/?tab=saved&q=${tag}`);
     await expect(page.locator('.card-title')).toHaveCount(0);
   });
@@ -228,15 +228,17 @@ test.describe('board', () => {
     const [job] = await seedListings(request, tag, [
       {
         source: 'himalayas',
-        title: 'Remote QA Lead',
+        title: 'Remote Lead Nurse',
         company: 'Feed Co',
-        description: 'About the role\n\nLead quality.\n• Playwright\n• k6',
+        description: 'About the role\n\nLead the clinic.\n• Load planning\n• Driver check-ins',
       },
     ]);
 
     await page.goto(`/jobs/${String(job?.id)}`);
     await expect(page.getByRole('heading', { level: 2, name: 'Description' })).toBeVisible();
-    await expect(page.locator('.description')).toHaveText('About the role\n\nLead quality.\n• Playwright\n• k6');
+    await expect(page.locator('.description')).toHaveText(
+      'About the role\n\nLead the clinic.\n• Load planning\n• Driver check-ins',
+    );
     await expect(page.getByRole('link', { name: /Open on Himalayas/ })).toHaveAttribute(
       'href',
       /^https:\/\/jobs\.example\.com\/himalayas\//,
@@ -253,27 +255,29 @@ test.describe('board', () => {
     const tag = uniqueTag();
     const [job] = await seedJobs(request, tag, [
       {
-        title: 'Found SDET',
+        title: 'Found Dispatcher',
         company: 'Search Co',
         location: 'United States (Remote)',
         workplace: 'remote',
-        description: 'About the role\n\nOwn the Playwright suite.',
-        searchName: 'QA family',
+        description: 'About the role\n\nLead the dispatch team.',
+        searchName: 'Dispatch family',
         score: 86,
         rubricVersion: 'match-v2',
       },
     ]);
 
     await page.goto(`/?q=${tag}`);
-    await expect(card(page, `Found SDET ${tag}`)).toContainText('Remote');
-    await expect(card(page, `Found SDET ${tag}`)).toContainText(/Posted (just now|\d+ min ago)/);
+    await expect(card(page, `Found Dispatcher ${tag}`)).toContainText('Remote');
+    await expect(card(page, `Found Dispatcher ${tag}`)).toContainText(/Posted (just now|\d+ min ago)/);
 
-    await page.getByRole('link', { name: `Found SDET ${tag}`, exact: true }).click();
+    await page.getByRole('link', { name: `Found Dispatcher ${tag}`, exact: true }).click();
     const details = page.getByRole('region', { name: 'Details' });
     await expect(details.getByRole('definition').filter({ hasText: 'Remote' })).toBeVisible();
     await expect(details).toContainText('match-v2: scored on the full description');
-    await expect(page.getByRole('region', { name: 'Sightings' })).toContainText('Found by the search “QA family”');
-    await expect(page.locator('.description')).toHaveText('About the role\n\nOwn the Playwright suite.');
+    await expect(page.getByRole('region', { name: 'Sightings' })).toContainText(
+      'Found by the search “Dispatch family”',
+    );
+    await expect(page.locator('.description')).toHaveText('About the role\n\nLead the dispatch team.');
     const { sourceJobId } = JobDetailSchema.parse(await (await request.get(`/api/jobs/${String(job?.id)}`)).json());
     await expect(page.getByRole('link', { name: /Open on LinkedIn/ })).toHaveAttribute(
       'href',
@@ -312,7 +316,7 @@ test.describe('board', () => {
     const tag = uniqueTag();
     const [job] = await seedJobs(request, tag, [
       {
-        title: 'A very long job title that keeps going: Senior Software Development Engineer in Test, Platform',
+        title: 'A very long job title that keeps going: Senior Software Developer, Platform',
         company: 'Averyveryverylongcompanynamewithoutanyspacesatall Incorporated',
         location: 'San Francisco Bay Area, California, United States',
         score: 81,
@@ -323,7 +327,7 @@ test.describe('board', () => {
     const [listed] = await seedListings(request, tag, [
       {
         source: 'hackernews',
-        title: 'Senior Software Engineer in Test, Quality Platform and Developer Productivity',
+        title: 'Senior Clinical Informatics Nurse, Patient Safety Platform and Care Team Productivity',
         company: 'Averyveryverylongcompanynamewithoutanyspacesatall Labs',
         salary: '$180K – $240K + equity + a very long list of benefits',
         description: `Header | Role | Remote\n\n${'Averyverylongwordwithoutanybreaks'.repeat(8)}`,

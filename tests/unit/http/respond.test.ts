@@ -56,7 +56,7 @@ describe('respond helpers', () => {
 
   describe('queryObject', () => {
     it('NFR-09: turns a query string into an object', () => {
-      expect(queryObject(new URLSearchParams('tab=new&q=qa%20lead'))).toEqual({ tab: 'new', q: 'qa lead' });
+      expect(queryObject(new URLSearchParams('tab=new&q=nurse%20lead'))).toEqual({ tab: 'new', q: 'nurse lead' });
     });
 
     it('NFR-09: a repeated key is a 400', () => {

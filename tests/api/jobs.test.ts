@@ -17,11 +17,11 @@ describe('the jobs API', () => {
     testApp = await startTestApp();
     ({ runId, jobs } = await seedBoard(testApp));
     const scores = [
-      ['3Pillar', 92, 'strong'],
-      ['Cboe Global Markets', 88, 'strong'],
-      ['Workiva', 70, 'possible'],
+      ['4Corners', 92, 'strong'],
+      ['Lakeshore Freight', 88, 'strong'],
+      ['Ledgerly', 70, 'possible'],
       ['Agilent Technologies', 10, 'weak'],
-      ['Optum', 45, 'weak'],
+      ['Medway', 45, 'weak'],
     ] as const;
     await testApp.post(`/api/runs/${String(runId)}/scores`, {
       rubricVersion: 'v1',
@@ -51,7 +51,7 @@ describe('the jobs API', () => {
 
       expect(total).toBe(18);
       expect(companies).toHaveLength(18);
-      expect(companies.slice(0, 4)).toEqual(['3Pillar', 'Cboe Global Markets', 'Workiva', 'Optum']);
+      expect(companies.slice(0, 4)).toEqual(['4Corners', 'Lakeshore Freight', 'Ledgerly', 'Medway']);
     });
 
     it('FR-07: unscored jobs come after scored ones, newest first seen first', async () => {
@@ -65,15 +65,15 @@ describe('the jobs API', () => {
 
     it('FR-07: minScore keeps only jobs scored at least that high', async () => {
       expect(await list('?minScore=70')).toEqual({
-        companies: ['3Pillar', 'Cboe Global Markets', 'Workiva'],
+        companies: ['4Corners', 'Lakeshore Freight', 'Ledgerly'],
         total: 3,
       });
       expect(await list('?minScore=100')).toEqual({ companies: [], total: 0 });
     });
 
     it('FR-07: q matches title or company, ignoring case', async () => {
-      expect((await list('?q=playwright')).companies.sort()).toEqual(['3Pillar', 'Capgemini', 'PDSSOFT INC.']);
-      expect((await list('?q=DELOITTE')).total).toBe(2);
+      expect((await list('?q=spanish')).companies.sort()).toEqual(['4Corners', 'MEDSTAFF INC.', 'Stackwell']);
+      expect((await list('?q=BRIGHTLINE')).total).toBe(2);
       expect((await list('?q=%20%20')).total).toBe(18);
     });
 
@@ -96,32 +96,32 @@ describe('the jobs API', () => {
     });
 
     it('FR-07: each tab shows its statuses (PLAN.md §5.5)', async () => {
-      const cboe = jobAt(jobs, 'Cboe Global Markets').id;
-      const pillar = jobAt(jobs, '3Pillar').id;
-      const workiva = jobAt(jobs, 'Workiva').id;
-      const optum = jobAt(jobs, 'Optum').id;
+      const cboe = jobAt(jobs, 'Lakeshore Freight').id;
+      const pillar = jobAt(jobs, '4Corners').id;
+      const ledgerly = jobAt(jobs, 'Ledgerly').id;
+      const optum = jobAt(jobs, 'Medway').id;
       await patch(cboe, { status: 'saved' });
       await patch(pillar, { status: 'applied' });
-      await patch(workiva, { status: 'applied' });
-      await patch(workiva, { status: 'rejected' });
+      await patch(ledgerly, { status: 'applied' });
+      await patch(ledgerly, { status: 'rejected' });
       await patch(optum, { status: 'dismissed' });
 
       expect(await list('?tab=new')).toMatchObject({ total: 14 });
-      expect(await list('?tab=saved')).toEqual({ companies: ['Cboe Global Markets'], total: 1 });
-      expect(await list('?tab=in-progress')).toEqual({ companies: ['3Pillar'], total: 1 });
-      expect(await list('?tab=closed')).toEqual({ companies: ['Workiva'], total: 1 });
-      expect(await list('?tab=dismissed')).toEqual({ companies: ['Optum'], total: 1 });
+      expect(await list('?tab=saved')).toEqual({ companies: ['Lakeshore Freight'], total: 1 });
+      expect(await list('?tab=in-progress')).toEqual({ companies: ['4Corners'], total: 1 });
+      expect(await list('?tab=closed')).toEqual({ companies: ['Ledgerly'], total: 1 });
+      expect(await list('?tab=dismissed')).toEqual({ companies: ['Medway'], total: 1 });
     });
 
     it('FR-07: in-progress is sorted by the latest status change', async () => {
-      const pillar = jobAt(jobs, '3Pillar').id;
-      const nagarro = jobAt(jobs, 'Nagarro').id;
+      const pillar = jobAt(jobs, '4Corners').id;
+      const nagarro = jobAt(jobs, 'Learnwell').id;
       await patch(pillar, { status: 'applied' });
       await patch(nagarro, { status: 'applied' });
       await patch(nagarro, { status: 'interviewing' });
       await patch(pillar, { status: 'interviewing' });
 
-      expect((await list('?tab=in-progress')).companies).toEqual(['3Pillar', 'Nagarro']);
+      expect((await list('?tab=in-progress')).companies).toEqual(['4Corners', 'Learnwell']);
     });
 
     it.each([
@@ -149,7 +149,7 @@ describe('the jobs API', () => {
 
   describe('GET /api/jobs/:id', () => {
     it('FR-10: returns every field, with its email sighting, its search sighting and status history', async () => {
-      const job = jobAt(jobs, 'ConsumerAffairs');
+      const job = jobAt(jobs, 'ShopperVoice');
       const secondRun = CreateRunResponseSchema.parse((await testApp.post('/api/runs')).body).runId;
       await testApp.post(`/api/runs/${String(secondRun)}/listings`, {
         listings: [
@@ -165,7 +165,7 @@ describe('the jobs API', () => {
             description: null,
             workplace: 'remote',
             easyApply: true,
-            searchName: 'QA family',
+            searchName: 'Dispatch family',
           },
         ],
       });
@@ -176,8 +176,8 @@ describe('the jobs API', () => {
       const detail = JobDetailSchema.parse(response.body);
       expect(detail).toMatchObject({
         id: job.id,
-        title: 'AI Native, QA Engineer',
-        company: 'ConsumerAffairs',
+        title: 'Customer Success Manager, AI Products',
+        company: 'ShopperVoice',
         location: 'United States (Remote)',
         workplace: 'remote',
         easyApply: true,
@@ -189,12 +189,12 @@ describe('the jobs API', () => {
       expect(detail.sightings).toEqual([
         {
           gmailMessageId: 'msgdigestsq',
-          savedSearch: 'senior quality assurance engineer in United States',
+          savedSearch: 'senior underwriting analyst in United States',
           receivedAt: '2026-10-21T18:10:47.000Z',
         },
       ]);
       expect(detail.listingSightings).toEqual([
-        { runId: secondRun, seenAt: detail.lastSeenAt, searchName: 'QA family' },
+        { runId: secondRun, seenAt: detail.lastSeenAt, searchName: 'Dispatch family' },
       ]);
       expect(detail.history).toEqual([{ fromStatus: null, toStatus: 'new', changedAt: expect.any(String) as unknown }]);
     });
@@ -212,7 +212,7 @@ describe('the jobs API', () => {
 
   describe('PATCH /api/jobs/:id', () => {
     it('FR-08: changes the status and records it in history', async () => {
-      const job = jobAt(jobs, '3Pillar');
+      const job = jobAt(jobs, '4Corners');
 
       const response = await patch(job.id, { status: 'saved' });
 
@@ -226,7 +226,7 @@ describe('the jobs API', () => {
     });
 
     it('FR-08: an invalid transition is a 409 that names both statuses, and nothing changes', async () => {
-      const job = jobAt(jobs, '3Pillar');
+      const job = jobAt(jobs, '4Corners');
 
       const response = await patch(job.id, { status: 'offer', notes: 'should not be saved' });
 
@@ -242,7 +242,7 @@ describe('the jobs API', () => {
     });
 
     it('FR-08: dismiss and restore', async () => {
-      const job = jobAt(jobs, 'EY');
+      const job = jobAt(jobs, 'KZ');
 
       await patch(job.id, { status: 'dismissed' });
       const restored = await patch(job.id, { status: 'new' });
@@ -252,7 +252,7 @@ describe('the jobs API', () => {
     });
 
     it('FR-09: saves notes, keeping them exactly as typed', async () => {
-      const job = jobAt(jobs, 'Cboe Global Markets');
+      const job = jobAt(jobs, 'Lakeshore Freight');
       const notes = 'Recruiter: call Tue 10:00.\n<b>Ask about remote</b> & on-call — ✓';
 
       const response = await patch(job.id, { notes });
@@ -262,7 +262,7 @@ describe('the jobs API', () => {
     });
 
     it('FR-09: status and notes can change together', async () => {
-      const job = jobAt(jobs, 'Cboe Global Markets');
+      const job = jobAt(jobs, 'Lakeshore Freight');
 
       const response = await patch(job.id, { status: 'applied', notes: 'Applied via referral' });
 
@@ -276,14 +276,14 @@ describe('the jobs API', () => {
       ['an unknown field', { score: 100 }],
       ['notes that are not text', { notes: 42 }],
     ])('NFR-09: rejects %s', async (_case, body) => {
-      const response = await patch(jobAt(jobs, 'Cboe Global Markets').id, body);
+      const response = await patch(jobAt(jobs, 'Lakeshore Freight').id, body);
 
       expect(response.status).toBe(400);
       expect(response.body).toMatchObject({ error: { code: 'validation_failed' } });
     });
 
     it('FR-09: exactly 5,000 characters of notes are accepted', async () => {
-      const response = await patch(jobAt(jobs, 'Cboe Global Markets').id, { notes: 'x'.repeat(5000) });
+      const response = await patch(jobAt(jobs, 'Lakeshore Freight').id, { notes: 'x'.repeat(5000) });
 
       expect(response.status).toBe(200);
     });

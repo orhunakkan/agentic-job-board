@@ -91,14 +91,14 @@ Given('the run received these jobs:', async function (this: BoardWorld, table: D
 
 When('the run is sent {int} listings at once', async function (this: BoardWorld, count: number) {
   const listings = Array.from({ length: count }, (_, index) =>
-    this.listing(jobRow({ title: `SDET ${String(index)}` })),
+    this.listing(jobRow({ title: `Dispatcher ${String(index)}` })),
   );
   this.response = await sendListings(await this.app(), openRun(this), listings);
 });
 
 When('the run is sent a listing without a title', async function (this: BoardWorld) {
   const listing = Object.fromEntries(
-    Object.entries(this.listing(jobRow({ title: 'Senior SDET' }))).filter(([field]) => field !== 'title'),
+    Object.entries(this.listing(jobRow({ title: 'Senior Dispatcher' }))).filter(([field]) => field !== 'title'),
   );
   this.response = await sendListings(await this.app(), openRun(this), [listing as unknown as IncomingListing]);
 });

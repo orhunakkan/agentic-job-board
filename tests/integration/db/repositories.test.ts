@@ -23,7 +23,7 @@ const PROFILE: Profile = {
 const STORED_FIELDS = {
   source: 'linkedin',
   sourceJobId: '4473592349',
-  title: 'Senior QA Automation Test Engineer',
+  title: 'Senior Logistics Coordinator',
   company: 'Example Markets',
   location: 'Chicago, IL',
   url: 'https://www.linkedin.com/jobs/view/4473592349/',
@@ -40,7 +40,7 @@ const NEW_JOB: NewJob = { ...STORED_FIELDS, description: null };
 const LISTED_JOB: NewJob = {
   source: 'greenhouse',
   sourceJobId: '4473592349',
-  title: 'Senior SDET',
+  title: 'Senior Dispatcher',
   company: 'Example Labs',
   location: 'Remote, United States',
   url: 'https://job-boards.greenhouse.io/examplelabs/jobs/4473592349',
@@ -48,7 +48,7 @@ const LISTED_JOB: NewJob = {
   easyApply: false,
   postedAt: '2026-10-20T09:00:00.000Z',
   salary: '$150K – $180K',
-  description: 'Build the test platform.',
+  description: 'Plan the routes for our fleet.',
   workplace: null,
 };
 
@@ -58,7 +58,7 @@ function insertEmail(testDb: TestDatabase, runId: number, gmailMessageId: string
     .prepare(
       `INSERT INTO emails (gmail_message_id, run_id, received_at, sender, subject, saved_search, parse_status,
                            jobs_found, processed_at)
-       VALUES (?, ?, ?, 'jobalerts-noreply@linkedin.com', 'Alert', 'qa in United States', 'parsed', 1, ?)`,
+       VALUES (?, ?, ?, 'jobalerts-noreply@linkedin.com', 'Alert', 'nurse in United States', 'parsed', 1, ?)`,
     )
     .run(gmailMessageId, runId, receivedAt, '2026-10-23T12:00:00.000Z');
 }
@@ -220,7 +220,7 @@ describe('repositories', () => {
         postedAt: '2026-10-20T09:00:00.000Z',
         salary: '$150K – $180K',
       });
-      expect(testDb.repos.jobs.descriptionOf(listedId)).toBe('Build the test platform.');
+      expect(testDb.repos.jobs.descriptionOf(listedId)).toBe('Plan the routes for our fleet.');
       expect(testDb.repos.jobs.descriptionOf(linkedinId)).toBeNull();
     });
 
@@ -250,7 +250,7 @@ describe('repositories', () => {
         firstSeenAt: '2026-10-21T14:00:00.000Z',
         lastSeenAt: '2026-10-23T14:00:00.000Z',
       });
-      expect(testDb.repos.jobs.descriptionOf(id)).toBe('Build the test platform.');
+      expect(testDb.repos.jobs.descriptionOf(id)).toBe('Plan the routes for our fleet.');
     });
 
     it('FR-17: lists and counts only the sources asked for', () => {
@@ -295,7 +295,7 @@ describe('repositories', () => {
       const id = insertNewJob('2026-10-21T09:00:00.000Z');
       const newer = {
         ...NEW_JOB,
-        title: 'Senior QA Automation Engineer (Remote)',
+        title: 'Senior Sales Representative (Remote)',
         company: 'Example Markets Inc.',
         location: 'United States',
         activelyHiring: false,
@@ -305,7 +305,7 @@ describe('repositories', () => {
       testDb.repos.jobs.recordSighting(id, newer, '2026-10-23T08:00:00.000Z');
 
       expect(testDb.repos.jobs.get(id)).toMatchObject({
-        title: 'Senior QA Automation Engineer (Remote)',
+        title: 'Senior Sales Representative (Remote)',
         company: 'Example Markets Inc.',
         location: 'United States',
         activelyHiring: false,
@@ -502,13 +502,15 @@ describe('repositories', () => {
         createdAt: '2026-10-22T12:00:01.000Z',
       });
 
-      expect(testDb.repos.listingSightings.insert(jobId, secondRun, '2026-10-23T12:00:01.000Z', 'SDET')).toBe(true);
+      expect(testDb.repos.listingSightings.insert(jobId, secondRun, '2026-10-23T12:00:01.000Z', 'Dispatcher')).toBe(
+        true,
+      );
       expect(testDb.repos.listingSightings.insert(jobId, firstRun, '2026-10-22T12:00:01.000Z', null)).toBe(true);
-      expect(testDb.repos.listingSightings.insert(jobId, firstRun, '2026-10-22T12:00:09.000Z', 'QA')).toBe(false);
+      expect(testDb.repos.listingSightings.insert(jobId, firstRun, '2026-10-22T12:00:09.000Z', 'Nurse')).toBe(false);
 
       expect(testDb.repos.listingSightings.listForJob(jobId)).toEqual([
         { runId: firstRun, seenAt: '2026-10-22T12:00:01.000Z', searchName: null },
-        { runId: secondRun, seenAt: '2026-10-23T12:00:01.000Z', searchName: 'SDET' },
+        { runId: secondRun, seenAt: '2026-10-23T12:00:01.000Z', searchName: 'Dispatcher' },
       ]);
       expect(testDb.repos.listingSightings.listForJob(999)).toEqual([]);
     });
@@ -526,7 +528,7 @@ describe('repositories', () => {
       const listed = testDb.repos.jobs.insert(LISTED_JOB, at);
       expect(testDb.repos.listingSightings.latestSearchAt()).toBeNull();
 
-      testDb.repos.listingSightings.insert(linkedin, run, '2026-10-22T12:00:05.000Z', 'SDET');
+      testDb.repos.listingSightings.insert(linkedin, run, '2026-10-22T12:00:05.000Z', 'Dispatcher');
       const later = testDb.repos.runs.create('2026-10-23T12:00:00.000Z');
       testDb.repos.listingSightings.insert(listed, later, '2026-10-23T12:00:05.000Z', null);
       testDb.repos.listingSightings.insert(linkedin, later, '2026-10-23T12:00:06.000Z', null);

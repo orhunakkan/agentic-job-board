@@ -35,8 +35,8 @@ const CONFIG = parseLinkedInSearchConfig(
     defaults: { location: 'United States', workplace: ['remote'], maxPages: 3 },
     excludeKeywords: ['junior'],
     searches: [
-      { name: 'SDET', keywords: 'sdet' },
-      { name: 'QA', keywords: 'qa engineer', postedWithin: 'day' },
+      { name: 'Dispatcher', keywords: 'dispatcher' },
+      { name: 'Nurse', keywords: 'nurse engineer', postedWithin: 'day' },
     ],
   }),
   'test',
@@ -62,7 +62,7 @@ function pane(jobId: string, changes: Partial<RawJobPage> = {}): RawJobPage {
     company: 'Example Health',
     tertiary: ['United States', '2 hours ago', '14 applicants'],
     pills: ['$150K/yr - $180K/yr', 'Remote', 'Full-time'],
-    descriptionHtml: `<p>Description of job ${jobId}. Playwright and TypeScript.</p>`,
+    descriptionHtml: `<p>Description of job ${jobId}. Ventilator care and charting.</p>`,
     closed: false,
     ...changes,
   };
@@ -92,16 +92,16 @@ function fakePages(searches: Record<string, SearchAnswer[]>, panes: Record<strin
 }
 
 const SDET_PAGE = [
-  card('4490000001', 'Senior SDET (Playwright)', 'Example Health', '41 minutes ago'),
-  card('4490000002', 'SDET II', 'Sample Freight', '3 hours ago'),
-  card('4490000003', 'Junior SDET', 'Sample Freight'),
-  card('4490000004', 'SDET', 'Acme Payments', '3 weeks ago'),
-  card('4490000006', 'Test Automation Lead', 'Example Labs', '5 hours ago'),
+  card('4490000001', 'Senior Dispatcher (Night Desk)', 'Example Health', '41 minutes ago'),
+  card('4490000002', 'Dispatcher II', 'Sample Freight', '3 hours ago'),
+  card('4490000003', 'Junior Dispatcher', 'Sample Freight'),
+  card('4490000004', 'Dispatcher', 'Acme Payments', '3 weeks ago'),
+  card('4490000006', 'Patient Care Lead', 'Example Labs', '5 hours ago'),
 ];
 const QA_PAGE = [
-  card('4490000002', 'SDET II', 'Sample Freight', '3 hours ago'),
-  card('4490000007', 'QA Engineer', 'Acme Payments', '1 hour ago'),
-  card('4490000008', 'QA Engineer', 'Old Co', '2 days ago'),
+  card('4490000002', 'Dispatcher II', 'Sample Freight', '3 hours ago'),
+  card('4490000007', 'Nurse Educator', 'Acme Payments', '1 hour ago'),
+  card('4490000008', 'Nurse Educator', 'Old Co', '2 days ago'),
 ];
 
 describe('scripts/search-linkedin.ts', () => {
@@ -133,7 +133,10 @@ describe('scripts/search-linkedin.ts', () => {
   }
 
   const standard = () =>
-    fakePages({ sdet: [SDET_PAGE], 'qa engineer': [QA_PAGE] }, { '4490000006': pane('4490000006', { closed: true }) });
+    fakePages(
+      { dispatcher: [SDET_PAGE], 'nurse engineer': [QA_PAGE] },
+      { '4490000006': pane('4490000006', { closed: true }) },
+    );
 
   async function linkedInJobs() {
     return JobListResponseSchema.parse((await testApp.get('/api/jobs?origin=linkedin&limit=100')).body).items;
@@ -154,8 +157,8 @@ describe('scripts/search-linkedin.ts', () => {
         searches: 2,
         pages: 2,
         cards: 8,
-        excluded: 1, // Junior SDET
-        older: 2, // 3 weeks ago (SDET, a week's window) and 2 days ago (QA, a day's window)
+        excluded: 1, // Junior Dispatcher
+        older: 2, // 3 weeks ago (Dispatcher, a week's window) and 2 days ago (Nurse, a day's window)
         matched: 3, // Example Health, Sample Freight and Acme Payments; Example Labs is closed
         detailsRead: 4,
         closed: 1,
@@ -177,13 +180,13 @@ describe('scripts/search-linkedin.ts', () => {
         salary: '$150K/yr - $180K/yr',
         easyApply: true,
         postedAt: '2026-10-24T10:00:00.000Z',
-        description: 'Description of job 4490000001. Playwright and TypeScript.',
+        description: 'Description of job 4490000001. Ventilator care and charting.',
       });
-      expect(health.listingSightings.map((sighting) => sighting.searchName)).toEqual(['SDET']);
+      expect(health.listingSightings.map((sighting) => sighting.searchName)).toEqual(['Dispatcher']);
       const [run] = RunSummarySchema.array().parse((await testApp.get('/api/runs')).body);
       expect(run).toMatchObject({ id: 1, listingsSeen: 3, jobsNew: 3 });
       expect(run?.finishedAt).not.toBeNull();
-      expect(lines).toContain('SDET, page 1: 5 jobs, 3 kept');
+      expect(lines).toContain('Dispatcher, page 1: 5 jobs, 3 kept');
     });
 
     it('FR-18: since-last-run covers a week on the first run, then the time since the last search plus an hour', async () => {
@@ -211,7 +214,7 @@ describe('scripts/search-linkedin.ts', () => {
       const health = (await linkedInJobs()).find((job) => job.sourceJobId === '4490000001');
       expect(health?.seenCount).toBe(2);
       expect((await detail(health?.id ?? 0)).description).toBe(
-        'Description of job 4490000001. Playwright and TypeScript.',
+        'Description of job 4490000001. Ventilator care and charting.',
       );
     });
 
@@ -228,9 +231,9 @@ describe('scripts/search-linkedin.ts', () => {
     it('FR-18: --search runs only that search; an unknown name is a configuration error', async () => {
       const fake = standard();
 
-      await searchLinkedIn(options(fake.pages, { only: 'QA' }));
+      await searchLinkedIn(options(fake.pages, { only: 'Nurse' }));
 
-      expect(fake.searched.map((url) => new URL(url).searchParams.get('keywords'))).toEqual(['qa engineer']);
+      expect(fake.searched.map((url) => new URL(url).searchParams.get('keywords'))).toEqual(['nurse engineer']);
       await expect(searchLinkedIn(options(fake.pages, { only: 'Nope' }))).rejects.toThrow(LinkedInSearchConfigError);
     });
 
@@ -248,31 +251,37 @@ describe('scripts/search-linkedin.ts', () => {
   describe('paging', () => {
     const full = (prefix: string, listedText = '1 hour ago') =>
       Array.from({ length: 25 }, (_, index) =>
-        card(`${prefix}${String(index).padStart(2, '0')}`, 'SDET', 'Example Health', listedText),
+        card(`${prefix}${String(index).padStart(2, '0')}`, 'Dispatcher', 'Example Health', listedText),
       );
 
     it('FR-18: pages on while pages are full, up to maxPages', async () => {
-      const fake = fakePages({ sdet: [full('44910000'), full('44920000'), full('44930000'), full('44940000')] });
+      const fake = fakePages({ dispatcher: [full('44910000'), full('44920000'), full('44930000'), full('44940000')] });
 
-      const summary = await searchLinkedIn(options(fake.pages, { only: 'SDET', details: false }));
+      const summary = await searchLinkedIn(options(fake.pages, { only: 'Dispatcher', details: false }));
 
       expect(fake.searched.map((url) => new URL(url).searchParams.get('start'))).toEqual([null, '25', '50']);
       expect(summary).toMatchObject({ pages: 3, cards: 75, new: 75 });
     });
 
     it('FR-18: stops at a page with fewer than 25 jobs, at "no matching jobs", and once a page is all older', async () => {
-      const short = fakePages({ sdet: [full('44910000'), [card('4492000001', 'SDET', 'A')], full('44930000')] });
-      await searchLinkedIn(options(short.pages, { only: 'SDET', details: false, dryRun: true }));
+      const short = fakePages({
+        dispatcher: [full('44910000'), [card('4492000001', 'Dispatcher', 'A')], full('44930000')],
+      });
+      await searchLinkedIn(options(short.pages, { only: 'Dispatcher', details: false, dryRun: true }));
       expect(short.searched).toHaveLength(2);
 
-      const none = fakePages({ sdet: [full('44910000'), 'no-results', full('44930000')] });
-      expect(await searchLinkedIn(options(none.pages, { only: 'SDET', details: false, dryRun: true }))).toMatchObject({
+      const none = fakePages({ dispatcher: [full('44910000'), 'no-results', full('44930000')] });
+      expect(
+        await searchLinkedIn(options(none.pages, { only: 'Dispatcher', details: false, dryRun: true })),
+      ).toMatchObject({
         pages: 2,
         cards: 25,
       });
 
-      const older = fakePages({ sdet: [full('44910000', '2 weeks ago'), full('44920000')] });
-      expect(await searchLinkedIn(options(older.pages, { only: 'SDET', details: false, dryRun: true }))).toMatchObject({
+      const older = fakePages({ dispatcher: [full('44910000', '2 weeks ago'), full('44920000')] });
+      expect(
+        await searchLinkedIn(options(older.pages, { only: 'Dispatcher', details: false, dryRun: true })),
+      ).toMatchObject({
         pages: 1,
         older: 25,
         matched: 0,
@@ -283,28 +292,28 @@ describe('scripts/search-linkedin.ts', () => {
   describe('when something goes wrong', () => {
     it('FR-18: a search whose cards cannot be read is reported and skipped; the other searches still run', async () => {
       const unreadable = [{ ...card('4490000001', '', ''), jobId: null, href: null }];
-      const fake = fakePages({ sdet: [unreadable], 'qa engineer': [QA_PAGE] });
+      const fake = fakePages({ dispatcher: [unreadable], 'nurse engineer': [QA_PAGE] });
 
       const summary = await searchLinkedIn(options(fake.pages));
 
-      expect(summary.failures).toEqual(['SDET: no job card on page 1 could be read']);
+      expect(summary.failures).toEqual(['Dispatcher: no job card on page 1 could be read']);
       expect(summary.new).toBe(2);
-      expect(lines).toContain('SDET: no job card on page 1 could be read (skipped)');
+      expect(lines).toContain('Dispatcher: no job card on page 1 could be read (skipped)');
     });
 
     it('FR-18: a search page that does not load is reported and skipped', async () => {
-      const fake = fakePages({ sdet: [new Error('Timeout 20000ms exceeded.')], 'qa engineer': [QA_PAGE] });
+      const fake = fakePages({ dispatcher: [new Error('Timeout 20000ms exceeded.')], 'nurse engineer': [QA_PAGE] });
 
       const summary = await searchLinkedIn(options(fake.pages));
 
-      expect(summary.failures).toEqual(['SDET: Timeout 20000ms exceeded.']);
+      expect(summary.failures).toEqual(['Dispatcher: Timeout 20000ms exceeded.']);
       expect(summary.new).toBe(2);
     });
 
     it('FR-19: a job page that cannot be read is reported, and the job is sent from its card', async () => {
-      const fake = fakePages({ 'qa engineer': [QA_PAGE] }, { '4490000007': new Error('Timeout 20000ms exceeded.') });
+      const fake = fakePages({ 'nurse engineer': [QA_PAGE] }, { '4490000007': new Error('Timeout 20000ms exceeded.') });
 
-      const summary = await searchLinkedIn(options(fake.pages, { only: 'QA' }));
+      const summary = await searchLinkedIn(options(fake.pages, { only: 'Nurse' }));
 
       expect(summary).toMatchObject({
         new: 2,
@@ -317,7 +326,7 @@ describe('scripts/search-linkedin.ts', () => {
 
     it('FR-18: when LinkedIn limits requests, nothing more is asked of it and what was read is still sent', async () => {
       const fake = fakePages(
-        { sdet: [SDET_PAGE], 'qa engineer': [QA_PAGE] },
+        { dispatcher: [SDET_PAGE], 'nurse engineer': [QA_PAGE] },
         { '4490000002': new LinkedInBusyError('HTTP 429') },
       );
 
@@ -331,7 +340,7 @@ describe('scripts/search-linkedin.ts', () => {
     });
 
     it('NFR-12: a sign-in page stops the whole run, sending nothing', async () => {
-      const fake = fakePages({ sdet: [new LinkedInSignedOutError()], 'qa engineer': [QA_PAGE] });
+      const fake = fakePages({ dispatcher: [new LinkedInSignedOutError()], 'nurse engineer': [QA_PAGE] });
 
       await expect(searchLinkedIn(options(fake.pages))).rejects.toThrow(LinkedInSignedOutError);
       expect(await linkedInJobs()).toEqual([]);
@@ -361,7 +370,7 @@ describe('scripts/search-linkedin.ts', () => {
       const fake = standard();
 
       const summary = await searchLinkedIn(
-        options(fake.pages, { dryRun: true, appUrl: 'http://127.0.0.1:9', only: 'SDET' }),
+        options(fake.pages, { dryRun: true, appUrl: 'http://127.0.0.1:9', only: 'Dispatcher' }),
       );
 
       expect(summary.matched).toBe(2);
@@ -386,7 +395,7 @@ describe('scripts/search-linkedin.ts', () => {
 
       expect(fake.opened.sort()).toEqual([first?.sourceJobId, second?.sourceJobId, closed?.sourceJobId].sort());
       expect(summary).toMatchObject({ searches: 0, detailsRead: 3, closed: 1, matched: 2, seenAgain: 2 });
-      expect((await detail(first?.id ?? 0)).description).toContain('Playwright');
+      expect((await detail(first?.id ?? 0)).description).toContain('Ventilator care');
       expect((await detail(third?.id ?? 0)).description).toBeNull();
       const queue = ScoringQueueResponseSchema.parse((await testApp.get('/api/scoring/queue')).body);
       expect(queue.items.filter((item) => item.rubric === 'match-v2').map((item) => item.id)).toHaveLength(2);
@@ -455,11 +464,11 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
   // for a busy machine.
   const fast = { pauseMs: 0, busyWaitMs: 0, settleMs: 50, cardTimeoutMs: 300, timeoutMs: 8000 };
 
-  /** The whole script, with one SDET search, reading the saved pages in Chromium. */
+  /** The whole script, with one Dispatcher search, reading the saved pages in Chromium. */
   function searchSavedPages(dryRun: boolean, log: string[]) {
     return searchLinkedIn({
       config: parseLinkedInSearchConfig(
-        JSON.stringify({ excludeKeywords: ['junior'], searches: [{ name: 'SDET', keywords: 'sdet' }] }),
+        JSON.stringify({ excludeKeywords: ['junior'], searches: [{ name: 'Dispatcher', keywords: 'dispatcher' }] }),
         'test',
       ),
       appUrl: testApp.url,
@@ -475,14 +484,16 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
   }
 
   it('FR-18: reads every filled card of a search page, as LinkedIn shows it', async () => {
-    const cards = await browserPages(context, fast).searchPage('https://www.linkedin.com/jobs/search/?keywords=sdet');
+    const cards = await browserPages(context, fast).searchPage(
+      'https://www.linkedin.com/jobs/search/?keywords=dispatcher',
+    );
 
     expect(cards).not.toBe('no-results');
     const [first, second, , older, empty] = cards === 'no-results' ? [] : cards;
     expect(first).toEqual({
       jobId: '4490000001',
       href: '/jobs/view/4490000001/?eBP=NON_CHARGEABLE_CHANNEL&refId=AAAA&trackingId=BBBB%3D%3D&trk=flagship3_search_srp_jobs',
-      title: 'Senior SDET (Playwright)',
+      title: 'Senior Dispatcher (Night Desk)',
       company: 'Example Health',
       metadata: ['United States (Remote)', '$140K/yr - $170K/yr · 401(k) benefit'],
       listedDate: '2026-10-24',
@@ -490,7 +501,7 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
       footer: ['41 minutes ago Within the past 24 hours', 'Easy Apply'],
     });
     expect(second).toMatchObject({
-      title: 'QA Automation Engineer',
+      title: 'Nurse Case Manager',
       footer: ['Viewed', '3 hours ago Within the past 24 hours'],
     });
     expect(older).toMatchObject({ listedText: '3 weeks ago', footer: ['Promoted', '3 weeks ago'] });
@@ -508,7 +519,7 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
 
     expect(await pages.jobPage('4490000001')).toEqual({
       href: '/jobs/view/4490000001/?alternateChannel=search&refId=AAAA&trackingId=BBBB%3D%3D&trk=d_flagship3_search_srp_jobs',
-      title: 'Senior SDET (Playwright)',
+      title: 'Senior Dispatcher (Night Desk)',
       company: 'Example Health',
       tertiary: [
         'United States',
@@ -518,12 +529,10 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
         'Actively reviewing applicants',
       ],
       pills: ['$140K/yr - $170K/yr', 'Remote', 'Full-time'],
-      descriptionHtml: expect.stringContaining(
-        'Build and run end-to-end suites in Playwright and TypeScript',
-      ) as string,
+      descriptionHtml: expect.stringContaining('Assess patients and coordinate their care plans') as string,
       closed: false,
     });
-    expect(await pages.jobPage('4490000006')).toMatchObject({ title: 'Test Automation Lead', closed: true });
+    expect(await pages.jobPage('4490000006')).toMatchObject({ title: 'Patient Care Lead', closed: true });
   });
 
   it('FR-18, FR-19: the whole script on the saved pages stores the open jobs of the window, with their details', async () => {
@@ -537,14 +546,14 @@ describe('scripts/search-linkedin.ts in Chromium, on saved copies of LinkedIn’
       (await testApp.get(`/api/jobs/${String(jobs.find((job) => job.company === 'Example Health')?.id ?? 0)}`)).body,
     );
     expect(health).toMatchObject({
-      title: 'Senior SDET (Playwright)',
+      title: 'Senior Dispatcher (Night Desk)',
       url: 'https://www.linkedin.com/jobs/view/4490000001/',
       workplace: 'remote',
       salary: '$140K/yr - $170K/yr',
       easyApply: true,
       postedAt: '2026-10-24T10:00:00.000Z',
     });
-    expect(health.description).toMatch(/^About Example Health\n\nWe build scheduling software/);
+    expect(health.description).toMatch(/^About Example Health\n\nWe run community clinics across Texas/);
   }, 30_000);
 
   it('FR-18: a refused page is tried once more; refused twice, LinkedIn is limiting requests', async () => {

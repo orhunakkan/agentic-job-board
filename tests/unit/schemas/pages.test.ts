@@ -50,7 +50,7 @@ describe('page inputs', () => {
   describe('safeReturnPath', () => {
     it.each([
       ['/', '/'],
-      ['/?tab=saved&q=qa', '/?tab=saved&q=qa'],
+      ['/?tab=saved&q=nurse', '/?tab=saved&q=nurse'],
       ['/jobs/12', '/jobs/12'],
       ['/jobs/12#notes', '/jobs/12'],
       ['/a/../b', '/b'],

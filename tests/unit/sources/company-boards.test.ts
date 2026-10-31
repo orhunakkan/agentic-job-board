@@ -17,13 +17,13 @@ describe('Greenhouse', () => {
       {
         id: 8860302002,
         internal_job_id: 1,
-        title: 'Senior SDET',
+        title: 'Senior Dispatcher',
         absolute_url: 'https://job-boards.greenhouse.io/examplelabs/jobs/8860302002',
         company_name: 'Example Labs',
         location: { name: 'Remote, United States' },
         first_published: '2026-10-02T11:31:50-04:00',
         updated_at: '2026-10-15T15:24:46-04:00',
-        content: '&lt;p&gt;Own the &lt;strong&gt;test platform&lt;/strong&gt;.&lt;/p&gt;',
+        content: '&lt;p&gt;Run the &lt;strong&gt;night dispatch desk&lt;/strong&gt;.&lt;/p&gt;',
         departments: [],
       },
       { id: 'not-a-number', title: 'Broken' },
@@ -46,13 +46,13 @@ describe('Greenhouse', () => {
       {
         source: 'greenhouse',
         sourceJobId: '8860302002',
-        title: 'Senior SDET',
+        title: 'Senior Dispatcher',
         company: 'Example Labs',
         location: 'Remote, United States',
         url: 'https://job-boards.greenhouse.io/examplelabs/jobs/8860302002',
         postedAt: '2026-10-02T15:31:50.000Z',
         salary: null,
-        description: 'Own the test platform.',
+        description: 'Run the night dispatch desk.',
       },
     ]);
   });
@@ -66,7 +66,7 @@ describe('Lever', () => {
   const answer = [
     {
       id: '2a55d6c9-c564-443a-be3e-a3851db5a93b',
-      text: 'QA Automation Engineer',
+      text: 'Nurse Case Manager',
       hostedUrl: 'https://jobs.lever.co/examplelabs/2a55d6c9-c564-443a-be3e-a3851db5a93b',
       createdAt: 1_792_767_640_768,
       workplaceType: 'remote',
@@ -79,7 +79,7 @@ describe('Lever', () => {
     },
     {
       id: 'b',
-      text: 'Hybrid QA',
+      text: 'Hybrid Nurse',
       hostedUrl: 'https://jobs.lever.co/examplelabs/b',
       workplaceType: 'hybrid',
       categories: { location: 'Austin, TX' },
@@ -108,7 +108,7 @@ describe('Ashby', () => {
     jobs: [
       {
         id: '34413f8d-26bf-4bbc-8ade-eb309a0e2245',
-        title: 'Senior Software Engineer in Test',
+        title: 'Senior Software Developer',
         location: 'New York, NY (HQ)',
         secondaryLocations: [{ location: 'Remote (US)' }],
         workplaceType: 'Hybrid',
@@ -121,13 +121,13 @@ describe('Ashby', () => {
       },
       {
         id: 'unlisted',
-        title: 'Hidden QA',
+        title: 'Hidden Nurse',
         isListed: false,
         jobUrl: 'https://jobs.ashbyhq.com/examplelabs/unlisted',
       },
       {
         id: 'remote',
-        title: 'QA',
+        title: 'Nurse',
         workplaceType: 'Remote',
         location: 'US',
         jobUrl: 'https://jobs.ashbyhq.com/x/remote',
@@ -158,7 +158,7 @@ describe('SmartRecruiters', () => {
       content: [
         {
           id: '744000157624691',
-          name: 'QA Engineer',
+          name: 'Nurse Educator',
           releasedDate: '2026-10-24T15:24:28.992Z',
           company: { identifier: 'ExampleGroup', name: 'Example Group' },
           location: { city: 'Austin', fullLocation: 'Austin, TX, United States', remote: true },
@@ -200,7 +200,7 @@ describe('Workable', () => {
       description: 'About us',
       jobs: [
         {
-          title: 'QA Engineer - US Remote',
+          title: 'Nurse Educator - US Remote',
           shortcode: '81B46579FE',
           url: 'https://apply.workable.com/j/81B46579FE',
           telecommuting: true,
@@ -220,7 +220,7 @@ describe('Workable', () => {
       {
         source: 'workable',
         sourceJobId: '81B46579FE',
-        title: 'QA Engineer - US Remote',
+        title: 'Nurse Educator - US Remote',
         company: 'Example Labs',
         location: 'Remote (Denver, Colorado, United States)',
         url: 'https://apply.workable.com/j/81B46579FE',

@@ -36,7 +36,7 @@ describe('jobs from other sources over the API', () => {
       expect(body).toMatchObject({ received: 3, new: 3, seenAgain: 0, repeated: 0 });
       expect(body.newJobs.map((job) => [job.source, job.sourceJobId, job.status, job.score])).toEqual([
         ['greenhouse', '5550001', 'new', null],
-        ['himalayas', 'sample-co/jobs/qa-lead', 'new', null],
+        ['himalayas', 'sample-co/jobs/nurse-lead', 'new', null],
         ['hackernews', '50012248', 'new', null],
       ]);
       expect(body.newJobs[0]).toMatchObject({
@@ -78,7 +78,7 @@ describe('jobs from other sources over the API', () => {
       ['a javascript: link', { listings: [{ ...LISTINGS[0], url: 'javascript:alert(1)' }] }],
       ['a link with a password', { listings: [{ ...LISTINGS[0], url: 'https://u:p@example.com/jobs/1' }] }],
       ['an empty title', { listings: [{ ...LISTINGS[0], title: ' ' }] }],
-      ['a title on two lines', { listings: [{ ...LISTINGS[0], title: 'SDET\nfake second line' }] }],
+      ['a title on two lines', { listings: [{ ...LISTINGS[0], title: 'Dispatcher\nfake second line' }] }],
       ['a description over 10,000 characters', { listings: [{ ...LISTINGS[0], description: 'x'.repeat(10_001) }] }],
       ['a date that is not ISO', { listings: [{ ...LISTINGS[0], postedAt: 'yesterday' }] }],
       ['an extra field', { listings: [{ ...LISTINGS[0], score: 99 }] }],
@@ -110,7 +110,7 @@ describe('jobs from other sources over the API', () => {
         'Sample Co',
       ]);
       expect((await list('')).total).toBe(21);
-      expect((await list('?origin=other&q=sdet')).total).toBe(2);
+      expect((await list('?origin=other&q=dispatcher')).total).toBe(2);
     });
 
     it('NFR-09: refuses an unknown origin', async () => {
@@ -124,7 +124,9 @@ describe('jobs from other sources over the API', () => {
 
       const stored = await testApp.post(`/api/runs/${String(runId)}/scores`, {
         rubricVersion: 'triage-v2',
-        scores: [{ jobId: first?.id, score: 90, label: 'strong', reason: 'Senior SDET with Playwright, remote US.' }],
+        scores: [
+          { jobId: first?.id, score: 90, label: 'strong', reason: 'Senior Dispatcher with Playwright, remote US.' },
+        ],
       });
 
       expect(stored.body).toEqual({ stored: 1 });
@@ -139,14 +141,14 @@ describe('jobs from other sources over the API', () => {
 
       expect(detail).toMatchObject({
         source: 'greenhouse',
-        description: 'About the role\n\nOwn the test platform.\n• Playwright\n• k6',
+        description: 'About the role\n\nRun the night dispatch desk.\n• Load planning\n• Driver check-ins',
         sightings: [],
         listingSightings: [{ runId, seenAt: expect.any(String) as unknown }],
       });
     });
 
     it('FR-10: a LinkedIn job has no description and no listing sightings', async () => {
-      const linkedin = jobAt(linkedinJobs, 'Workiva');
+      const linkedin = jobAt(linkedinJobs, 'Ledgerly');
 
       const detail = JobDetailSchema.parse((await testApp.get(`/api/jobs/${String(linkedin.id)}`)).body);
 

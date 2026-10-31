@@ -6,7 +6,7 @@ Feature: Light or dark
 
   Background:
     Given my system shows pages in light
-    And the board has a new LinkedIn job "Theme SDET"
+    And the board has a new LinkedIn job "Theme Dispatcher"
 
   Scenario: Choosing dark keeps every page dark, also after reopening the board
     When I open the board
@@ -18,7 +18,7 @@ Feature: Light or dark
     When I go to Profile
     Then the page is dark, and offers the light theme
     When I open the board
-    And I open "Theme SDET" from its card
+    And I open "Theme Dispatcher" from its card
     Then the page is dark, and offers the light theme
     When I close the board and open it again
     Then the page is dark, and offers the light theme

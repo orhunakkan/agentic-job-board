@@ -87,14 +87,18 @@ describe('API responses match their schemas', () => {
   it('FR-06: POST /api/runs/:id/scores', async () => {
     const response = await testApp.post(`/api/runs/${String(runId)}/scores`, {
       rubricVersion: 'v1',
-      scores: [{ jobId, score: 88, label: 'strong', reason: 'Senior automation role.' }],
+      scores: [{ jobId, score: 88, label: 'strong', reason: 'Senior logistics role.' }],
     });
     conforms(ScoresResponseSchema, response, 200);
   });
 
   it('FR-07: GET /api/jobs with and without filters', async () => {
     conforms(JobListResponseSchema, await testApp.get('/api/jobs'), 200);
-    conforms(JobListResponseSchema, await testApp.get('/api/jobs?tab=new&minScore=50&q=qa&sort=recent&limit=5'), 200);
+    conforms(
+      JobListResponseSchema,
+      await testApp.get('/api/jobs?tab=new&minScore=50&q=nurse&sort=recent&limit=5'),
+      200,
+    );
   });
 
   it('FR-10: GET /api/jobs/:id', async () => {
@@ -141,7 +145,7 @@ describe('the response schemas are strict', () => {
     id: 1,
     source: 'linkedin',
     sourceJobId: '4473592349',
-    title: 'SDET',
+    title: 'Dispatcher',
     company: 'Example Co',
     location: 'Remote',
     url: 'https://www.linkedin.com/jobs/view/4473592349/',

@@ -48,14 +48,14 @@ describe('LinkedIn search jobs on the pages', () => {
     const health = jobAt(jobs, 'Example Health');
     const scored = await testApp.post(`/api/runs/${String(runId)}/scores`, {
       rubricVersion: 'match-v2',
-      scores: [{ jobId: health.id, score: 88, label: 'strong', reason: 'Playwright and TypeScript, remote US.' }],
+      scores: [{ jobId: health.id, score: 88, label: 'strong', reason: 'Ventilator care and charting, remote US.' }],
     });
     expect(scored.status).toBe(200);
 
     const detail = await page(`/jobs/${String(health.id)}`);
 
     expect(detail).toContain('<dt>Workplace</dt> <dd>Remote</dd>');
-    expect(detail).toContain('Found by the search “QA family” · <a href="/runs">run 1</a>');
+    expect(detail).toContain('Found by the search “Dispatch family” · <a href="/runs">run 1</a>');
     expect(detail).toContain('<dt>Rubric</dt> <dd>match-v2: scored on the full description</dd>');
     expect(detail).toContain('<h2 id="description-heading">Description</h2> <p class="hint">As LinkedIn lists it.</p>');
   });
@@ -88,7 +88,7 @@ describe('LinkedIn search jobs on the pages', () => {
         {
           source: 'linkedin',
           sourceJobId: '4480000009',
-          title: 'SDET',
+          title: 'Dispatcher',
           company: 'Example Co',
           location: '',
           url: 'https://www.linkedin.com/jobs/view/4480000009/',

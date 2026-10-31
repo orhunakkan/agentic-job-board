@@ -7,17 +7,17 @@ Feature: Clear All on the board
   Background:
     Given the board has these jobs:
       | title       | view          | status |
-      | Senior SDET | LinkedIn      | New    |
-      | QA Lead     | LinkedIn      | New    |
-      | Saved SDET  | LinkedIn      | Saved  |
-      | Feed SDET   | Other sources | New    |
+      | Senior Dispatcher | LinkedIn      | New    |
+      | Lead Nurse     | LinkedIn      | New    |
+      | Saved Dispatcher  | LinkedIn      | Saved  |
+      | Feed Dispatcher   | Other sources | New    |
 
   Scenario: Clear All says how many jobs it dismissed
     When I press Clear All on the LinkedIn view
     Then the board says "Dismissed 2 new LinkedIn jobs. Each one can be restored from Dismissed."
     And the New tab of the LinkedIn view is empty
-    And the Saved tab of the LinkedIn view lists "Saved SDET"
-    And the New tab of the Other sources view lists "Feed SDET"
+    And the Saved tab of the LinkedIn view lists "Saved Dispatcher"
+    And the New tab of the Other sources view lists "Feed Dispatcher"
 
   Scenario: Clear All with nothing in New says so
     Given I pressed Clear All on the LinkedIn view

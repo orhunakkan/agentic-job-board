@@ -19,7 +19,7 @@ const NOW = '2026-10-24T12:00:00.000Z';
 const CARD: RawSearchCard = {
   jobId: '4483361330',
   href: '/jobs/view/4483361330/?eBP=NON_CHARGEABLE_CHANNEL&refId=abc&trackingId=DTEN%3D%3D&trk=flagship3_search_srp_jobs',
-  title: 'Senior SDET (Playwright)',
+  title: 'Senior Dispatcher (Night Desk)',
   company: '\n  Example Health\n',
   metadata: ['United States (Remote)', '$140K/yr - $170K/yr · 401(k) benefit'],
   listedDate: '2026-10-24',
@@ -29,12 +29,12 @@ const CARD: RawSearchCard = {
 
 const PAGE: RawJobPage = {
   href: '/jobs/view/4483361330/?alternateChannel=search&trackingId=x',
-  title: 'Senior SDET (Playwright)',
+  title: 'Senior Dispatcher (Night Desk)',
   company: 'Example Health',
   tertiary: ['United States', 'Reposted 8 minutes ago', '1 applicant', 'Promoted by hirer'],
   pills: ['$140K/yr - $170K/yr', 'Remote', 'Full-time'],
   descriptionHtml:
-    '<h2>About the job</h2><p>We build <strong>health</strong> software &amp; tools.</p><ul><li>Playwright</li><li>TypeScript</li></ul>',
+    '<h2>About the job</h2><p>We run <strong>community</strong> clinics &amp; labs.</p><ul><li>Wound care</li><li>Charting</li></ul>',
   closed: false,
 };
 
@@ -85,7 +85,7 @@ describe('toSearchCard', () => {
   it('FR-18: reads the job ID, title, company, location, listed time, salary and Easy Apply', () => {
     expect(toSearchCard(CARD, NOW)).toEqual({
       jobId: '4483361330',
-      title: 'Senior SDET (Playwright)',
+      title: 'Senior Dispatcher (Night Desk)',
       company: 'Example Health',
       location: 'United States (Remote)',
       listedAt: '2026-10-24T11:19:00.000Z',
@@ -132,10 +132,10 @@ describe('toSearchCard', () => {
   });
 
   it('NFR-09: cuts long text to what the API takes and keeps it on one line', () => {
-    const card = toSearchCard({ ...CARD, title: `Senior\nSDET ${'x'.repeat(400)}` }, NOW);
+    const card = toSearchCard({ ...CARD, title: `Senior\nDispatcher ${'x'.repeat(400)}` }, NOW);
 
     expect(card?.title).toHaveLength(300);
-    expect(card?.title).toMatch(/^Senior SDET x+…$/);
+    expect(card?.title).toMatch(/^Senior Dispatcher x+…$/);
   });
 
   it('NFR-09: the raw card schema refuses a shape it does not know', () => {
@@ -148,13 +148,13 @@ describe('toJobDetails', () => {
   it('FR-19: reads the description, salary, workplace and posted time from the job page', () => {
     expect(toJobDetails(PAGE, NOW)).toEqual({
       jobId: '4483361330',
-      title: 'Senior SDET (Playwright)',
+      title: 'Senior Dispatcher (Night Desk)',
       company: 'Example Health',
       location: 'United States',
       postedAt: '2026-10-24T11:52:00.000Z',
       salary: '$140K/yr - $170K/yr',
       workplace: 'remote',
-      description: 'We build health software & tools.\n\n• Playwright\n• TypeScript',
+      description: 'We run community clinics & labs.\n\n• Wound care\n• Charting',
       closed: false,
     });
   });
@@ -214,19 +214,19 @@ describe('linkedInListing', () => {
   if (card === null) throw new Error('the test card must be readable');
 
   it('FR-18, FR-19: a new job is the card plus its page, linked canonically, with the search that found it', () => {
-    expect(linkedInListing(card, details, 'QA family')).toEqual({
+    expect(linkedInListing(card, details, 'Dispatch family')).toEqual({
       source: 'linkedin',
       sourceJobId: '4483361330',
-      title: 'Senior SDET (Playwright)',
+      title: 'Senior Dispatcher (Night Desk)',
       company: 'Example Health',
       location: 'United States (Remote)',
       url: 'https://www.linkedin.com/jobs/view/4483361330/',
       postedAt: '2026-10-24T11:52:00.000Z',
       salary: '$140K/yr - $170K/yr',
-      description: 'We build health software & tools.\n\n• Playwright\n• TypeScript',
+      description: 'We run community clinics & labs.\n\n• Wound care\n• Charting',
       workplace: 'remote',
       easyApply: true,
-      searchName: 'QA family',
+      searchName: 'Dispatch family',
     });
   });
 
@@ -234,7 +234,7 @@ describe('linkedInListing', () => {
     expect(linkedInListing(card, null, null)).toEqual({
       source: 'linkedin',
       sourceJobId: '4483361330',
-      title: 'Senior SDET (Playwright)',
+      title: 'Senior Dispatcher (Night Desk)',
       company: 'Example Health',
       location: 'United States (Remote)',
       url: 'https://www.linkedin.com/jobs/view/4483361330/',

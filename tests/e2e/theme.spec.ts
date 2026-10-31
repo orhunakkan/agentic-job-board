@@ -37,7 +37,7 @@ test.describe('the theme toggle with the system in light', () => {
     request,
   }) => {
     const tag = uniqueTag();
-    const [job] = await seedJobs(request, tag, [{ title: 'Theme SDET', company: 'Theme Co', score: 82 }]);
+    const [job] = await seedJobs(request, tag, [{ title: 'Theme Dispatcher', company: 'Theme Co', score: 82 }]);
     const board = `/?origin=linkedin&tab=new&minScore=50&q=${tag}&sort=recent`;
 
     await open(page, board, 'light');
@@ -53,7 +53,7 @@ test.describe('the theme toggle with the system in light', () => {
     await expect(page.getByLabel('Search')).toHaveValue(tag);
     await expect(page.getByLabel('Min score')).toHaveValue('50');
     await expect(page.getByLabel('Sort')).toHaveValue('recent');
-    await expect(page.locator('.card-title')).toHaveText([`Theme SDET ${tag}`]);
+    await expect(page.locator('.card-title')).toHaveText([`Theme Dispatcher ${tag}`]);
 
     const main = page.getByRole('navigation', { name: 'Main' });
     await main.getByRole('link', { name: 'Runs' }).click();
@@ -77,7 +77,7 @@ test.describe('the theme toggle with the system in light', () => {
 
   test('FR-23: the choice holds in a new tab, and switching never repeats a notice', async ({ page, request }) => {
     const tag = uniqueTag();
-    const [job] = await seedJobs(request, tag, [{ title: 'Notice SDET', company: 'Notice Co', score: 70 }]);
+    const [job] = await seedJobs(request, tag, [{ title: 'Notice Dispatcher', company: 'Notice Co', score: 70 }]);
 
     await open(page, `/jobs/${String(job?.id)}`, 'light');
     await page.getByRole('textbox', { name: 'Notes' }).fill('Call back');

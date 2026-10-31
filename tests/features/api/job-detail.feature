@@ -5,11 +5,11 @@ Feature: A job's details
   so that I can decide what to do without looking elsewhere.
 
   Scenario: A job's details include its sightings and its status history
-    Given an earlier run received the LinkedIn job "Senior SDET" from the search "QA family"
-    And a later run received the LinkedIn job "Senior SDET" from the search "Senior QA"
-    And I saved "Senior SDET"
-    When I look at "Senior SDET"
-    Then it has 2 sightings, by the searches "QA family" and "Senior QA"
+    Given an earlier run received the LinkedIn job "Senior Dispatcher" from the search "Dispatch family"
+    And a later run received the LinkedIn job "Senior Dispatcher" from the search "Senior accounting"
+    And I saved "Senior Dispatcher"
+    When I look at "Senior Dispatcher"
+    Then it has 2 sightings, by the searches "Dispatch family" and "Senior accounting"
     And its status history is:
       | from | to    |
       |      | New   |

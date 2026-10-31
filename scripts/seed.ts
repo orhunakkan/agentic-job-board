@@ -14,6 +14,7 @@ import { labelForScore } from '../src/domain/score.ts';
 import type { Status } from '../src/domain/status.ts';
 import { ingestListings, type IncomingListing } from '../src/ingest/listing-ingest.ts';
 import { changeJobStatus } from '../src/jobs/status-service.ts';
+import type { Profile } from '../src/schemas/profile.ts';
 
 export interface SeedOptions {
   count: number;
@@ -45,29 +46,77 @@ interface FakeJob {
   reason: string;
 }
 
-// Roles with a base score and the words a triage reason would use; `cap` marks a deal-breaker (scores ≤ 30).
-const ROLES: readonly { title: string; base: number; reason: string; cap?: string }[] = [
-  { title: 'QA Automation Engineer', base: 60, reason: 'QA automation role' },
-  { title: 'Senior QA Engineer', base: 68, reason: 'Senior QA role' },
-  { title: 'Software Development Engineer in Test', base: 62, reason: 'SDET role' },
-  { title: 'Senior SDET', base: 71, reason: 'Senior SDET role' },
-  { title: 'Test Automation Engineer', base: 61, reason: 'Test automation role' },
-  { title: 'Quality Engineer', base: 56, reason: 'Quality engineering role' },
-  { title: 'Staff Quality Engineer', base: 72, reason: 'Staff quality role' },
-  { title: 'Lead Test Automation Engineer', base: 71, reason: 'Lead automation role' },
-  { title: 'AI Quality Engineer', base: 66, reason: 'AI quality role, on the AI QA target' },
-  { title: 'QA Engineer II', base: 52, reason: 'Mid-level QA role' },
-  { title: 'Manual QA Analyst', base: 20, reason: '', cap: 'Capped: manual-only testing role (deal-breaker).' },
-  { title: 'Hardware Test Engineer', base: 18, reason: '', cap: 'Capped: hardware test role (deal-breaker).' },
-];
-const STACKS: readonly { suffix: string; bonus: number; reason: string }[] = [
-  { suffix: '', bonus: 0, reason: 'no stack named' },
-  { suffix: '', bonus: 0, reason: 'no stack named' },
-  { suffix: ' (Playwright)', bonus: 12, reason: 'Playwright in the title' },
-  { suffix: ' (TypeScript)', bonus: 10, reason: 'TypeScript in the title' },
-  { suffix: ' (Cypress)', bonus: 9, reason: 'Cypress in the title' },
-  { suffix: ' (Selenium, Java)', bonus: 6, reason: 'Selenium and Java in the title' },
-  { suffix: ' - API Testing', bonus: 8, reason: 'API testing in the title' },
+/** Something a title can add to its role, and how much it moves the fake score. */
+interface Specialty {
+  suffix: string;
+  bonus: number;
+  reason: string;
+}
+
+const NO_SPECIALTY: Specialty = { suffix: '', bonus: 0, reason: 'no specialty named' };
+
+// Roles from several lines of work (NFR-14), each with a base score, the words a triage reason would use and the
+// specialties its titles name; `cap` marks a deal-breaker of the seeded profile (scores ≤ 30).
+const ROLES: readonly { title: string; base: number; reason: string; specialties: Specialty[]; cap?: string }[] = [
+  {
+    title: 'Registered Nurse',
+    base: 60,
+    reason: 'Nursing role',
+    specialties: [NO_SPECIALTY, NO_SPECIALTY, { suffix: ' (ICU)', bonus: 12, reason: 'ICU named in the title' }],
+  },
+  {
+    title: 'Senior Staff Accountant',
+    base: 68,
+    reason: 'Senior accounting role',
+    specialties: [NO_SPECIALTY, { suffix: ' (NetSuite)', bonus: 9, reason: 'NetSuite named in the title' }],
+  },
+  {
+    title: 'Truck Dispatcher',
+    base: 62,
+    reason: 'Dispatch role',
+    specialties: [NO_SPECIALTY, { suffix: ' (Bilingual Spanish)', bonus: 10, reason: 'Spanish named in the title' }],
+  },
+  {
+    title: 'Senior Logistics Coordinator',
+    base: 71,
+    reason: 'Senior logistics role',
+    specialties: [NO_SPECIALTY, { suffix: ' (CDL-A)', bonus: 6, reason: 'CDL-A named in the title' }],
+  },
+  {
+    title: 'Middle School Teacher',
+    base: 61,
+    reason: 'Teaching role',
+    specialties: [NO_SPECIALTY, { suffix: ' - Science', bonus: 8, reason: 'a subject named in the title' }],
+  },
+  {
+    title: 'Account Executive',
+    base: 56,
+    reason: 'Sales role',
+    specialties: [NO_SPECIALTY, { suffix: ' (Bilingual Spanish)', bonus: 10, reason: 'Spanish named in the title' }],
+  },
+  { title: 'Senior Account Manager', base: 72, reason: 'Senior sales role', specialties: [NO_SPECIALTY] },
+  {
+    title: 'Lead Backend Developer',
+    base: 71,
+    reason: 'Lead software role',
+    specialties: [NO_SPECIALTY, { suffix: ' (Go)', bonus: 12, reason: 'Go named in the title' }],
+  },
+  { title: 'Charge Nurse', base: 66, reason: 'Charge nurse role, a target role', specialties: [NO_SPECIALTY] },
+  { title: 'Payroll Specialist II', base: 52, reason: 'Mid-level payroll role', specialties: [NO_SPECIALTY] },
+  {
+    title: 'Commission-only Sales Associate',
+    base: 20,
+    reason: '',
+    specialties: [],
+    cap: 'Capped: commission-only pay (deal-breaker).',
+  },
+  {
+    title: 'Night Shift Warehouse Associate',
+    base: 18,
+    reason: '',
+    specialties: [],
+    cap: 'Capped: night shifts only (deal-breaker).',
+  },
 ];
 const LOCATIONS: readonly { name: string; workplace: IncomingListing['workplace']; adjust: number; reason: string }[] =
   [
@@ -82,23 +131,39 @@ const LOCATIONS: readonly { name: string; workplace: IncomingListing['workplace'
   ];
 const COMPANY_A = ['Acme', 'Globex', 'Initech', 'Umbrella', 'Hooli', 'Vandelay', 'Stark', 'Wayne', 'Tyrell', 'Soylent'];
 const COMPANY_B = ['Labs', 'Systems', 'Health', 'Financial', 'Software', 'Analytics', 'Robotics', 'Media'];
-const SEARCHES = ['QA family', 'Senior QA', 'Software QA'];
+const SEARCHES = ['Nursing jobs', 'Accounting jobs', 'Logistics jobs'];
+
+/** The profile the seeded board is scored against, so it opens instead of the setup page (FR-24). Made up. */
+export const SEED_PROFILE: Profile = {
+  field: 'Logistics and operations',
+  summary: 'Made-up profile for the seeded board.',
+  targetRoles: ['Senior Logistics Coordinator', 'Truck Dispatcher'],
+  seniority: 'senior',
+  yearsExperience: 8,
+  coreSkills: ['Load planning', 'Route optimization'],
+  secondarySkills: ['Spanish'],
+  credentials: ['CDL-A'],
+  locations: { remote: ['United States'], hybridAreas: ['Chicago, IL'], onsiteAreas: [], relocate: false },
+  workAuthorization: 'US, no sponsorship needed',
+  dealBreakers: ['commission-only pay', 'night shifts only'],
+  excludedCompanies: [],
+};
 
 function fakeJob(linkedinId: string, nextRandom: () => number): FakeJob {
   const pick = <T>(items: readonly T[]): T => items[Math.floor(nextRandom() * items.length)] as T;
   const role = pick(ROLES);
-  const stack = role.cap === undefined ? pick(STACKS) : { suffix: '', bonus: 0, reason: '' };
+  const specialty = role.cap === undefined ? pick(role.specialties) : { suffix: '', bonus: 0, reason: '' };
   const location = pick(LOCATIONS);
   const noise = Math.round((nextRandom() - 0.5) * 8);
-  const raw = Math.min(100, Math.max(0, role.base + stack.bonus + location.adjust + noise));
+  const raw = Math.min(100, Math.max(0, role.base + specialty.bonus + location.adjust + noise));
   return {
     linkedinId,
-    title: `${role.title}${stack.suffix}`,
+    title: `${role.title}${specialty.suffix}`,
     company: `${pick(COMPANY_A)} ${pick(COMPANY_B)}`,
     location: location.name,
     workplace: location.workplace,
     score: role.cap === undefined ? raw : Math.min(raw, 30),
-    reason: role.cap ?? `${role.reason}, ${stack.reason}; ${location.reason}.`,
+    reason: role.cap ?? `${role.reason}, ${specialty.reason}; ${location.reason}.`,
   };
 }
 
@@ -135,6 +200,8 @@ export function seedDatabase(db: DatabaseSync, repos: Repositories, options: See
   if (existing > 0) {
     throw new SeedError(`the database already has ${String(existing)} jobs; seed only into a new database`);
   }
+  // The board opens only once a profile is saved (FR-24).
+  if (repos.profile.state().status !== 'saved') repos.profile.put(SEED_PROFILE, options.until);
 
   const nextRandom = random(options.seed);
   const pick = <T>(items: readonly T[]): T => items[Math.floor(nextRandom() * items.length)] as T;
@@ -227,7 +294,7 @@ function listing(job: FakeJob, searchName: string, searchedAt: string, nextRando
     salary: nextRandom() < 0.3 ? '$140K/yr - $170K/yr' : null,
     description:
       nextRandom() < 0.5
-        ? `About ${job.company}\n\nWe are hiring a ${job.title}.\n• Build and run automated tests\n• Work with the developers`
+        ? `About ${job.company}\n\nWe are hiring a ${job.title}.\n• Join a friendly team\n• Grow with us`
         : null,
     workplace: job.workplace,
     easyApply: nextRandom() < 0.4,

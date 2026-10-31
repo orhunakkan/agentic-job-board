@@ -66,11 +66,11 @@ describe('migrate', () => {
     migrate(testDb.db, migrations.slice(0, 1));
     testDb.db.exec(`INSERT INTO jobs (linkedin_job_id, title, company, location, url, status_changed_at,
                                     first_seen_at, last_seen_at)
-                  VALUES ('1', 'SDET', 'Example Co', 'Remote', 'https://www.linkedin.com/jobs/view/1/', 'x', 'x', 'x')`);
+                  VALUES ('1', 'Dispatcher', 'Example Co', 'Remote', 'https://www.linkedin.com/jobs/view/1/', 'x', 'x', 'x')`);
 
     expect(migrate(testDb.db, migrations)).toEqual([2, 3, 4]);
     expect(testDb.db.prepare('SELECT title, first_run_id FROM jobs').all()).toEqual([
-      { title: 'SDET', first_run_id: null },
+      { title: 'Dispatcher', first_run_id: null },
     ]);
   });
 
@@ -85,9 +85,9 @@ describe('migrate', () => {
       INSERT INTO jobs (id, linkedin_job_id, title, company, location, url, status, status_changed_at, notes, score,
                         score_label, score_reason, rubric_version, scored_at, first_seen_at, last_seen_at,
                         seen_count, first_run_id)
-        VALUES (7, '4000000001', 'SDET', 'Example Co', 'Remote', 'https://www.linkedin.com/jobs/view/4000000001/',
+        VALUES (7, '4000000001', 'Dispatcher', 'Example Co', 'Remote', 'https://www.linkedin.com/jobs/view/4000000001/',
                 'saved', 's', 'call back', 88, 'strong', 'Good fit.', 'triage-v1', 'sc', 'f', 'l', 2, 1);
-      INSERT INTO sightings (job_id, gmail_message_id, saved_search) VALUES (7, 'msg-1', 'sdet');
+      INSERT INTO sightings (job_id, gmail_message_id, saved_search) VALUES (7, 'msg-1', 'dispatcher');
       INSERT INTO status_history (job_id, from_status, to_status, changed_at) VALUES (7, NULL, 'new', 'x');
     `);
 
@@ -98,7 +98,7 @@ describe('migrate', () => {
         id: 7,
         source: 'linkedin',
         source_job_id: '4000000001',
-        title: 'SDET',
+        title: 'Dispatcher',
         company: 'Example Co',
         location: 'Remote',
         url: 'https://www.linkedin.com/jobs/view/4000000001/',
@@ -138,21 +138,21 @@ describe('migrate', () => {
         VALUES ('msg-1', 1, '2026-10-22T10:00:00.000Z', 'jobalerts-noreply@linkedin.com', 'Alert', 'parsed', 'x');
       INSERT INTO jobs (id, source, source_job_id, title, company, location, url, status_changed_at, first_seen_at,
                         last_seen_at)
-        VALUES (7, 'linkedin', '4000000001', 'SDET', 'Example Co', 'Remote',
+        VALUES (7, 'linkedin', '4000000001', 'Dispatcher', 'Example Co', 'Remote',
                 'https://www.linkedin.com/jobs/view/4000000001/', 's', 'f', 'l'),
-               (8, 'greenhouse', '55', 'QA Lead', 'Sample Co', '', 'https://example.com/55', 's', 'f', 'l');
-      INSERT INTO sightings (job_id, gmail_message_id, saved_search) VALUES (7, 'msg-1', 'sdet');
+               (8, 'greenhouse', '55', 'Lead Nurse', 'Sample Co', '', 'https://example.com/55', 's', 'f', 'l');
+      INSERT INTO sightings (job_id, gmail_message_id, saved_search) VALUES (7, 'msg-1', 'dispatcher');
       INSERT INTO listing_sightings (job_id, run_id, seen_at) VALUES (8, 1, '2026-10-22T10:00:01.000Z');
     `);
 
     expect(migrate(testDb.db, migrations)).toEqual([4]);
 
     expect(testDb.db.prepare('SELECT id, title, workplace FROM jobs ORDER BY id').all()).toEqual([
-      { id: 7, title: 'SDET', workplace: null },
-      { id: 8, title: 'QA Lead', workplace: null },
+      { id: 7, title: 'Dispatcher', workplace: null },
+      { id: 8, title: 'Lead Nurse', workplace: null },
     ]);
     expect(testDb.db.prepare('SELECT job_id, saved_search FROM sightings').all()).toEqual([
-      { job_id: 7, saved_search: 'sdet' },
+      { job_id: 7, saved_search: 'dispatcher' },
     ]);
     expect(testDb.db.prepare('SELECT job_id, search_name FROM listing_sightings').all()).toEqual([
       { job_id: 8, search_name: null },

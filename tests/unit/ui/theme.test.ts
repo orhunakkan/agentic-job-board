@@ -39,8 +39,8 @@ describe('the theme toggle', () => {
     const back = (path: string, query = '') => themeReturnPath(path, new URLSearchParams(query));
 
     expect(back('/')).toBe('/');
-    expect(back('/', 'origin=other&tab=saved&minScore=70&q=sdet&sort=recent&page=2')).toBe(
-      '/?origin=other&tab=saved&minScore=70&q=sdet&sort=recent&page=2',
+    expect(back('/', 'origin=other&tab=saved&minScore=70&q=dispatcher&sort=recent&page=2')).toBe(
+      '/?origin=other&tab=saved&minScore=70&q=dispatcher&sort=recent&page=2',
     );
     expect(back('/', 'tab=new&changed=12')).toBe('/?tab=new');
     expect(back('/', 'tab=new&cleared=3')).toBe('/?tab=new');

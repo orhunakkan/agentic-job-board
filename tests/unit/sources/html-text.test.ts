@@ -3,9 +3,10 @@ import { decodeEntities, htmlToText, oneLine } from '../../../src/sources/html-t
 
 describe('HTML to text', () => {
   it('FR-17: keeps paragraphs and list items, drops every tag', () => {
-    const html = '<div><h2>About</h2><p>We test <b>everything</b>.</p><ul><li>Playwright</li><li>k6</li></ul></div>';
+    const html =
+      '<div><h2>About</h2><p>We plan <b>everything</b>.</p><ul><li>Load planning</li><li>Driver check-ins</li></ul></div>';
 
-    expect(htmlToText(html)).toBe('About\n\nWe test everything.\n\n• Playwright\n• k6');
+    expect(htmlToText(html)).toBe('About\n\nWe plan everything.\n\n• Load planning\n• Driver check-ins');
   });
 
   it('FR-17: reads HTML that was escaped once more (Greenhouse)', () => {
@@ -25,8 +26,8 @@ describe('HTML to text', () => {
   });
 
   it('FR-17: decodes named, decimal and hex entities and leaves unknown ones', () => {
-    expect(decodeEntities('&quot;QA&quot; &#8211; &#x2F;remote&#x2f; &rsquo;s &bogus; &#0;')).toBe(
-      '"QA" – /remote/ ’s &bogus; ',
+    expect(decodeEntities('&quot;Nurse&quot; &#8211; &#x2F;remote&#x2f; &rsquo;s &bogus; &#0;')).toBe(
+      '"Nurse" – /remote/ ’s &bogus; ',
     );
   });
 
@@ -44,6 +45,6 @@ describe('HTML to text', () => {
   });
 
   it('FR-15: oneLine joins every line into one', () => {
-    expect(oneLine('<b>Senior</b>\n<i>SDET</i>')).toBe('Senior SDET');
+    expect(oneLine('<b>Senior</b>\n<i>Dispatcher</i>')).toBe('Senior Dispatcher');
   });
 });

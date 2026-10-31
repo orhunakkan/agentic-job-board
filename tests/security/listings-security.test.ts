@@ -12,7 +12,7 @@ import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 const HOSTILE = {
   ...LISTINGS[0],
   sourceJobId: '<b>1</b>',
-  title: '<script>alert(1)</script> SDET',
+  title: '<script>alert(1)</script> Dispatcher',
   company: '<img src=x onerror=alert(2)>',
   location: '" onmouseover="alert(3)',
   salary: '<svg onload=alert(4)>',
@@ -44,7 +44,7 @@ describe('listing security', () => {
       const { text } = await testApp.get(path);
 
       expect(text, path).not.toMatch(/<script|<img|<svg|<iframe|<b>|<[^>]*\son[a-z]+=/i);
-      expect(text, path).toContain('&lt;script&gt;alert(1)&lt;/script&gt; SDET');
+      expect(text, path).toContain('&lt;script&gt;alert(1)&lt;/script&gt; Dispatcher');
     }
     expect((await testApp.get(`/jobs/${String(jobId)}`)).text).toContain(
       '&lt;/div&gt;&lt;script&gt;alert(5)&lt;/script&gt;',

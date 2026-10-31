@@ -24,10 +24,10 @@ describe('the HTML pages', () => {
     testApp = await startTestApp();
     ({ runId, jobs } = await seedBoard(testApp));
     const scores = [
-      ['3Pillar', 92, 'strong'],
-      ['Cboe Global Markets', 88, 'strong'],
-      ['Workiva', 70, 'possible'],
-      ['Optum', 45, 'weak'],
+      ['4Corners', 92, 'strong'],
+      ['Lakeshore Freight', 88, 'strong'],
+      ['Ledgerly', 70, 'possible'],
+      ['Medway', 45, 'weak'],
     ] as const;
     await testApp.post(`/api/runs/${String(runId)}/scores`, {
       rubricVersion: 'triage-v2',
@@ -57,10 +57,10 @@ describe('the HTML pages', () => {
       const board = await page('/');
 
       expect(cardIds(board).slice(0, 4)).toEqual([
-        id('3Pillar'),
-        id('Cboe Global Markets'),
-        id('Workiva'),
-        id('Optum'),
+        id('4Corners'),
+        id('Lakeshore Freight'),
+        id('Ledgerly'),
+        id('Medway'),
       ]);
       expect(cardIds(board)).toHaveLength(18);
       expect(board).toContain('Showing 1–18 of 18');
@@ -72,14 +72,14 @@ describe('the HTML pages', () => {
       const board = await page('/');
 
       expect(board).toMatch(/<span class="score-value">92<\/span> <span class="score-label">Strong<\/span>/);
-      expect(board).toContain('Reason for 3Pillar');
+      expect(board).toContain('Reason for 4Corners');
       expect(board).toContain('<span class="score score-none">Unscored</span>');
     });
 
     it('FR-07: filters by minimum score and by text in the title or company', async () => {
-      expect(cardIds(await page('/?minScore=70'))).toEqual([id('3Pillar'), id('Cboe Global Markets'), id('Workiva')]);
-      expect(cardIds(await page('/?q=workiva'))).toEqual([id('Workiva')]);
-      expect(cardIds(await page('/?q=QA+Automation+Test'))).toEqual([id('Cboe Global Markets')]);
+      expect(cardIds(await page('/?minScore=70'))).toEqual([id('4Corners'), id('Lakeshore Freight'), id('Ledgerly')]);
+      expect(cardIds(await page('/?q=ledgerly'))).toEqual([id('Ledgerly')]);
+      expect(cardIds(await page('/?q=Logistics+Coordinator'))).toEqual([id('Lakeshore Freight')]);
       expect(await page('/?q=nothing-matches')).toContain('No jobs match these filters.');
     });
 
@@ -91,17 +91,17 @@ describe('the HTML pages', () => {
       const board = await page('/?sort=recent');
 
       expect(board).toContain('<option value="recent" selected>');
-      expect(cardIds(board)[0]).not.toBe(id('3Pillar'));
+      expect(cardIds(board)[0]).not.toBe(id('4Corners'));
     });
 
     it('FR-07: each tab lists only its statuses', async () => {
-      await testApp.form(`/jobs/${String(id('Workiva'))}/status`, { status: 'saved' });
-      await testApp.form(`/jobs/${String(id('Optum'))}/status`, { status: 'applied' });
-      await testApp.form(`/jobs/${String(id('Cboe Global Markets'))}/status`, { status: 'dismissed' });
+      await testApp.form(`/jobs/${String(id('Ledgerly'))}/status`, { status: 'saved' });
+      await testApp.form(`/jobs/${String(id('Medway'))}/status`, { status: 'applied' });
+      await testApp.form(`/jobs/${String(id('Lakeshore Freight'))}/status`, { status: 'dismissed' });
 
-      expect(cardIds(await page('/?tab=saved'))).toEqual([id('Workiva')]);
-      expect(cardIds(await page('/?tab=in-progress'))).toEqual([id('Optum')]);
-      expect(cardIds(await page('/?tab=dismissed'))).toEqual([id('Cboe Global Markets')]);
+      expect(cardIds(await page('/?tab=saved'))).toEqual([id('Ledgerly')]);
+      expect(cardIds(await page('/?tab=in-progress'))).toEqual([id('Medway')]);
+      expect(cardIds(await page('/?tab=dismissed'))).toEqual([id('Lakeshore Freight')]);
       expect(await page('/?tab=closed')).toContain('No jobs in Closed.');
       expect(cardIds(await page('/'))).toHaveLength(15);
     });
@@ -167,7 +167,7 @@ describe('the HTML pages', () => {
 
   describe('status changes from a form (FR-08)', () => {
     it('FR-08: moves the job, records it, and redirects back to the board with a notice', async () => {
-      const jobId = id('3Pillar');
+      const jobId = id('4Corners');
 
       const response = await testApp.form(`/jobs/${String(jobId)}/status`, {
         status: 'saved',
@@ -182,13 +182,13 @@ describe('the HTML pages', () => {
       });
       const board = await page(`/?tab=saved&changed=${String(jobId)}`);
       expect(board).toMatch(
-        /<p class="notice" role="status" id="notice" tabindex="-1"><a href="\/jobs\/\d+">Senior Quality Assurance Engineer/,
+        /<p class="notice" role="status" id="notice" tabindex="-1"><a href="\/jobs\/\d+">Senior Accountant \(NetSuite/,
       );
       expect(board).toContain('is now Saved.');
     });
 
     it('FR-08: without a return path, goes back to the job page with a notice', async () => {
-      const jobId = id('Workiva');
+      const jobId = id('Ledgerly');
 
       const response = await testApp.form(`/jobs/${String(jobId)}/status`, { status: 'applied' });
 
@@ -203,7 +203,7 @@ describe('the HTML pages', () => {
       ['javascript:alert(1)', 'a script URL'],
       ['/ok path', 'a path with a space'],
     ])('NFR-07: a return of %j (%s) falls back to the job page', async (target) => {
-      const jobId = id('Optum');
+      const jobId = id('Medway');
 
       const response = await testApp.form(`/jobs/${String(jobId)}/status`, { status: 'saved', return: target });
 
@@ -211,7 +211,7 @@ describe('the HTML pages', () => {
     });
 
     it('FR-08: an invalid transition is a 409 page and changes nothing', async () => {
-      const jobId = id('Optum');
+      const jobId = id('Medway');
 
       const response = await testApp.form(`/jobs/${String(jobId)}/status`, { status: 'offer' });
 
@@ -226,7 +226,7 @@ describe('the HTML pages', () => {
       ['no status', {}],
       ['an extra field', { status: 'saved', admin: '1' }],
     ])('NFR-09: a status form with %s is a 400 page', async (_case, fields) => {
-      const response = await testApp.form(`/jobs/${String(id('Optum'))}/status`, fields);
+      const response = await testApp.form(`/jobs/${String(id('Medway'))}/status`, fields);
 
       expect(response.status).toBe(400);
       expect(response.text).toContain('The form is invalid');
@@ -235,7 +235,7 @@ describe('the HTML pages', () => {
     it('NFR-09: a repeated form field is a 400 page', async () => {
       const response = await testApp.raw({
         method: 'POST',
-        path: `/jobs/${String(id('Optum'))}/status`,
+        path: `/jobs/${String(id('Medway'))}/status`,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'status=saved&status=dismissed',
       });
@@ -251,7 +251,7 @@ describe('the HTML pages', () => {
     });
 
     it('NFR-09: a page form only accepts a form post: JSON is 415', async () => {
-      const response = await testApp.call('POST', `/jobs/${String(id('Optum'))}/status`, { status: 'saved' });
+      const response = await testApp.call('POST', `/jobs/${String(id('Medway'))}/status`, { status: 'saved' });
 
       expect(response.status).toBe(415);
       expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8');
@@ -259,7 +259,7 @@ describe('the HTML pages', () => {
     });
 
     it('NFR-09: the JSON API does not accept form posts: 415 as JSON', async () => {
-      const response = await testApp.form(`/api/jobs/${String(id('Optum'))}`, { status: 'saved' });
+      const response = await testApp.form(`/api/jobs/${String(id('Medway'))}`, { status: 'saved' });
 
       expect(response.status).toBe(405);
       const created = await testApp.form('/api/runs', {});
@@ -270,15 +270,15 @@ describe('the HTML pages', () => {
 
   describe('job detail and notes (FR-09, FR-10)', () => {
     it('FR-10: shows every field, the score, history, sightings and the LinkedIn link', async () => {
-      const detail = await page(`/jobs/${String(id('Cboe Global Markets'))}`);
+      const detail = await page(`/jobs/${String(id('Lakeshore Freight'))}`);
 
-      expect(detail).toContain('<h1>Senior QA Automation Test Engineer</h1>');
-      expect(detail).toContain('Cboe Global Markets · Chicago, IL');
-      expect(detail).toContain('Reason: Reason for Cboe Global Markets');
+      expect(detail).toContain('<h1>Senior Logistics Coordinator</h1>');
+      expect(detail).toContain('Lakeshore Freight · Chicago, IL');
+      expect(detail).toContain('Reason: Reason for Lakeshore Freight');
       expect(detail).toContain('href="https://www.linkedin.com/jobs/view/4473592349/" target="_blank"');
       expect(detail).toContain('rel="noopener noreferrer"');
       expect(detail).toContain('Created as New');
-      expect(detail).toContain('Alert: Test Automation Engineer');
+      expect(detail).toContain('Alert: Logistics Coordinator');
       expect(detail).toContain('<dt>Rubric</dt>');
       expect(detail).toContain('triage-v2: scored on the title, company and location only');
       expect(detail).toContain('triage-v2');
@@ -287,14 +287,14 @@ describe('the HTML pages', () => {
     });
 
     it('FR-08: the status form offers only the allowed next statuses', async () => {
-      const detail = await page(`/jobs/${String(id('Optum'))}`);
+      const detail = await page(`/jobs/${String(id('Medway'))}`);
       const options = [...detail.matchAll(/<option value="(\w+)">/g)].map(([, value]) => value);
 
       expect(options).toEqual(['saved', 'applied', 'dismissed']);
     });
 
     it('FR-08: a final status offers no change at all', async () => {
-      const jobId = id('Optum');
+      const jobId = id('Medway');
       for (const status of ['applied', 'rejected']) {
         await testApp.form(`/jobs/${String(jobId)}/status`, { status });
       }
@@ -307,11 +307,11 @@ describe('the HTML pages', () => {
     });
 
     it('FR-10: an unscored job says so', async () => {
-      expect(await page(`/jobs/${String(id('BECU'))}`)).toContain('Not scored yet');
+      expect(await page(`/jobs/${String(id('TCCU'))}`)).toContain('Not scored yet');
     });
 
     it('FR-09: saves notes and shows them again, line breaks intact', async () => {
-      const jobId = id('3Pillar');
+      const jobId = id('4Corners');
 
       const response = await testApp.form(`/jobs/${String(jobId)}/notes`, {
         notes: '\r\nCall recruiter\r\n<b>Friday</b>',
@@ -331,7 +331,7 @@ describe('the HTML pages', () => {
     });
 
     it('FR-09: notes of 5,000 characters are kept; 5,001 is a 400 page', async () => {
-      const jobId = id('3Pillar');
+      const jobId = id('4Corners');
 
       expect((await testApp.form(`/jobs/${String(jobId)}/notes`, { notes: 'x'.repeat(5000) })).status).toBe(303);
       expect((await testApp.form(`/jobs/${String(jobId)}/notes`, { notes: 'y'.repeat(5001) })).status).toBe(400);
@@ -339,7 +339,7 @@ describe('the HTML pages', () => {
     });
 
     it('FR-09: CRLF line breaks count once toward the limit', async () => {
-      const response = await testApp.form(`/jobs/${String(id('3Pillar'))}/notes`, { notes: 'ab\r\n'.repeat(1250) });
+      const response = await testApp.form(`/jobs/${String(id('4Corners'))}/notes`, { notes: 'ab\r\n'.repeat(1250) });
 
       expect(response.status).toBe(303);
     });
@@ -467,10 +467,10 @@ describe('the HTML pages', () => {
       /<form class="theme-form"[\s\S]*?name="return" value="([^"]*)"/.exec(text)?.[1]?.replaceAll('&amp;', '&');
 
     it('FR-23: POST /theme keeps the choice in a cookie and goes back to the page it came from', async () => {
-      const response = await testApp.form('/theme', { theme: 'dark', return: '/?origin=other&tab=saved&q=sdet' });
+      const response = await testApp.form('/theme', { theme: 'dark', return: '/?origin=other&tab=saved&q=dispatcher' });
 
       expect(response.status).toBe(303);
-      expect(response.headers.get('location')).toBe('/?origin=other&tab=saved&q=sdet');
+      expect(response.headers.get('location')).toBe('/?origin=other&tab=saved&q=dispatcher');
       expect(response.headers.getSetCookie()).toEqual(['theme=dark; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly']);
     });
 
@@ -507,7 +507,7 @@ describe('the HTML pages', () => {
     });
 
     it('FR-23: every page with the dark cookie is dark, error pages included', async () => {
-      for (const path of ['/', '/?origin=other', `/jobs/${String(id('Workiva'))}`, '/runs', '/profile', '/nope']) {
+      for (const path of ['/', '/?origin=other', `/jobs/${String(id('Ledgerly'))}`, '/runs', '/profile', '/nope']) {
         const response = await testApp.raw({ path, headers: { Cookie: 'theme=dark' } });
 
         expect(htmlTag(response.text), path).toBe('<html lang="en" data-theme="dark">');
@@ -527,10 +527,10 @@ describe('the HTML pages', () => {
     );
 
     it('FR-23: the toggle comes back to the page with its filters, without the one-time notice', async () => {
-      const jobId = id('Workiva');
+      const jobId = id('Ledgerly');
 
-      expect(returnField(await page(`/?origin=other&tab=saved&q=sdet&changed=${String(jobId)}`))).toBe(
-        '/?origin=other&tab=saved&q=sdet',
+      expect(returnField(await page(`/?origin=other&tab=saved&q=dispatcher&changed=${String(jobId)}`))).toBe(
+        '/?origin=other&tab=saved&q=dispatcher',
       );
       expect(returnField(await page('/?origin=other&tab=new&cleared=3'))).toBe('/?origin=other&tab=new');
       expect(returnField(await page(`/jobs/${String(jobId)}?notes=saved`))).toBe(`/jobs/${String(jobId)}`);
@@ -541,7 +541,7 @@ describe('the HTML pages', () => {
     it('FR-23: an error page has the toggle; after a failed form post it comes back to the board', async () => {
       expect(returnField(await page('/nope?x=1', 404))).toBe('/nope?x=1');
 
-      const failed = await testApp.form(`/jobs/${String(id('Optum'))}/status`, { status: 'offer' });
+      const failed = await testApp.form(`/jobs/${String(id('Medway'))}/status`, { status: 'offer' });
 
       expect(failed.status).toBe(409);
       expect(returnField(failed.text)).toBe('/');

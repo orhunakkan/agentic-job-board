@@ -14,7 +14,7 @@ const EMAIL = {
   receivedAt: '2026-10-23T09:00:00Z',
   sender: 'jobalerts-noreply@linkedin.com',
   subject: 'New jobs for you',
-  plainText: 'Your job alert for sdet in United States',
+  plainText: 'Your job alert for dispatcher in United States',
 };
 
 describe('the /find-jobs run API', () => {
@@ -110,7 +110,7 @@ describe('the /find-jobs run API', () => {
   describe('POST /api/runs/:id/scores', () => {
     it('FR-06: stores scores with their label, reason and rubric version', async () => {
       const { runId, jobs } = await seedBoard(testApp);
-      const job = jobAt(jobs, '3Pillar');
+      const job = jobAt(jobs, '4Corners');
 
       const response = await testApp.post(`/api/runs/${String(runId)}/scores`, {
         rubricVersion: 'v1',
@@ -194,12 +194,12 @@ describe('the /find-jobs run API', () => {
     it('FR-11, FR-13: finishing returns the counts and the top 5 new jobs by score', async () => {
       const { runId, jobs } = await seedBoard(testApp);
       const scored = [
-        ['Workiva', 70, 'possible'],
-        ['3Pillar', 92, 'strong'],
-        ['Cboe Global Markets', 88, 'strong'],
-        ['ConsumerAffairs', 85, 'strong'],
-        ['Optum', 40, 'weak'],
-        ['Milliman IntelliScript', 65, 'possible'],
+        ['Ledgerly', 70, 'possible'],
+        ['4Corners', 92, 'strong'],
+        ['Lakeshore Freight', 88, 'strong'],
+        ['ShopperVoice', 85, 'strong'],
+        ['Medway', 40, 'weak'],
+        ['Harbor Claims Services', 65, 'possible'],
       ] as const;
       await testApp.post(`/api/runs/${String(runId)}/scores`, {
         rubricVersion: 'v1',
@@ -227,11 +227,11 @@ describe('the /find-jobs run API', () => {
         jobsScored: 6,
       });
       expect(summary.topNewJobs.map((job) => [job.company, job.score])).toEqual([
-        ['3Pillar', 92],
-        ['Cboe Global Markets', 88],
-        ['ConsumerAffairs', 85],
-        ['Workiva', 70],
-        ['Milliman IntelliScript', 65],
+        ['4Corners', 92],
+        ['Lakeshore Freight', 88],
+        ['ShopperVoice', 85],
+        ['Ledgerly', 70],
+        ['Harbor Claims Services', 65],
       ]);
     });
 

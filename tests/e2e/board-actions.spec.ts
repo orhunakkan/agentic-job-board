@@ -18,10 +18,12 @@ test('FR-21: Clear All asks first, then dismisses the New jobs of the view only;
 }) => {
   const tag = uniqueTag();
   const [strong, plain] = await seedJobs(request, tag, [
-    { title: 'Clear SDET', company: 'Alpha Co', score: 84 },
-    { title: 'Clear QA', company: 'Beta Co' },
+    { title: 'Clear Dispatcher', company: 'Alpha Co', score: 84 },
+    { title: 'Clear Nurse', company: 'Beta Co' },
   ]);
-  const [listed] = await seedListings(request, tag, [{ source: 'greenhouse', title: 'Feed SDET', company: 'Feed Co' }]);
+  const [listed] = await seedListings(request, tag, [
+    { source: 'greenhouse', title: 'Feed Dispatcher', company: 'Feed Co' },
+  ]);
 
   await page.goto('/');
   const confirm = page.getByRole('button', { name: /^Dismiss \d+ jobs?$/ });

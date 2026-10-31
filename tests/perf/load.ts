@@ -41,7 +41,7 @@ const BOARD_PATHS = [
   '/',
   '/?tab=new&sort=recent',
   '/?tab=new&minScore=75',
-  '/?tab=new&q=playwright',
+  '/?tab=new&q=spanish',
   '/?tab=new&page=20',
   '/?tab=saved',
   '/?tab=in-progress',
@@ -52,7 +52,7 @@ const BOARD_PATHS = [
 const API_PATHS = [
   '/api/jobs',
   '/api/jobs?tab=new&limit=100',
-  '/api/jobs?tab=new&minScore=60&q=sdet',
+  '/api/jobs?tab=new&minScore=60&q=dispatcher',
   '/api/jobs?sort=recent&offset=1000&limit=50',
   '/api/jobs?unscored=true',
 ];

@@ -7,9 +7,9 @@ Feature: Clear All
   Scenario: Clear All asks first, naming how many jobs, then empties New for that view only
     Given the board has these jobs:
       | title      | view          |
-      | Clear SDET | LinkedIn      |
-      | Clear QA   | LinkedIn      |
-      | Feed SDET  | Other sources |
+      | Clear Dispatcher | LinkedIn      |
+      | Clear Nurse   | LinkedIn      |
+      | Feed Dispatcher  | Other sources |
     When I open the board
     And I press Clear All
     Then the board asks "Dismiss all 2 new LinkedIn jobs? Each one can be restored from Dismissed."
@@ -17,4 +17,4 @@ Feature: Clear All
     Then the board says "Dismissed 2 new LinkedIn jobs. Each one can be restored from Dismissed."
     And the New tab is empty
     When I open the Other sources view
-    Then the board lists "Feed SDET"
+    Then the board lists "Feed Dispatcher"

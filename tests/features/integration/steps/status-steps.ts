@@ -59,7 +59,7 @@ Given('the board has these jobs:', function (this: BoardWorld, table: DataTable)
 });
 
 Given('a job is {status}', function (this: BoardWorld, status: Status) {
-  putOnBoard(this, [jobRow({ title: 'Senior SDET', status })]);
+  putOnBoard(this, [jobRow({ title: 'Senior Dispatcher', status })]);
 });
 
 When('I change it to {status}', function (this: BoardWorld, to: Status) {

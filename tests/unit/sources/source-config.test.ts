@@ -4,8 +4,8 @@ import { parseSourcesConfig, SourcesConfigError } from '../../../src/sources/sou
 
 describe('data/sources.json', () => {
   it('FR-15: needs only keywords; every feed is on and no company is watched by default', () => {
-    expect(parseSourcesConfig('{"keywords":["sdet"]}', 'data/sources.json')).toEqual({
-      keywords: ['sdet'],
+    expect(parseSourcesConfig('{"keywords":["dispatcher"]}', 'data/sources.json')).toEqual({
+      keywords: ['dispatcher'],
       excludeKeywords: [],
       locations: [],
       companies: { greenhouse: [], lever: [], ashby: [], smartrecruiters: [], workable: [] },
@@ -25,8 +25,8 @@ describe('data/sources.json', () => {
   it.each([
     ['not JSON', '{keywords:', 'is not valid JSON'],
     ['no keywords', '{"keywords":[]}', 'keywords'],
-    ['a typo in a key', '{"keywords":["qa"],"keyword":["sdet"]}', 'Unrecognized key'],
-    ['a feed that does not exist', '{"keywords":["qa"],"feeds":{"monster":true}}', 'feeds'],
+    ['a typo in a key', '{"keywords":["nurse"],"keyword":["dispatcher"]}', 'Unrecognized key'],
+    ['a feed that does not exist', '{"keywords":["nurse"],"feeds":{"monster":true}}', 'feeds'],
   ])('NFR-09: refuses %s, naming the problem', (_case, json, message) => {
     expect(() => parseSourcesConfig(json, 'data/sources.json')).toThrow(SourcesConfigError);
     expect(() => parseSourcesConfig(json, 'data/sources.json')).toThrow(message);
@@ -35,7 +35,7 @@ describe('data/sources.json', () => {
   it.each(['../admin', 'example labs', 'labs/../../x', 'a?b=c', 'https://evil.example', ''])(
     'NFR-03: refuses the company name %j, which could change the URL the script asks for',
     (slug) => {
-      const json = JSON.stringify({ keywords: ['qa'], companies: { greenhouse: [slug] } });
+      const json = JSON.stringify({ keywords: ['nurse'], companies: { greenhouse: [slug] } });
 
       expect(() => parseSourcesConfig(json, 'data/sources.json')).toThrow('must be the company name');
     },

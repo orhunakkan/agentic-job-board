@@ -24,30 +24,30 @@ test.describe('accessibility', () => {
     tag = uniqueTag();
     const jobs = await seedJobs(request, tag, [
       {
-        title: 'Strong SDET',
+        title: 'Strong Dispatcher',
         company: 'Top Co',
         score: 92,
         rubricVersion: 'match-v2',
         easyApply: true,
         workplace: 'remote',
-        description: 'About the role\n\nOwn the test platform.',
-        searchName: 'QA family',
+        description: 'About the role\n\nRun the night dispatch desk.',
+        searchName: 'Dispatch family',
       },
-      { title: 'Possible QA', company: 'Mid Co', score: 64 },
-      { title: 'Weak Tester', company: 'Low Co', score: 21 },
-      { title: 'Unscored QA', company: 'Plain Co' },
+      { title: 'Possible Nurse', company: 'Mid Co', score: 64 },
+      { title: 'Weak Courier', company: 'Low Co', score: 21 },
+      { title: 'Unscored Nurse', company: 'Plain Co' },
     ]);
     jobId = jobs[0]?.id ?? 0;
     const listed = await seedListings(request, tag, [
       {
         source: 'greenhouse',
-        title: 'Feed SDET',
+        title: 'Feed Dispatcher',
         company: 'Feed Co',
         score: 81,
         salary: '$150K – $180K',
-        description: 'About the role\n\nOwn the test platform.\n• Playwright',
+        description: 'About the role\n\nRun the night dispatch desk.\n• Load planning',
       },
-      { source: 'hackernews', title: 'Feed QA', company: 'Post Co' },
+      { source: 'hackernews', title: 'Feed Nurse', company: 'Post Co' },
     ]);
     listedId = listed[0]?.id ?? 0;
     expect((await request.put('/api/profile', { data: PROFILE })).status()).toBe(200);

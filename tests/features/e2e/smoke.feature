@@ -15,14 +15,14 @@ Feature: Smoke test
 
   @smoke @FR-10
   Scenario: A job's page opens from the board
-    Given the board has a new LinkedIn job "Smoke SDET" scored 88
+    Given the board has a new LinkedIn job "Smoke Dispatcher" scored 88
     When I open the board
-    And I open "Smoke SDET" from its card
-    Then I see the page of "Smoke SDET" with its score and the reason for it
+    And I open "Smoke Dispatcher" from its card
+    Then I see the page of "Smoke Dispatcher" with its score and the reason for it
 
   @smoke @FR-11
   Scenario: The runs page opens
-    Given the board has a new LinkedIn job "Smoke SDET"
+    Given the board has a new LinkedIn job "Smoke Dispatcher"
     When I open the board
     And I go to Runs
     Then I see the list of runs, with 1 run

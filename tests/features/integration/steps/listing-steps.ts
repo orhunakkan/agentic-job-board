@@ -56,8 +56,8 @@ When('a run receives {string} twice', function (this: BoardWorld, title: string)
 When('a run receives a Greenhouse listing and a Lever listing with the same job ID', function (this: BoardWorld) {
   startRun(this);
   receive(this, [
-    { ...this.listing(jobRow({ title: 'Greenhouse SDET', source: 'greenhouse' })), sourceJobId: '5550001' },
-    { ...this.listing(jobRow({ title: 'Lever SDET', source: 'lever' })), sourceJobId: '5550001' },
+    { ...this.listing(jobRow({ title: 'Greenhouse Dispatcher', source: 'greenhouse' })), sourceJobId: '5550001' },
+    { ...this.listing(jobRow({ title: 'Lever Dispatcher', source: 'lever' })), sourceJobId: '5550001' },
   ]);
 });
 

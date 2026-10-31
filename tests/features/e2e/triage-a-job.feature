@@ -6,14 +6,14 @@ Feature: Triage a job
 
   @FR-10
   Scenario: Save a job, mark it applied, then interviewing, and see each step in its history
-    Given the board has a new LinkedIn job "Workflow SDET" scored 85
+    Given the board has a new LinkedIn job "Workflow Dispatcher" scored 85
     When I open the board
-    And I save "Workflow SDET"
-    Then the board says "Workflow SDET is now Saved."
-    And "Workflow SDET" is on the Saved tab
-    When I mark "Workflow SDET" as Applied
-    Then "Workflow SDET" is on the In progress tab
-    When I open "Workflow SDET"
+    And I save "Workflow Dispatcher"
+    Then the board says "Workflow Dispatcher is now Saved."
+    And "Workflow Dispatcher" is on the Saved tab
+    When I mark "Workflow Dispatcher" as Applied
+    Then "Workflow Dispatcher" is on the In progress tab
+    When I open "Workflow Dispatcher"
     And I change its status to Interviewing
     Then the page says "Status changed to Interviewing."
     And its status history reads "Created as New", "New → Saved", "Saved → Applied" and "Applied → Interviewing"
