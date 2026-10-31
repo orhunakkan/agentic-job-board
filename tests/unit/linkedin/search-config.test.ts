@@ -87,7 +87,12 @@ describe('data/linkedin-searches.json', () => {
     const parsed = parseLinkedInSearchConfig(example, 'linkedin-searches.example.json');
 
     expect(parsed.searches.length).toBeGreaterThan(1);
-    expect(resolveSearches(parsed).every((search) => search.location === 'United States')).toBe(true);
+    // The defaults' location applies to every search that doesn't name its own.
+    expect(resolveSearches(parsed).map((search) => search.location)).toEqual([
+      'United States',
+      'United States',
+      'Chicago, Illinois',
+    ]);
   });
 
   it.each([
