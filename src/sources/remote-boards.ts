@@ -32,8 +32,8 @@ export function remoteOkFeed(): FeedRequest {
     source: 'remoteok',
     name,
     url: 'https://remoteok.com/api',
-    read: (body) => {
-      const jobs = readJobs(
+    read: (body) =>
+      readJobs(
         name,
         body,
         z.array(z.unknown()).transform((items) => items.filter((item) => !isNotice(item))),
@@ -49,9 +49,7 @@ export function remoteOkFeed(): FeedRequest {
           salary: formatSalary(job.salary_min, job.salary_max, 'USD'),
           description: job.description ?? null,
         }),
-      );
-      return { ...jobs, followUps: [] };
-    },
+      ),
   };
 }
 
@@ -80,8 +78,8 @@ export function himalayasSearch(keyword: string): FeedRequest {
     source: 'himalayas',
     name,
     url: `https://himalayas.app/jobs/api/search?q=${segment(keyword)}&country=US`,
-    read: (body) => ({
-      ...readJobs(name, body, JobsEnvelope, HimalayasJob, (job) => ({
+    read: (body) =>
+      readJobs(name, body, JobsEnvelope, HimalayasJob, (job) => ({
         source: 'himalayas',
         // The page path is the stable ID: https://himalayas.app/companies/<company>/jobs/<job>
         sourceJobId: job.guid.replace(/^https:\/\/himalayas\.app\/companies\//, ''),
@@ -93,8 +91,6 @@ export function himalayasSearch(keyword: string): FeedRequest {
         salary: formatSalary(job.minSalary, job.maxSalary, job.currency, job.salaryPeriod),
         description: job.description ?? null,
       })),
-      followUps: [],
-    }),
   };
 }
 
@@ -120,8 +116,8 @@ export function jobicyFeed(): FeedRequest {
     source: 'jobicy',
     name,
     url: 'https://jobicy.com/api/v2/remote-jobs?count=100&geo=usa',
-    read: (body) => ({
-      ...readJobs(name, body, JobsEnvelope, JobicyJob, (job) => ({
+    read: (body) =>
+      readJobs(name, body, JobsEnvelope, JobicyJob, (job) => ({
         source: 'jobicy',
         sourceJobId: job.id,
         title: job.jobTitle,
@@ -132,7 +128,5 @@ export function jobicyFeed(): FeedRequest {
         salary: formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency, job.salaryPeriod),
         description: job.jobDescription ?? null,
       })),
-      followUps: [],
-    }),
   };
 }
