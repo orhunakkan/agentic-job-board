@@ -11,6 +11,9 @@ export interface Config {
   logFormat: LogFormat | null;
   /** The saved LinkedIn login (DEC-032), written by scripts/linkedin-login.ts. */
   linkedinSessionPath: string;
+  /** The LinkedIn searches and the free feeds setup checks for (FR-24); the scripts read the same files. */
+  linkedinSearchesPath: string;
+  sourcesPath: string;
   /** How the board's Find Now starts Claude Code (FR-22, DEC-052): the program, then any leading arguments. */
   claudeCommand: string[];
 }
@@ -20,6 +23,8 @@ export class ConfigError extends Error {
 }
 
 export const DEFAULT_LINKEDIN_SESSION_PATH = 'data/linkedin/session.json';
+export const DEFAULT_LINKEDIN_SEARCHES_PATH = 'data/linkedin-searches.json';
+export const DEFAULT_SOURCES_PATH = 'data/sources.json';
 
 const COMMAND_SHAPE = 'must be a JSON array of strings, for example ["claude"]';
 
@@ -52,6 +57,8 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
   LOG_FORMAT: z.enum(LOG_FORMATS).optional(),
   LINKEDIN_SESSION_PATH: z.string().trim().min(1).default(DEFAULT_LINKEDIN_SESSION_PATH),
+  LINKEDIN_SEARCHES_PATH: z.string().trim().min(1).default(DEFAULT_LINKEDIN_SEARCHES_PATH),
+  SOURCES_PATH: z.string().trim().min(1).default(DEFAULT_SOURCES_PATH),
   CLAUDE_COMMAND: CommandSchema.optional(),
 });
 
@@ -62,6 +69,8 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
     LOG_LEVEL: env['LOG_LEVEL'],
     LOG_FORMAT: env['LOG_FORMAT'],
     LINKEDIN_SESSION_PATH: env['LINKEDIN_SESSION_PATH'],
+    LINKEDIN_SEARCHES_PATH: env['LINKEDIN_SEARCHES_PATH'],
+    SOURCES_PATH: env['SOURCES_PATH'],
     CLAUDE_COMMAND: env['CLAUDE_COMMAND'],
   });
   if (!parsed.success) {
@@ -74,6 +83,8 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): C
     logLevel: parsed.data.LOG_LEVEL,
     logFormat: parsed.data.LOG_FORMAT ?? null,
     linkedinSessionPath: parsed.data.LINKEDIN_SESSION_PATH,
+    linkedinSearchesPath: parsed.data.LINKEDIN_SEARCHES_PATH,
+    sourcesPath: parsed.data.SOURCES_PATH,
     claudeCommand: parsed.data.CLAUDE_COMMAND ?? ['claude'],
   };
 }

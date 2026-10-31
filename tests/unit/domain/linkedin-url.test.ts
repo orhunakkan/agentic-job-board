@@ -24,7 +24,7 @@ describe('canonicalizeJobUrl', () => {
   });
 
   it.each([
-    'https://www.linkedin.com/jobs/search/?currentJobId=4473592349&keywords=sdet&f_TPR=r86400',
+    'https://www.linkedin.com/jobs/search/?currentJobId=4473592349&keywords=dispatcher&f_TPR=r86400',
     'https://www.linkedin.com/jobs/collections/recommended/?currentJobId=4473592349',
     'https://www.linkedin.com/jobs/?currentJobId=4473592349',
     'https://www.linkedin.com/jobs/view/4473592349/?alternateChannel=search&trackingId=x',
@@ -53,7 +53,7 @@ describe('canonicalizeJobUrl', () => {
   });
 
   it.each([
-    ['a job search link without an open job', 'https://www.linkedin.com/comm/jobs/search-results/?keywords=qa'],
+    ['a job search link without an open job', 'https://www.linkedin.com/comm/jobs/search-results/?keywords=nurse'],
     ['the job alerts page', 'https://www.linkedin.com/comm/jobs/alerts'],
     ['a help article', 'https://www.linkedin.com/help/linkedin/answer/4788'],
     ['a profile link', 'https://www.linkedin.com/in/someone/'],

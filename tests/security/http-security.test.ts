@@ -203,7 +203,7 @@ describe('HTTP security', () => {
           {
             source: 'linkedin',
             sourceJobId: '88',
-            title: 'SDET',
+            title: 'Dispatcher',
             company: 'Example Co',
             location: 'Remote',
             url: 'https://www.linkedin.com/jobs/view/88/?trackingId=T&otpToken=ONE-TIME-SECRET&midToken=M',

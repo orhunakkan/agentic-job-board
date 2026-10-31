@@ -7,13 +7,13 @@ const KEY = { appId: 'app-id-123', appKey: 'SECRET-KEY-456' };
 
 describe('Adzuna', () => {
   it('FR-15: searches the US for one keyword with the free key', () => {
-    const url = new URL(adzunaSearch('sdet', KEY).url);
+    const url = new URL(adzunaSearch('dispatcher', KEY).url);
 
     expect(`${url.origin}${url.pathname}`).toBe('https://api.adzuna.com/v1/api/jobs/us/search/1');
     expect(Object.fromEntries(url.searchParams)).toEqual({
       app_id: 'app-id-123',
       app_key: 'SECRET-KEY-456',
-      what: 'sdet',
+      what: 'dispatcher',
       results_per_page: '50',
       max_days_old: '14',
       'content-type': 'application/json',
@@ -21,17 +21,17 @@ describe('Adzuna', () => {
   });
 
   it('NFR-12: the name the script prints never holds the key', () => {
-    expect(adzunaSearch('sdet', KEY).name).toBe('Adzuna "sdet"');
+    expect(adzunaSearch('dispatcher', KEY).name).toBe('Adzuna "dispatcher"');
   });
 
   it('FR-15: reads results, strips highlights, and shows only a real salary', () => {
-    const { listings } = adzunaSearch('sdet', KEY).read({
+    const { listings } = adzunaSearch('dispatcher', KEY).read({
       __CLASS__: 'Adzuna::API::Response::JobSearchResults',
       count: 2,
       results: [
         {
           id: '5012345678',
-          title: 'Senior <strong>SDET</strong>',
+          title: 'Senior <strong>Dispatcher</strong>',
           redirect_url: 'https://www.adzuna.com/land/ad/5012345678?se=abc&v=def',
           created: '2026-10-20T08:00:00Z',
           description: 'Snippet of the ad…',
@@ -43,7 +43,7 @@ describe('Adzuna', () => {
         },
         {
           id: 5012345679,
-          title: 'QA Analyst',
+          title: 'Nurse Analyst',
           redirect_url: 'https://www.adzuna.com/land/ad/5012345679',
           company: { display_name: 'Sample Co' },
           salary_min: 70_000,
@@ -57,7 +57,7 @@ describe('Adzuna', () => {
       {
         source: 'adzuna',
         sourceJobId: '5012345678',
-        title: 'Senior SDET',
+        title: 'Senior Dispatcher',
         company: 'Example Labs',
         location: 'Austin, Travis County',
         url: 'https://www.adzuna.com/details/5012345678',
@@ -73,7 +73,7 @@ describe('Adzuna', () => {
 describe('planFeeds', () => {
   const config = parseSourcesConfig(
     JSON.stringify({
-      keywords: ['sdet', 'test automation'],
+      keywords: ['dispatcher', 'patient care'],
       companies: {
         greenhouse: ['examplelabs'],
         lever: ['example.co'],
@@ -93,12 +93,12 @@ describe('planFeeds', () => {
       'SmartRecruiters ExampleGroup',
       'Workable acme',
       'Remote OK',
-      'Himalayas "sdet"',
-      'Himalayas "test automation"',
+      'Himalayas "dispatcher"',
+      'Himalayas "patient care"',
       'Jobicy',
       'Hacker News',
-      'Adzuna "sdet"',
-      'Adzuna "test automation"',
+      'Adzuna "dispatcher"',
+      'Adzuna "patient care"',
     ]);
   });
 

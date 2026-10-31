@@ -51,9 +51,9 @@ describe('LinkedIn searches over the API', () => {
       const linkedin = JobListResponseSchema.parse((await testApp.get('/api/jobs?origin=linkedin')).body);
       expect(linkedin.total).toBe(3);
       const detail = JobDetailSchema.parse((await testApp.get(`/api/jobs/${String(job.id)}`)).body);
-      expect(detail.description).toContain('Playwright and TypeScript');
+      expect(detail.description).toContain('Ventilator care and charting');
       expect(detail.listingSightings).toEqual([
-        { runId, seenAt: expect.any(String) as string, searchName: 'QA family' },
+        { runId, seenAt: expect.any(String) as string, searchName: 'Dispatch family' },
       ]);
     });
 
@@ -77,7 +77,7 @@ describe('LinkedIn searches over the API', () => {
       ['a URL off LinkedIn', { url: 'https://example.com/jobs/view/4480000001/' }],
       ['a job ID that is not a number', { sourceJobId: 'abc', url: 'https://www.linkedin.com/jobs/view/abc/' }],
       ['an unknown workplace', { workplace: 'office' }],
-      ['a search name on two lines', { searchName: 'QA\nfamily' }],
+      ['a search name on two lines', { searchName: 'Nurse\nfamily' }],
       ['an empty search name', { searchName: '' }],
       ['an Easy Apply flag that is not a boolean', { easyApply: 'yes' }],
     ])('NFR-09: refuses a LinkedIn listing with %s, and stores nothing', async (_case, change) => {
@@ -159,20 +159,20 @@ describe('LinkedIn searches over the API', () => {
       expect(items.find((item) => item.company === 'Example Health')).toEqual({
         id: expect.any(Number) as number,
         source: 'linkedin',
-        title: 'Senior SDET (Playwright, TypeScript)',
+        title: 'Senior Registered Nurse (ICU, Days)',
         company: 'Example Health',
         location: 'United States (Remote)',
         workplace: 'remote',
         salary: '$150K/yr - $180K/yr',
         postedAt: '2026-10-23T09:00:00.000Z',
         description:
-          'About us\n\nWe build health software.\n• 5+ years of test automation\n• Playwright and TypeScript',
-        rubric: 'match-v1',
+          'About us\n\nWe run community clinics.\n• 5+ years of patient care\n• Ventilator care and charting',
+        rubric: 'match-v2',
         currentRubric: null,
       });
       expect(items.find((item) => item.company === 'Sample Freight')).toMatchObject({
         description: null,
-        rubric: 'triage-v1',
+        rubric: 'triage-v2',
       });
     });
 
@@ -184,27 +184,27 @@ describe('LinkedIn searches over the API', () => {
       expect(await queue('?limit=2')).toMatchObject({ total: 6, items: [expect.anything(), expect.anything()] });
     });
 
-    it('FR-20: empties as scores are posted; a triaged job with a description in New comes back for match-v1', async () => {
+    it('FR-20: empties as scores are posted; a triaged job with a description in New comes back for match-v2', async () => {
       const jobs = await seedLinkedInListings(testApp, runId);
-      await score(jobs, 'triage-v1');
+      await score(jobs, 'triage-v2');
 
       const { items } = await queue();
 
       // Newest first: Acme Payments was sent last.
       expect(items.map((item) => [item.company, item.rubric, item.currentRubric])).toEqual([
-        ['Acme Payments', 'match-v1', 'triage-v1'],
-        ['Example Health', 'match-v1', 'triage-v1'],
+        ['Acme Payments', 'match-v2', 'triage-v2'],
+        ['Example Health', 'match-v2', 'triage-v2'],
       ]);
       await score(
         jobs.filter((job) => job.company !== 'Sample Freight'),
-        'match-v1',
+        'match-v2',
       );
       expect(await queue()).toEqual({ items: [], total: 0 });
     });
 
     it('FR-20: a job the owner moved on from keeps its score (DEC-044)', async () => {
       const jobs = await seedLinkedInListings(testApp, runId);
-      await score(jobs, 'triage-v1');
+      await score(jobs, 'triage-v2');
       const health = jobAt(jobs, 'Example Health');
 
       await testApp.call('PATCH', `/api/jobs/${String(health.id)}`, { status: 'applied' });

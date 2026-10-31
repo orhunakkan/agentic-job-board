@@ -42,6 +42,18 @@ describe('scripts/seed.ts', () => {
     expect(jobs.filter((job) => job.seenCount > 1).length).toBeGreaterThan(50);
   });
 
+  it('FR-24: saves a valid profile, so the seeded board opens instead of the setup page', () => {
+    expect(testDb.repos.profile.state().status).toBe('saved');
+  });
+
+  it('NFR-14: the seeded jobs come from several lines of work', () => {
+    const titles = jobs.map((job) => job.title).join(' | ');
+
+    for (const word of ['Nurse', 'Accountant', 'Dispatcher', 'Teacher', 'Account', 'Developer']) {
+      expect(titles, word).toContain(word);
+    }
+  });
+
   it('NFR-05: spreads jobs over every status, and most are scored with a consistent label', () => {
     expect(Object.keys(summary.byStatus).sort()).toEqual([...STATUSES].sort());
     expect(summary.scored).toBeGreaterThan(300);

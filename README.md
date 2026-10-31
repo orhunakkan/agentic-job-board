@@ -2,9 +2,11 @@
 
 [![CI](https://github.com/orhunakkan/agentic-job-board/actions/workflows/ci.yml/badge.svg)](https://github.com/orhunakkan/agentic-job-board/actions/workflows/ci.yml)
 
-A private, localhost-only command center for one person's LinkedIn job hunt, and a testing-pyramid showcase.
+A private, localhost-only command center for one person's job hunt, in any line of work, and a testing-pyramid showcase.
 
-Running **`/find-jobs`** in Claude Code runs the owner's own LinkedIn searches with their saved LinkedIn session, limited to jobs posted since the last run, and reads each new job's full page. The same run reads free public job feeds (company job boards, remote job boards, Hacker News "Who is hiring?"), and the board shows those jobs on a view of their own. The app deduplicates and stores the jobs with deterministic, tested code, and Claude scores each new job from 0 to 100 against the owner's profile, on its full description, with a one-line reason. The board at http://127.0.0.1:3000 ranks the jobs by fit and tracks each one: saved → applied → interviewing → offer or rejected, plus notes.
+The board assumes nothing about your field: a nurse, an accountant, a dispatcher or a developer uses it the same way. It first asks for your profile (your line of work, the jobs you want, your skills and credentials, where you can work) and for your searches or feeds, and every score is judged only against that profile.
+
+Running **`/find-jobs`** in Claude Code runs your own LinkedIn searches with their saved LinkedIn session, limited to jobs posted since the last run, and reads each new job's full page. The same run reads free public job feeds (company job boards, remote job boards, Hacker News "Who is hiring?"), and the board shows those jobs on a view of their own. The app deduplicates and stores the jobs with deterministic, tested code, and Claude scores each new job from 0 to 100 against your profile, on its full description, with a one-line reason. The board at http://127.0.0.1:3000 ranks the jobs by fit and tracks each one: saved → applied → interviewing → offer or rejected, plus notes.
 
 [`PLAN.md`](PLAN.md) is the full plan and the source of truth.
 
@@ -24,6 +26,7 @@ Screenshots are taken with Playwright from fake data (`node scripts/screenshots.
 ```
 /find-jobs (Claude Code)                          App (Node 24, TypeScript, 127.0.0.1 only)
   1. GET  /api/health
+     GET  /api/setup             ───────────────►  is the board set up? (stop if not)
   2. POST /api/runs              ───────────────►  start a run
   3. node scripts/search-linkedin.ts --run <id>
        runs the LinkedIn searches in a hidden browser with the saved session
@@ -42,7 +45,7 @@ Screenshots are taken with Playwright from fake data (`node scripts/screenshots.
 Code does everything deterministic (reading pages, deduplication, storage, validation), so it can be tested. Claude does only what needs judgment (scoring). The app never calls an AI model and needs no API key.
 
 - **Stack:** Node 24 running TypeScript natively, `node:http`, `node:sqlite`, Zod, server-rendered HTML with no client-side JavaScript. The only runtime dependency is `zod`.
-- **Agent:** [`agent/find-jobs.md`](agent/find-jobs.md) (the procedure and its safety rules) and [`agent/scoring-rubric.md`](agent/scoring-rubric.md) (rubric `match-v1` for jobs with a description, `triage-v1` for the rest, and their calibration).
+- **Agent:** [`agent/find-jobs.md`](agent/find-jobs.md) (the procedure and its safety rules) and [`agent/scoring-rubric.md`](agent/scoring-rubric.md) (rubric `match-v2` for jobs with a description, `triage-v2` for the rest, judged only against your profile, and their calibration).
 - **Docs:** [API and pages](docs/api.md), [test strategy](docs/test-strategy.md), [traceability matrix](docs/traceability.md), [defect log](docs/defects.md), [decisions](docs/decisions.md).
 
 ## Setup
@@ -76,14 +79,15 @@ In a terminal it prints the board address on a line of its own, the LinkedIn sta
 06:45:59  200  GET /  3 ms
 ```
 
-The first start creates `data/jobboard.db`. Load your profile once (it is the basis of every score):
+The first start creates `data/jobboard.db`, and the board opens on **Setup** (http://127.0.0.1:3000/setup), a checklist of what it needs before it looks for jobs (FR-24):
 
-```bash
-curl -s -X PUT http://127.0.0.1:3000/api/profile \
-  -H "Content-Type: application/json" --data-binary @data/profile.json
-```
+1. **Your profile.** Fill it in on the board: your line of work, a few sentences about what you want next, the job titles you want, your level and years, your skills, any licenses or certifications, where you can work (remote regions, hybrid or on-site areas, relocation), whether you need sponsorship, your deal-breakers and companies to skip. Every score is based on it, and you can edit it on **Profile** at any time.
+2. **Where to search**, at least one of:
+   - your LinkedIn searches: `cp linkedin-searches.example.json data/linkedin-searches.json` and write your own (see [LinkedIn searches](#linkedin-searches)), then sign in once with `node scripts/linkedin-login.ts`;
+   - the free job feeds: `cp sources.example.json data/sources.json` and set your keywords and feeds (see [Other job sources](#other-job-sources)).
+3. **Find Now** on the board, or `/find-jobs` in Claude Code.
 
-Write your LinkedIn searches once (see [LinkedIn searches](#linkedin-searches)), then, in Claude Code in this folder:
+Until the profile is saved the board shows setup instead of jobs, `POST /api/runs` answers 409 `setup_required`, and each view's Find Now stays off, with its reason, until that view's own file is there. The examples describe one made-up accountant; replace them with your own. In Claude Code in this folder:
 
 ```text
 /find-jobs
@@ -109,7 +113,7 @@ Each view of the board (LinkedIn, Other sources) has two buttons (PLAN.md Phase 
 ```bash
 cp linkedin-searches.example.json data/linkedin-searches.json   # then write your own searches
 node scripts/search-linkedin.ts --dry-run          # lists what the searches find; sends nothing
-node scripts/search-linkedin.ts --search "SDET"    # one search only, stored as a run of its own
+node scripts/search-linkedin.ts --search "Staff accountant"    # one search only, stored as a run of its own
 node scripts/search-linkedin.ts --backfill         # reads the pages of jobs in New and Saved that have no description
 ```
 
@@ -126,7 +130,7 @@ Besides the LinkedIn searches, `/find-jobs` reads free public job feeds (PLAN.md
 | Community          | Hacker News "Ask HN: Who is hiring?"                             | The posts of the newest monthly thread                        |
 | Aggregator         | Adzuna, only with `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` in `.env` | A US search per keyword                                       |
 
-Only jobs whose title matches your keywords (and whose location matches, when you list locations) reach the board. Set them up once:
+Remote OK, Himalayas, Jobicy and Hacker News mostly carry tech jobs, so the example leaves them off; Adzuna and company job boards carry jobs from every field. Only jobs whose title matches your keywords (and whose location matches, when you list locations) reach the board. Set them up once:
 
 ```bash
 cp sources.example.json data/sources.json     # keywords, excluded words, locations, company watchlist, feeds on/off
@@ -160,7 +164,7 @@ Ten test types, each run by one command. Every test name starts with the require
 | 4   | API           | Vitest + `fetch` against the real server       | Every endpoint and page, every status code                                                            | `npm run test:api`                                          |
 | 5   | Contract      | Vitest + Zod                                   | Every response matches its schema; the agent's example payloads parse                                 | `npm run test:contract`                                     |
 | 6   | Security      | Vitest                                         | Localhost-only, DNS-rebinding and cross-site guards, escaping, no tokens stored, no outbound requests | `npm run test:security`                                     |
-| 7   | E2E           | Playwright: Chromium, Firefox, WebKit, Pixel 7 | Filter, save → applied → interviewing, notes, dismiss and restore                                     | `npm run test:e2e`                                          |
+| 7   | E2E           | Playwright: Chromium, Firefox, WebKit, Pixel 7 | First run through setup and the profile form; filter, save → applied → interviewing, notes, dismiss   | `npm run test:e2e`                                          |
 | 8   | Smoke         | Playwright `@smoke`                            | The app starts, the board renders, a job opens                                                        | `npm run test:smoke`                                        |
 | 9   | Accessibility | `@axe-core/playwright`                         | No WCAG 2.2 AA violations on any page or tab, light and dark                                          | part of `npm run test:e2e`                                  |
 | 10  | Performance   | k6                                             | p95 < 200 ms with 5,000 jobs and 20 users (last run: p95 22.5 ms, 0 % errors)                         | `npm run test:perf`                                         |
@@ -217,6 +221,6 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs static checks a
 - **Job sources only through two scripts.** `scripts/fetch-sources.ts` asks a fixed list of hosts; your config only fills in company names and keywords. `scripts/search-linkedin.ts` builds only `https://www.linkedin.com/jobs/search/` addresses from your searches.
 - **LinkedIn only through your own login.** LinkedIn is reached only by scripts you run, with the session you saved yourself (DEC-032). The app server makes no outbound requests at all (a test checks every source file), and `/find-jobs` never opens links. The one process the app starts is Claude Code for Find Now, with fixed arguments and no shell (DEC-052). Cookie values never appear in API responses, pages, logs or script output.
 - **No Gmail.** The alert-email track is retired (DEC-041); nothing reads your mail. Jobs from the email years keep their email sightings on the board.
-- **Personal data stays local.** The database, résumé, profile and searches live in `data/`, which git ignores. LinkedIn links are stored only in their canonical form, so no tracking value reaches the database.
+- **Personal data stays local.** The database (with your profile), your searches and feeds live in `data/`, which git ignores; setup reports only whether each file is there and valid, never its contents. LinkedIn links are stored only in their canonical form, so no tracking value reaches the database.
 - **Job text is data, never instructions.** Every title and description is HTML-escaped on every page, and the agent treats a description like "ignore previous instructions" as just a strange job ad.
 - **Localhost only.** The server binds to 127.0.0.1, refuses other `Host` headers (DNS rebinding) and refuses writes from other websites.

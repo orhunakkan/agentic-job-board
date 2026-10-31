@@ -7,27 +7,27 @@ Feature: Filtering the board
   Background:
     Given the board has these jobs:
       | title       | company  | score |
-      | Strong SDET | Top Co   | 91    |
-      | Possible QA | Mid Co   | 60    |
-      | Weak Tester | Low Co   | 20    |
-      | Unscored QA | Plain Co |       |
+      | Strong Dispatcher | Top Co   | 91    |
+      | Possible Nurse | Mid Co   | 60    |
+      | Weak Courier | Low Co   | 20    |
+      | Unscored Nurse | Plain Co |       |
 
   Scenario: The board lists the best scores first and unscored jobs last
     When I open the board
-    Then the board lists "Strong SDET", "Possible QA", "Weak Tester" and "Unscored QA", in that order
+    Then the board lists "Strong Dispatcher", "Possible Nurse", "Weak Courier" and "Unscored Nurse", in that order
 
   Scenario: A minimum score hides the weaker jobs
     When I open the board
     And I filter for a minimum score of 50
-    Then the board lists "Strong SDET" and "Possible QA", in that order
+    Then the board lists "Strong Dispatcher" and "Possible Nurse", in that order
     And the filter still shows a minimum score of 50
 
   Scenario: Search finds a job by its company
     When I open the board
     And I search for "Mid Co"
-    Then the board lists "Possible QA"
+    Then the board lists "Possible Nurse"
 
   Scenario: Newest first puts the jobs found last at the top
     When I open the board
     And I sort by Newest
-    Then the board lists "Unscored QA", "Weak Tester", "Possible QA" and "Strong SDET", in that order
+    Then the board lists "Unscored Nurse", "Weak Courier", "Possible Nurse" and "Strong Dispatcher", in that order

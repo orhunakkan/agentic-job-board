@@ -27,7 +27,7 @@ function putOnBoard(world: BoardWorld, rows: readonly JobRow[]): void {
       score: row.score,
       label: labelForScore(row.score),
       reason: 'Matches the profile.',
-      rubricVersion: row.description === null ? 'triage-v1' : 'match-v1',
+      rubricVersion: row.description === null ? 'triage-v2' : 'match-v2',
       scoredAt: world.clock(),
     });
   }
@@ -59,7 +59,7 @@ Given('the board has these jobs:', function (this: BoardWorld, table: DataTable)
 });
 
 Given('a job is {status}', function (this: BoardWorld, status: Status) {
-  putOnBoard(this, [jobRow({ title: 'Senior SDET', status })]);
+  putOnBoard(this, [jobRow({ title: 'Senior Dispatcher', status })]);
 });
 
 When('I change it to {status}', function (this: BoardWorld, to: Status) {

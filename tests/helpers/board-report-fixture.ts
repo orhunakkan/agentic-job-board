@@ -258,7 +258,7 @@ function tests(second: boolean): FixtureTest[] {
         step('Given the board has these jobs', 'passed', 'Given', [], {
           dataTable: [
             ['title', 'view', 'status'],
-            ['Senior SDET', 'LinkedIn', 'New'],
+            ['Senior Dispatcher', 'LinkedIn', 'New'],
           ],
         }),
         step('When I press Clear All', 'passed', 'When'),

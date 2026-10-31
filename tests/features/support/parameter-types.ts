@@ -54,7 +54,7 @@ defineParameterType({
 
 defineParameterType({ name: 'view', regexp: /LinkedIn|Other sources/, transformer: viewNamed });
 
-// "Senior SDET", "QA Lead" and "Test Architect": one or more quoted titles.
+// "Senior Dispatcher", "Lead Nurse" and "Test Architect": one or more quoted titles.
 defineParameterType({
   name: 'titles',
   regexp: /"[^"]+"(?:(?:, | and )"[^"]+")*/,

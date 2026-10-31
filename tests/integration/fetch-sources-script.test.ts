@@ -15,7 +15,7 @@ import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
 const CONFIG = parseSourcesConfig(
   JSON.stringify({
-    keywords: ['sdet', 'qa'],
+    keywords: ['dispatcher', 'nurse'],
     excludeKeywords: ['intern'],
     locations: ['remote', 'united states'],
     companies: { greenhouse: ['examplelabs'], lever: ['brokenco'] },
@@ -28,12 +28,12 @@ const GREENHOUSE = {
   jobs: [
     {
       id: 1001,
-      title: 'Senior SDET',
+      title: 'Senior Dispatcher',
       absolute_url: 'https://job-boards.greenhouse.io/examplelabs/jobs/1001',
       company_name: 'Example Labs',
       location: { name: 'Remote, United States' },
       first_published: '2026-10-20T09:00:00Z',
-      content: '&lt;p&gt;Own the test platform.&lt;/p&gt;',
+      content: '&lt;p&gt;Run the night dispatch desk.&lt;/p&gt;',
     },
     {
       id: 1002,
@@ -43,13 +43,13 @@ const GREENHOUSE = {
     },
     {
       id: 1003,
-      title: 'QA Intern',
+      title: 'Nurse Intern',
       absolute_url: 'https://job-boards.greenhouse.io/examplelabs/jobs/1003',
       location: { name: 'Remote' },
     },
     {
       id: 1004,
-      title: 'QA Engineer',
+      title: 'Nurse Educator',
       absolute_url: 'https://job-boards.greenhouse.io/examplelabs/jobs/1004',
       location: { name: 'Berlin, Germany' },
     },
@@ -60,7 +60,7 @@ const REMOTE_OK = [
   { legal: 'API Terms of Service' },
   {
     id: '77',
-    position: 'QA Lead',
+    position: 'Lead Nurse',
     company: 'Sample Co',
     location: '',
     url: 'https://remoteOK.com/remote-jobs/77',
@@ -69,7 +69,7 @@ const REMOTE_OK = [
     salary_max: 140_000,
   },
   // The same job again later in the feed: sent once.
-  { id: '77', position: 'QA Lead', company: 'Sample Co', url: 'https://remoteOK.com/remote-jobs/77' },
+  { id: '77', position: 'Lead Nurse', company: 'Sample Co', url: 'https://remoteOK.com/remote-jobs/77' },
 ];
 
 const HN_STORIES = { hits: [{ objectID: '900', title: 'Ask HN: Who is hiring? (October 2026)' }] };
@@ -79,7 +79,7 @@ const HN_POSTS = {
       objectID: '901',
       parent_id: 900,
       created_at: '2026-10-02T10:00:00Z',
-      comment_text: 'Acme | Senior SDET | REMOTE (US)<p>We test rockets.',
+      comment_text: 'Acme | Senior Dispatcher | REMOTE (US)<p>We move freight.',
     },
   ],
 };
@@ -149,8 +149,8 @@ describe('scripts/fetch-sources.ts', () => {
       failures: ['Lever brokenco: HTTP 404 from api.lever.co'],
     });
     expect(lines).toContain('Greenhouse examplelabs: 4 jobs, 1 matching');
-    expect(lines).toContain('  Senior SDET · Example Labs · Remote, United States · Greenhouse');
-    expect(lines).toContain('  QA Lead · Sample Co · Remote · Remote OK');
+    expect(lines).toContain('  Senior Dispatcher · Example Labs · Remote, United States · Greenhouse');
+    expect(lines).toContain('  Lead Nurse · Sample Co · Remote · Remote OK');
     expect(lines).toContain('Lever brokenco: HTTP 404 from api.lever.co (skipped)');
     expect((await jobs('other')).total).toBe(0);
     expect(FetchSourcesSummarySchema.safeParse(summary).success).toBe(true);
@@ -167,9 +167,9 @@ describe('scripts/fetch-sources.ts', () => {
 
     const stored = await jobs('other');
     expect(stored.items.map((job) => [job.source, job.title, job.company]).sort()).toEqual([
-      ['greenhouse', 'Senior SDET', 'Example Labs'],
-      ['hackernews', 'Senior SDET', 'Acme'],
-      ['remoteok', 'QA Lead', 'Sample Co'],
+      ['greenhouse', 'Senior Dispatcher', 'Example Labs'],
+      ['hackernews', 'Senior Dispatcher', 'Acme'],
+      ['remoteok', 'Lead Nurse', 'Sample Co'],
     ]);
     expect((await jobs('linkedin')).total).toBe(0);
   });
@@ -197,7 +197,7 @@ describe('scripts/fetch-sources.ts', () => {
     const many = {
       jobs: Array.from({ length: 60 }, (_, index) => ({
         id: 2000 + index,
-        title: `SDET ${String(index)}`,
+        title: `Dispatcher ${String(index)}`,
         absolute_url: `https://job-boards.greenhouse.io/examplelabs/jobs/${String(2000 + index)}`,
         location: { name: 'Remote' },
       })),
@@ -220,7 +220,7 @@ describe('scripts/fetch-sources.ts', () => {
 
     expect(feeds.asked.some((url) => url.includes('app_key=SECRET-KEY'))).toBe(true);
     expect(JSON.stringify([lines, summary])).not.toContain('SECRET-KEY');
-    expect(summary.failures).toContain('Adzuna "sdet": HTTP 404 from api.adzuna.com');
+    expect(summary.failures).toContain('Adzuna "dispatcher": HTTP 404 from api.adzuna.com');
   });
 
   it('FR-15: a feed whose answer has the wrong shape is a failure, not an empty feed', async () => {
@@ -267,7 +267,7 @@ describe('scripts/fetch-sources.ts on the command line', () => {
     writeFileSync(
       config,
       JSON.stringify({
-        keywords: ['sdet'],
+        keywords: ['dispatcher'],
         feeds: { remoteok: false, himalayas: false, jobicy: false, hackernews: false, adzuna: false },
       }),
     );
@@ -295,7 +295,7 @@ describe('scripts/fetch-sources.ts on the command line', () => {
 
   it('FR-15: readConfig reads and checks the file', () => {
     const config = join(dir, 'typo.json');
-    writeFileSync(config, '{"keyword":["qa"]}');
+    writeFileSync(config, '{"keyword":["nurse"]}');
 
     expect(() => readConfig(config)).toThrow(SourcesConfigError);
   });

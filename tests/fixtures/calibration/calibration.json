@@ -1,0 +1,203 @@
+{
+  "about": "Invented jobs for calibrating the scoring rubrics (agent/scoring-rubric.md, DEC-067). Every company is made up. Each job names the sample profile it is scored against and the label it should get.",
+  "profiles": {
+    "icu-nurse": {
+      "field": "Registered nursing, critical care",
+      "summary": "ICU nurse at a community hospital; wants a senior staff or charge nurse role in a larger ICU.",
+      "targetRoles": ["ICU Registered Nurse", "Critical Care Charge Nurse"],
+      "seniority": "senior",
+      "yearsExperience": 7,
+      "coreSkills": ["Ventilator management", "Hemodynamic monitoring", "Patient assessment", "Rapid response"],
+      "secondarySkills": ["Epic charting", "Precepting new nurses"],
+      "credentials": ["RN license (Texas)", "BLS", "ACLS", "CCRN"],
+      "locations": {
+        "remote": [],
+        "hybridAreas": [],
+        "onsiteAreas": ["Austin, TX", "San Antonio, TX"],
+        "relocate": false
+      },
+      "workAuthorization": "US citizen, no sponsorship needed",
+      "dealBreakers": ["night shifts only", "travel nursing contracts"],
+      "excludedCompanies": ["Example Staffing Partners"]
+    },
+    "staff-accountant": {
+      "field": "Accounting",
+      "summary": "Staff accountant in public accounting for four years; wants a senior accountant role in industry.",
+      "targetRoles": ["Senior Accountant", "Staff Accountant"],
+      "seniority": "mid",
+      "yearsExperience": 4,
+      "coreSkills": ["Month-end close", "Account reconciliations", "Journal entries", "US GAAP"],
+      "secondarySkills": ["NetSuite", "Excel", "Audit support"],
+      "credentials": ["CPA (Illinois)"],
+      "locations": {
+        "remote": ["United States"],
+        "hybridAreas": ["Chicago, IL"],
+        "onsiteAreas": [],
+        "relocate": false
+      },
+      "workAuthorization": "US citizen, no sponsorship needed",
+      "dealBreakers": ["commission-based pay"],
+      "excludedCompanies": []
+    },
+    "backend-developer": {
+      "field": "Software development, backend",
+      "summary": "Backend developer building APIs and data pipelines; wants a senior backend role at a product company.",
+      "targetRoles": ["Senior Backend Developer", "Backend Software Developer"],
+      "seniority": "senior",
+      "yearsExperience": 8,
+      "coreSkills": ["Go", "PostgreSQL", "REST API design", "Kubernetes"],
+      "secondarySkills": ["Python", "Kafka", "AWS"],
+      "credentials": [],
+      "locations": { "remote": ["United States", "Canada"], "hybridAreas": [], "onsiteAreas": [], "relocate": false },
+      "workAuthorization": "US and Canadian citizen, no sponsorship needed",
+      "dealBreakers": ["active security clearance required", "on-call more than one week a month"],
+      "excludedCompanies": ["Example Ads Network"]
+    }
+  },
+  "jobs": [
+    {
+      "id": "nurse-icu-days",
+      "profile": "icu-nurse",
+      "rubric": "match-v2",
+      "title": "ICU Registered Nurse - Day Shift",
+      "company": "Example Regional Medical Center",
+      "location": "Austin, TX",
+      "workplace": "on-site",
+      "salary": "$42 - $58 an hour",
+      "description": "Join our 24-bed Level II ICU. Three 12-hour day shifts a week. Care for ventilated and post-surgical patients, titrate drips, respond to rapid responses.\n\nRequired: Texas or compact RN license, BLS and ACLS, 3+ years of ICU experience.\nPreferred: CCRN, experience precepting new graduates.",
+      "expectedLabel": "strong"
+    },
+    {
+      "id": "nurse-travel-contract",
+      "profile": "icu-nurse",
+      "rubric": "match-v2",
+      "title": "Critical Care Travel Nurse (13-week contract)",
+      "company": "Sample Travel Health",
+      "location": "San Antonio, TX",
+      "workplace": "on-site",
+      "salary": "$2,400 a week",
+      "description": "13-week travel nursing contract in a busy medical ICU, with extension possible. Day and night rotation.\n\nRequired: active RN license, BLS, ACLS, 2+ years of ICU experience.",
+      "expectedLabel": "weak"
+    },
+    {
+      "id": "nurse-manager",
+      "profile": "icu-nurse",
+      "rubric": "match-v2",
+      "title": "Nurse Manager, Cardiac ICU",
+      "company": "Example Heart Institute",
+      "location": "Austin, TX",
+      "workplace": "on-site",
+      "salary": null,
+      "description": "Lead a 60-person cardiac ICU team: staffing, budgets, quality measures and hiring. Some weekend on-call.\n\nRequired: Texas RN license, MSN, 5+ years of critical care with 3+ years in a formal leadership role.",
+      "expectedLabel": "possible"
+    },
+    {
+      "id": "nurse-icu-nights",
+      "profile": "icu-nurse",
+      "rubric": "triage-v2",
+      "title": "Registered Nurse - ICU Nights",
+      "company": "Example Community Hospital",
+      "location": "Houston, TX",
+      "workplace": null,
+      "salary": null,
+      "description": null,
+      "expectedLabel": "weak"
+    },
+    {
+      "id": "accountant-senior-hybrid",
+      "profile": "staff-accountant",
+      "rubric": "match-v2",
+      "title": "Senior Accountant",
+      "company": "Example Manufacturing Co.",
+      "location": "Chicago, IL",
+      "workplace": "hybrid",
+      "salary": "$85,000 - $100,000",
+      "description": "Own the month-end close for two business units: journal entries, account reconciliations and flux analysis under US GAAP. Support the annual audit.\n\nRequired: 3-5 years of accounting experience, NetSuite or a similar ERP, advanced Excel.\nPreferred: CPA.\nHybrid: three days a week in our Chicago office.",
+      "expectedLabel": "strong"
+    },
+    {
+      "id": "accountant-payables",
+      "profile": "staff-accountant",
+      "rubric": "match-v2",
+      "title": "Accounts Payable Specialist",
+      "company": "Sample Software Inc.",
+      "location": "Remote, United States",
+      "workplace": "remote",
+      "salary": "$55,000 - $62,000",
+      "description": "Process vendor invoices and payment runs, keep vendor records, and help with reconciliations at month-end.\n\nRequired: 1-2 years of accounts payable experience, Excel.\nFully remote within the United States.",
+      "expectedLabel": "possible"
+    },
+    {
+      "id": "accountant-tax-manager",
+      "profile": "staff-accountant",
+      "rubric": "triage-v2",
+      "title": "Tax Manager",
+      "company": "Example Tax Advisors LLP",
+      "location": "New York, NY",
+      "workplace": null,
+      "salary": null,
+      "description": null,
+      "expectedLabel": "weak"
+    },
+    {
+      "id": "accountant-payroll-cpp",
+      "profile": "staff-accountant",
+      "rubric": "match-v2",
+      "title": "Payroll Accountant",
+      "company": "Example Benefits Group",
+      "location": "United States",
+      "workplace": null,
+      "salary": null,
+      "description": "Run multi-state payroll for 3,000 employees, reconcile payroll accounts and file payroll tax returns.\n\nRequired: Certified Payroll Professional (CPP) certification, 4+ years of multi-state payroll experience, ADP Workforce Now.",
+      "expectedLabel": "weak"
+    },
+    {
+      "id": "developer-go-remote",
+      "profile": "backend-developer",
+      "rubric": "match-v2",
+      "title": "Senior Backend Developer (Go)",
+      "company": "Example Logistics Cloud",
+      "location": "Remote (US)",
+      "workplace": "remote",
+      "salary": "$165,000 - $195,000",
+      "description": "Build the Go services behind our shipment tracking API. Design REST endpoints, tune PostgreSQL, run everything on Kubernetes.\n\nRequired: 5+ years of backend development, Go, PostgreSQL.\nNice to have: Kafka, AWS.\nRemote anywhere in the US; on-call one week in six.",
+      "expectedLabel": "strong"
+    },
+    {
+      "id": "developer-ads-excluded",
+      "profile": "backend-developer",
+      "rubric": "match-v2",
+      "title": "Senior Backend Developer, Ads Platform",
+      "company": "Example Ads Network",
+      "location": "Remote (US)",
+      "workplace": "remote",
+      "salary": null,
+      "description": "Scale the bidding service that serves billions of ad requests a day. Go, PostgreSQL, Kubernetes. 6+ years of backend experience. Remote in the US.",
+      "expectedLabel": "weak"
+    },
+    {
+      "id": "developer-python-hybrid",
+      "profile": "backend-developer",
+      "rubric": "match-v2",
+      "title": "Platform Developer (Python)",
+      "company": "Sample Data Works",
+      "location": "Denver, CO",
+      "workplace": "hybrid",
+      "salary": "$140,000 - $160,000",
+      "description": "Build internal data platform services in Python on AWS, with Kafka event streams. 5+ years of backend experience.\n\nHybrid: two days a week in our Denver office.",
+      "expectedLabel": "possible"
+    },
+    {
+      "id": "developer-go-canada",
+      "profile": "backend-developer",
+      "rubric": "triage-v2",
+      "title": "Senior Go Developer",
+      "company": "Sample Payments",
+      "location": "Remote - Canada",
+      "workplace": null,
+      "salary": null,
+      "description": null,
+      "expectedLabel": "strong"
+    }
+  ]
+}

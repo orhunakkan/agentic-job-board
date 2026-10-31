@@ -5,32 +5,32 @@ Feature: Scoring jobs
   so that the best matches are at the top of the board.
 
   Scenario: A stored score shows on the job with its label, its reason and its rubric
-    Given the board has a job "Senior SDET"
-    When a run scores "Senior SDET" 82 with match-v1, because "Strong Playwright match."
+    Given the board has a job "Senior Dispatcher"
+    When a run scores "Senior Dispatcher" 82 with match-v2, because "Strong match on the dispatch skills."
     Then the scores are stored
-    And "Senior SDET" has the score 82, labelled Strong, because "Strong Playwright match."
-    And "Senior SDET" was scored with match-v1
+    And "Senior Dispatcher" has the score 82, labelled Strong, because "Strong match on the dispatch skills."
+    And "Senior Dispatcher" was scored with match-v2
 
   Scenario: A label that doesn't match the score is refused
-    Given the board has a job "Senior SDET"
-    When a run scores "Senior SDET" 80 but labels it Weak
+    Given the board has a job "Senior Dispatcher"
+    When a run scores "Senior Dispatcher" 80 but labels it Weak
     Then the scores are refused with an explanation
-    And "Senior SDET" is still unscored
+    And "Senior Dispatcher" is still unscored
 
   Scenario: Scores for a job that doesn't exist are refused, and none is stored
-    Given the board has a job "Senior SDET"
-    When a run scores "Senior SDET" and a job that doesn't exist
+    Given the board has a job "Senior Dispatcher"
+    When a run scores "Senior Dispatcher" and a job that doesn't exist
     Then the scores are refused, naming the job that doesn't exist
-    And "Senior SDET" is still unscored
+    And "Senior Dispatcher" is still unscored
 
   @FR-20
   Scenario: The scoring queue names the rubric each job needs
     Given the board has these jobs:
       | title       | description               |
-      | Senior SDET | Own the Playwright suite. |
-      | QA Lead     |                           |
+      | Senior Dispatcher | Lead the dispatch team. |
+      | Lead Nurse     |                           |
     When I ask which jobs need a score
     Then the queue holds:
       | job         | rubric    |
-      | Senior SDET | match-v1  |
-      | QA Lead     | triage-v1 |
+      | Senior Dispatcher | match-v2  |
+      | Lead Nurse     | triage-v2 |

@@ -93,7 +93,7 @@ export function listingFor(row: JobRow, n: number): IncomingListing {
       description: row.description,
       workplace: 'remote',
       easyApply: false,
-      searchName: row.searchName ?? 'QA family',
+      searchName: row.searchName ?? 'Dispatch family',
     };
   }
   const id = `555${String(n).padStart(4, '0')}`;

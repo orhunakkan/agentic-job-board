@@ -13,7 +13,7 @@ import {
 
 function search(options: Record<string, unknown> = {}): LinkedInSearch {
   const config = parseLinkedInSearchConfig(
-    JSON.stringify({ searches: [{ name: 'Test', keywords: 'sdet', ...options }] }),
+    JSON.stringify({ searches: [{ name: 'Test', keywords: 'dispatcher', ...options }] }),
     'test',
   );
   const [resolved] = resolveSearches(config);
@@ -31,7 +31,7 @@ describe('searchUrl', () => {
   it('FR-18: a plain search asks for the keywords, the window and the newest jobs first', () => {
     const url = searchUrl(search(), 0, DAY);
 
-    expect(url).toBe('https://www.linkedin.com/jobs/search/?keywords=sdet&f_TPR=r86400&sortBy=DD');
+    expect(url).toBe('https://www.linkedin.com/jobs/search/?keywords=dispatcher&f_TPR=r86400&sortBy=DD');
   });
 
   it('FR-18: maps every option to LinkedIn’s parameter codes (checked against the live page, 2026-10-24)', () => {
@@ -52,7 +52,7 @@ describe('searchUrl', () => {
     );
 
     expect(params(url)).toEqual({
-      keywords: 'sdet',
+      keywords: 'dispatcher',
       location: 'United States',
       distance: '25',
       f_TPR: 'r604800',
@@ -102,10 +102,10 @@ describe('searchUrl', () => {
   });
 
   it('FR-18: encodes quotes, OR and spaces in the keywords so LinkedIn reads them as typed', () => {
-    const url = searchUrl(search({ keywords: '"test automation" OR C++ & QA' }), 0, DAY);
+    const url = searchUrl(search({ keywords: '"charge nurse" OR C++ & RN' }), 0, DAY);
 
-    expect(url).toContain('keywords=%22test%20automation%22%20OR%20C%2B%2B%20%26%20QA&');
-    expect(params(url)['keywords']).toBe('"test automation" OR C++ & QA');
+    expect(url).toContain('keywords=%22charge%20nurse%22%20OR%20C%2B%2B%20%26%20RN&');
+    expect(params(url)['keywords']).toBe('"charge nurse" OR C++ & RN');
   });
 
   it.each([

@@ -1,26 +1,28 @@
 {
   "defaults": {
     "location": "United States",
-    "workplace": ["remote"],
-    "jobType": ["full-time", "contract"],
+    "workplace": ["remote", "hybrid"],
+    "jobType": ["full-time"],
     "postedWithin": "since-last-run",
     "sort": "recent",
     "maxPages": 4
   },
-  "excludeKeywords": ["intern", "internship", "junior", "entry level", "manual"],
+  "excludeKeywords": ["intern", "internship", "commission"],
   "searches": [
-    { "name": "SDET", "keywords": "SDET OR \"Software Engineer in Test\"" },
+    { "name": "Staff accountant", "keywords": "\"staff accountant\" OR \"general ledger accountant\"" },
     {
-      "name": "Test automation, senior",
-      "keywords": "\"test automation engineer\"",
+      "name": "Senior accountant",
+      "keywords": "\"senior accountant\"",
       "experience": ["mid-senior", "director"]
     },
     {
-      "name": "Quality engineer, weekly",
-      "keywords": "\"quality engineer\"",
+      "name": "Accounting near Chicago, weekly",
+      "keywords": "accountant OR accounting",
+      "location": "Chicago, Illinois",
+      "distanceMiles": 25,
       "postedWithin": "week",
-      "workplace": ["remote", "hybrid"],
-      "salaryMin": 140000,
+      "workplace": ["hybrid", "on-site"],
+      "salaryMin": 80000,
       "easyApply": true,
       "maxPages": 2
     }

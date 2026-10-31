@@ -20,6 +20,7 @@ const rubric = readRepoFile('agent/scoring-rubric.md');
 const examples = labeledBlocks(procedure, 'contract');
 
 const SCHEMAS: Readonly<Record<string, z.ZodType>> = {
+  SetupResponseSchema: api.SetupResponseSchema,
   CreateRunResponseSchema: api.CreateRunResponseSchema,
   SearchLinkedInSummarySchema,
   FetchSourcesSummarySchema,
@@ -65,8 +66,8 @@ describe('agent/find-jobs.md examples match the API schemas', () => {
     const { items } = api.ScoringQueueResponseSchema.parse(example('ScoringQueueResponseSchema'));
 
     expect(items.map((item) => [item.rubric, item.description === null])).toEqual([
-      ['match-v1', false],
-      ['triage-v1', true],
+      ['match-v2', false],
+      ['triage-v2', true],
     ]);
   });
 });
@@ -80,6 +81,8 @@ describe('agent/find-jobs.md calls only real API routes', () => {
     now: () => '',
     version: 'test',
     linkedinSessionPath: 'no-session.json',
+    linkedinSearchesPath: 'no-linkedin-searches.json',
+    sourcesPath: 'no-sources.json',
     findNow: { last: () => null, start: () => false, stop: () => Promise.resolve() }, // the API never uses it
   };
   const match = createRouter(apiRoutes(context));
@@ -91,6 +94,7 @@ describe('agent/find-jobs.md calls only real API routes', () => {
     expect(routes).toEqual(
       expect.arrayContaining([
         'GET /api/health',
+        'GET /api/setup',
         'POST /api/runs',
         'GET /api/profile',
         'GET /api/scoring/queue',
@@ -110,5 +114,29 @@ describe('agent/find-jobs.md calls only real API routes', () => {
       // Writes send JSON from a file under the git-ignored data/ folder, or an empty object inline.
       expect(call.dataFile === null || call.dataFile.startsWith('data/find-jobs/')).toBe(true);
     }
+  });
+});
+
+describe('agent/find-jobs.md checks the setup first (FR-24, DEC-066)', () => {
+  it('FR-24: is procedure version 5', () => {
+    expect(procedure).toContain('**Procedure version: 5.**');
+  });
+
+  it('FR-24: reads GET /api/setup before it starts a run, and its example is a board that is set up', () => {
+    const routes = curlCalls(procedure).map((call) => `${call.method} ${new URL(call.path).pathname}`);
+
+    expect(routes.indexOf('GET /api/setup')).toBeGreaterThanOrEqual(0);
+    expect(routes.indexOf('GET /api/setup')).toBeLessThan(routes.indexOf('POST /api/runs'));
+    expect(api.SetupResponseSchema.parse(example('SetupResponseSchema')).ready).toBe(true);
+  });
+
+  it('FR-24: says to stop before starting a run when the board, or the source the argument names, is not ready', () => {
+    const step1 = procedure.slice(procedure.indexOf('### 1.'), procedure.indexOf('### 2.'));
+
+    expect(step1).toMatch(/`ready` is `false`[^]*\*\*stop\*\*/);
+    expect(step1).toContain('`linkedinSearches`');
+    expect(step1).toContain('`sources`');
+    expect(step1).toContain('/setup');
+    expect(procedure.slice(procedure.indexOf('### 2.'), procedure.indexOf('### 3.'))).toContain('setup_required');
   });
 });

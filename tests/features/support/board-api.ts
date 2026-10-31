@@ -67,8 +67,8 @@ export async function jobDetail(app: TestApp, jobId: number): Promise<JobDetail>
 }
 
 /**
- * Puts the jobs on the board as a finished run leaves them: sent as listings, scored (match-v1 with a description,
- * triage-v1 without), then moved to their status by the owner, one allowed change at a time.
+ * Puts the jobs on the board as a finished run leaves them: sent as listings, scored (match-v2 with a description,
+ * triage-v2 without), then moved to their status by the owner, one allowed change at a time.
  */
 export async function putOnBoard(world: BoardWorld, rows: readonly JobRow[]): Promise<void> {
   const app = await world.app();
@@ -86,8 +86,8 @@ export async function putOnBoard(world: BoardWorld, rows: readonly JobRow[]): Pr
     world.remember(row.title, job.id);
   }
 
-  for (const rubric of ['match-v1', 'triage-v1']) {
-    const scored = rows.filter((row) => row.score !== null && (row.description !== null) === (rubric === 'match-v1'));
+  for (const rubric of ['match-v2', 'triage-v2']) {
+    const scored = rows.filter((row) => row.score !== null && (row.description !== null) === (rubric === 'match-v2'));
     if (scored.length === 0) continue;
     const response = await storeScores(
       app,

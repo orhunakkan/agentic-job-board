@@ -32,6 +32,8 @@ async function startPerfApp(): Promise<PerfApp> {
     port: 0,
     dbPath: join(dir, 'perf.db'),
     linkedinSessionPath: join(dir, 'no-session.json'),
+    linkedinSearchesPath: join(dir, 'no-linkedin-searches.json'),
+    sourcesPath: join(dir, 'no-sources.json'),
     claudeCommand: ['claude-is-never-started-by-the-load-test'],
     logger: createLogger('warn'),
   });

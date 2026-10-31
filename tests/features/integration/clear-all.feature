@@ -7,25 +7,25 @@ Feature: Clear All dismisses one view's New jobs
   Background:
     Given the board has these jobs:
       | title          | view          | status  |
-      | Senior SDET    | LinkedIn      | New     |
-      | QA Lead        | LinkedIn      | New     |
+      | Senior Dispatcher    | LinkedIn      | New     |
+      | Lead Nurse        | LinkedIn      | New     |
       | Test Architect | LinkedIn      | Saved   |
-      | QA Engineer    | LinkedIn      | Applied |
-      | Feed SDET      | Other sources | New     |
+      | Nurse Educator    | LinkedIn      | Applied |
+      | Feed Dispatcher      | Other sources | New     |
 
   Scenario: Only the chosen view's New jobs move to Dismissed
     When I use Clear All on the LinkedIn view
     Then 2 jobs are dismissed
     And the jobs have these statuses:
       | title          | status    |
-      | Senior SDET    | Dismissed |
-      | QA Lead        | Dismissed |
+      | Senior Dispatcher    | Dismissed |
+      | Lead Nurse        | Dismissed |
       | Test Architect | Saved     |
-      | QA Engineer    | Applied   |
-      | Feed SDET      | New       |
-    And "Senior SDET" and "QA Lead" each have one history row from New to Dismissed
+      | Nurse Educator    | Applied   |
+      | Feed Dispatcher      | New       |
+    And "Senior Dispatcher" and "Lead Nurse" each have one history row from New to Dismissed
 
   Scenario: A later run that finds a dismissed job again leaves it dismissed
     Given I used Clear All on the LinkedIn view
-    When a later run receives "Senior SDET"
-    Then "Senior SDET" is Dismissed and has been seen 2 times
+    When a later run receives "Senior Dispatcher"
+    Then "Senior Dispatcher" is Dismissed and has been seen 2 times

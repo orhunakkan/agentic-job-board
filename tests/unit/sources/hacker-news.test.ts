@@ -4,7 +4,7 @@ import { hackerNewsPosts, hackerNewsThreads, readHeader } from '../../../src/sou
 
 // Answers shaped like the Algolia HN API's (checked 2026-10-24), with made-up companies and posts.
 
-const ROLES = ['qa', 'sdet', 'test automation', 'quality engineer'];
+const ROLES = ['nurse', 'dispatcher', 'patient care', 'charge nurse'];
 
 describe('Hacker News "Who is hiring?"', () => {
   it('FR-15: finds the newest hiring thread, skipping "Who wants to be hired?"', () => {
@@ -41,7 +41,7 @@ describe('Hacker News "Who is hiring?"', () => {
           author: 'someone',
           created_at: '2026-10-08T21:04:09Z',
           comment_text:
-            'Example Exchange | Engineering Manager (NYC) · Software Engineer, Quality &#x2F; SDET (U.S. Remote) | Full-Time<p>We match buyers &amp; sellers.<p>Apply at jobs@example.com',
+            'Example Exchange | Engineering Manager (NYC) · Fleet Dispatcher, Operations (U.S. Remote) | Full-Time<p>We match buyers &amp; sellers.<p>Apply at jobs@example.com',
         },
         {
           objectID: '50012300',
@@ -63,14 +63,14 @@ describe('Hacker News "Who is hiring?"', () => {
       {
         source: 'hackernews',
         sourceJobId: '50012248',
-        title: 'Engineering Manager (NYC) · Software Engineer, Quality / SDET (U.S. Remote)',
+        title: 'Engineering Manager (NYC) · Fleet Dispatcher, Operations (U.S. Remote)',
         company: 'Example Exchange',
         location: '',
         url: 'https://news.ycombinator.com/item?id=50012248',
         postedAt: '2026-10-08T21:04:09.000Z',
         salary: null,
         description:
-          'Example Exchange | Engineering Manager (NYC) · Software Engineer, Quality / SDET (U.S. Remote) | Full-Time\n\nWe match buyers & sellers.\n\nApply at jobs@example.com',
+          'Example Exchange | Engineering Manager (NYC) · Fleet Dispatcher, Operations (U.S. Remote) | Full-Time\n\nWe match buyers & sellers.\n\nApply at jobs@example.com',
       },
     ]);
   });
@@ -79,23 +79,23 @@ describe('Hacker News "Who is hiring?"', () => {
 describe('readHeader', () => {
   it.each([
     [
-      'Example Labs | Senior QA Engineer | Remote (US) | Full-time | $150k',
-      { company: 'Example Labs', title: 'Senior QA Engineer', location: 'Remote (US)' },
+      'Example Labs | Senior Nurse Educator | Remote (US) | Full-time | $150k',
+      { company: 'Example Labs', title: 'Senior Nurse Educator', location: 'Remote (US)' },
     ],
     [
       'Sample Co | <a href="https://sample.example">https://sample.example</a> | Founding Engineer | New York, NY | ONSITE',
       { company: 'Sample Co', title: 'https://sample.example', location: 'New York, NY · ONSITE' },
     ],
     [
-      'Acme | Test Automation Lead, SDET | SF Bay Area or REMOTE | Series B',
-      { company: 'Acme', title: 'Test Automation Lead, SDET', location: 'SF Bay Area or REMOTE' },
+      'Acme | Patient Care Lead, Dispatcher | SF Bay Area or REMOTE | Series B',
+      { company: 'Acme', title: 'Patient Care Lead, Dispatcher', location: 'SF Bay Area or REMOTE' },
     ],
   ])('FR-15: reads %j', (header, expected) => {
     expect(readHeader(`${header}<p>Body`, ROLES)).toEqual(expected);
   });
 
   it('FR-15: a first line without "|" is not a job post', () => {
-    expect(readHeader('We are hiring QA engineers!<p>Details', ROLES)).toBeNull();
+    expect(readHeader('We are hiring nurses!<p>Details', ROLES)).toBeNull();
     expect(readHeader('Only a company |', ROLES)).toBeNull();
   });
 });

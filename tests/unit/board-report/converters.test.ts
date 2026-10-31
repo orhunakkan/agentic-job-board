@@ -94,7 +94,7 @@ function messages(options: { failSecondRow?: boolean; retryPlain?: boolean; unde
             id: `${pickle.id}-s0`,
             text: 'the board has these jobs',
             astNodeIds: ['bg1'],
-            argument: { dataTable: { rows: [{ cells: [{ value: 'title' }] }, { cells: [{ value: 'SDET' }] }] } },
+            argument: { dataTable: { rows: [{ cells: [{ value: 'title' }] }, { cells: [{ value: 'Dispatcher' }] }] } },
           },
           { id: `${pickle.id}-s1`, text: pickle.text, astNodeIds: ['st1'] },
         ],
@@ -244,7 +244,7 @@ describe('the Cucumber converter', () => {
       ['When I type 5000 characters', 'When', 'passed'],
       ['Screenshot on failure', 'hook', 'passed'],
     ]);
-    expect(first?.steps[1]?.dataTable).toEqual([['title'], ['SDET']]);
+    expect(first?.steps[1]?.dataTable).toEqual([['title'], ['Dispatcher']]);
     expect(plain?.suites).toEqual(['tests/features/e2e/notes.feature', 'Notes', 'Saving']);
     expect(plain?.line).toBe(20);
     expect(plain?.steps[1]?.docString).toBe('Call back Monday');

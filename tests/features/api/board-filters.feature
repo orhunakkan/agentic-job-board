@@ -7,29 +7,29 @@ Feature: Filtering the job list
   Background:
     Given the board has these jobs:
       | title       | company  | view          | score | status |
-      | Strong SDET | Top Co   | LinkedIn      | 91    | New    |
-      | Possible QA | Mid Co   | LinkedIn      | 60    | New    |
-      | Weak Tester | Low Co   | LinkedIn      | 20    | New    |
-      | Unscored QA | Plain Co | LinkedIn      |       | New    |
-      | Saved SDET  | Keep Co  | LinkedIn      | 80    | Saved  |
-      | Feed SDET   | Feed Co  | Other sources | 85    | New    |
+      | Strong Dispatcher | Top Co   | LinkedIn      | 91    | New    |
+      | Possible Nurse | Mid Co   | LinkedIn      | 60    | New    |
+      | Weak Courier | Low Co   | LinkedIn      | 20    | New    |
+      | Unscored Nurse | Plain Co | LinkedIn      |       | New    |
+      | Saved Dispatcher  | Keep Co  | LinkedIn      | 80    | Saved  |
+      | Feed Dispatcher   | Feed Co  | Other sources | 85    | New    |
 
   Scenario: The New tab lists the best scores first and unscored jobs last
     When I list the New tab of the LinkedIn view
-    Then the list is "Strong SDET", "Possible QA", "Weak Tester" and "Unscored QA", in that order
+    Then the list is "Strong Dispatcher", "Possible Nurse", "Weak Courier" and "Unscored Nurse", in that order
 
   @FR-17
   Scenario: Each view lists only its own jobs
     When I list the New tab of the Other sources view
-    Then the list is "Feed SDET"
+    Then the list is "Feed Dispatcher"
 
   Scenario: Each tab lists only the jobs with its statuses
     When I list the Saved tab of the LinkedIn view
-    Then the list is "Saved SDET"
+    Then the list is "Saved Dispatcher"
 
   Scenario: A minimum score leaves out the weaker and the unscored jobs
     When I list the New tab of the LinkedIn view with a minimum score of 50
-    Then the list is "Strong SDET" and "Possible QA", in that order
+    Then the list is "Strong Dispatcher" and "Possible Nurse", in that order
 
   Scenario Outline: Searching for "<text>" finds a job by its <field>
     When I list the New tab of the LinkedIn view, searching for "<text>"
@@ -37,9 +37,9 @@ Feature: Filtering the job list
 
     Examples:
       | text   | field   | job         |
-      | tester | title   | Weak Tester |
-      | Mid Co | company | Possible QA |
+      | courier | title   | Weak Courier |
+      | Mid Co | company | Possible Nurse |
 
   Scenario: Newest first puts the jobs the board found last at the top
     When I list the New tab of the LinkedIn view, newest first
-    Then the list is "Unscored QA", "Weak Tester", "Possible QA" and "Strong SDET", in that order
+    Then the list is "Unscored Nurse", "Weak Courier", "Possible Nurse" and "Strong Dispatcher", in that order

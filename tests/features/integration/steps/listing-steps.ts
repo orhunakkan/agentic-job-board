@@ -56,8 +56,8 @@ When('a run receives {string} twice', function (this: BoardWorld, title: string)
 When('a run receives a Greenhouse listing and a Lever listing with the same job ID', function (this: BoardWorld) {
   startRun(this);
   receive(this, [
-    { ...this.listing(jobRow({ title: 'Greenhouse SDET', source: 'greenhouse' })), sourceJobId: '5550001' },
-    { ...this.listing(jobRow({ title: 'Lever SDET', source: 'lever' })), sourceJobId: '5550001' },
+    { ...this.listing(jobRow({ title: 'Greenhouse Dispatcher', source: 'greenhouse' })), sourceJobId: '5550001' },
+    { ...this.listing(jobRow({ title: 'Lever Dispatcher', source: 'lever' })), sourceJobId: '5550001' },
   ]);
 });
 
@@ -89,7 +89,7 @@ When('the run stores scores for {titles}', function (this: BoardWorld, titles: s
       score: 80,
       label: 'strong',
       reason: 'Matches the profile.',
-      rubricVersion: 'match-v1',
+      rubricVersion: 'match-v2',
       scoredAt: this.clock(),
     });
   }
@@ -183,7 +183,7 @@ Then(
         'SELECT score, rubric_version AS rubric FROM jobs WHERE id = ?',
         this.jobId(title),
       );
-    for (const title of scored) assert.deepEqual(scoreOf(title), { score: 80, rubric: 'match-v1' }, title);
+    for (const title of scored) assert.deepEqual(scoreOf(title), { score: 80, rubric: 'match-v2' }, title);
     for (const title of unscored) assert.deepEqual(scoreOf(title), { score: null, rubric: null }, title);
   },
 );

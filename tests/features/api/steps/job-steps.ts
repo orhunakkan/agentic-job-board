@@ -23,7 +23,7 @@ Given('the board has a job {string}', async function (this: BoardWorld, title: s
 });
 
 Given('a job is {status}', async function (this: BoardWorld, status: Status) {
-  await putOnBoard(this, [jobRow({ title: 'Senior SDET', status })]);
+  await putOnBoard(this, [jobRow({ title: 'Senior Dispatcher', status })]);
 });
 
 Given('I saved {string}', async function (this: BoardWorld, title: string) {

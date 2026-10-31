@@ -64,10 +64,10 @@ describe('score labels', () => {
 });
 
 describe('rubrics', () => {
-  it('FR-20: a job with a description is scored with match-v1, one without it with triage-v1', () => {
+  it('FR-20: a job with a description is scored with match-v2, one without it with triage-v2', () => {
     expect(rubricFor('About the job…')).toBe(MATCH_RUBRIC);
     expect(rubricFor(null)).toBe(TRIAGE_RUBRIC);
-    expect(RUBRICS).toEqual(['match-v1', 'triage-v1']);
+    expect(RUBRICS).toEqual(['match-v2', 'triage-v2']);
   });
 
   it('FR-20: jobs in New and Saved are scored again once they have a description (DEC-044)', () => {

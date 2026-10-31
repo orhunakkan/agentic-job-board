@@ -15,10 +15,12 @@ import {
   RunSummarySchema,
   ScoresResponseSchema,
   ScoringQueueResponseSchema,
+  SetupResponseSchema,
 } from '../../src/schemas/api.ts';
 import { createLinkedInSessionFile, saveLinkedInSession } from '../../src/linkedin/session.ts';
 import { ProfileSchema } from '../../src/schemas/profile.ts';
 import { fakeLinkedInStorageState } from '../helpers/fixtures.ts';
+import { SAMPLE_PROFILE } from '../helpers/profiles.ts';
 import { LINKEDIN_LISTINGS } from '../helpers/seed-board.ts';
 import { startTestApp, type ApiResponse, type TestApp } from '../helpers/test-app.ts';
 
@@ -48,19 +50,23 @@ describe('API responses match their schemas', () => {
   });
 
   it('FR-01: PUT and GET /api/profile', async () => {
-    const profile = {
-      targetRoles: ['SDET'],
-      seniority: 'senior',
-      yearsExperience: 8,
-      coreSkills: ['Playwright'],
-      secondarySkills: [],
-      locations: { remoteUS: true, hybridMetros: [], onsiteMetros: [], relocate: false },
-      workAuthorization: 'US',
-      dealBreakers: [],
-      excludedCompanies: [],
-    };
+    const profile = SAMPLE_PROFILE;
     conforms(ProfileSchema, await testApp.call('PUT', '/api/profile', profile), 200);
     conforms(ProfileSchema, await testApp.get('/api/profile'), 200);
+  });
+
+  it('FR-24: GET /api/setup', async () => {
+    conforms(SetupResponseSchema, await testApp.get('/api/setup'), 200);
+  });
+
+  it('FR-24: POST /api/runs on a board that is not set up is a 409 error body', async () => {
+    const empty = await startTestApp({ setup: 'none' });
+    try {
+      conforms(SetupResponseSchema, await empty.get('/api/setup'), 200);
+      conforms(ErrorResponseSchema, await empty.post('/api/runs'), 409);
+    } finally {
+      await empty.close();
+    }
   });
 
   it('FR-18: GET /api/ingest/state before any LinkedIn search', async () => {
@@ -96,14 +102,18 @@ describe('API responses match their schemas', () => {
   it('FR-06: POST /api/runs/:id/scores', async () => {
     const response = await testApp.post(`/api/runs/${String(runId)}/scores`, {
       rubricVersion: 'v1',
-      scores: [{ jobId, score: 88, label: 'strong', reason: 'Senior automation role.' }],
+      scores: [{ jobId, score: 88, label: 'strong', reason: 'Senior logistics role.' }],
     });
     conforms(ScoresResponseSchema, response, 200);
   });
 
   it('FR-07: GET /api/jobs with and without filters', async () => {
     conforms(JobListResponseSchema, await testApp.get('/api/jobs'), 200);
-    conforms(JobListResponseSchema, await testApp.get('/api/jobs?tab=new&minScore=50&q=qa&sort=recent&limit=5'), 200);
+    conforms(
+      JobListResponseSchema,
+      await testApp.get('/api/jobs?tab=new&minScore=50&q=nurse&sort=recent&limit=5'),
+      200,
+    );
   });
 
   it('FR-10: GET /api/jobs/:id', async () => {
@@ -150,7 +160,7 @@ describe('the response schemas are strict', () => {
     id: 1,
     source: 'linkedin',
     sourceJobId: '4473592349',
-    title: 'SDET',
+    title: 'Dispatcher',
     company: 'Example Co',
     location: 'Remote',
     url: 'https://www.linkedin.com/jobs/view/4473592349/',

@@ -26,7 +26,7 @@ export const SearchLinkedInSummarySchema = z.strictObject({
   new: Count,
   seenAgain: Count,
   repeated: Count,
-  /** One line per search or job page that could not be read, e.g. "SDET: no job cards on page 1". */
+  /** One line per search or job page that could not be read, e.g. "Night nursing: no job cards on page 1". */
   failures: z.array(z.string()),
 });
 

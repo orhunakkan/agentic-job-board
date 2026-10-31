@@ -47,16 +47,16 @@ describe('LinkedIn search jobs on the pages', () => {
   it('FR-19, FR-20: the detail page shows the workplace, the search that found the job and the rubric', async () => {
     const health = jobAt(jobs, 'Example Health');
     const scored = await testApp.post(`/api/runs/${String(runId)}/scores`, {
-      rubricVersion: 'match-v1',
-      scores: [{ jobId: health.id, score: 88, label: 'strong', reason: 'Playwright and TypeScript, remote US.' }],
+      rubricVersion: 'match-v2',
+      scores: [{ jobId: health.id, score: 88, label: 'strong', reason: 'Ventilator care and charting, remote US.' }],
     });
     expect(scored.status).toBe(200);
 
     const detail = await page(`/jobs/${String(health.id)}`);
 
     expect(detail).toContain('<dt>Workplace</dt> <dd>Remote</dd>');
-    expect(detail).toContain('Found by the search “QA family” · <a href="/runs">run 1</a>');
-    expect(detail).toContain('<dt>Rubric</dt> <dd>match-v1: scored on the full description</dd>');
+    expect(detail).toContain('Found by the search “Dispatch family” · <a href="/runs">run 1</a>');
+    expect(detail).toContain('<dt>Rubric</dt> <dd>match-v2: scored on the full description</dd>');
     expect(detail).toContain('<h2 id="description-heading">Description</h2> <p class="hint">As LinkedIn lists it.</p>');
   });
 
@@ -72,13 +72,23 @@ describe('LinkedIn search jobs on the pages', () => {
     expect(await page(`/jobs/${String(freight.id)}`)).toContain('<dt>Rubric</dt> <dd>custom-v9</dd>');
   });
 
+  it('FR-20: a score from a v1 rubric, kept in an older database, still shows its version name and no note', async () => {
+    const health = jobAt(jobs, 'Example Health');
+    await testApp.post(`/api/runs/${String(runId)}/scores`, {
+      rubricVersion: 'match-v1',
+      scores: [{ jobId: health.id, score: 88, label: 'strong', reason: 'Scored before rubric v2.' }],
+    });
+
+    expect(await page(`/jobs/${String(health.id)}`)).toContain('<dt>Rubric</dt> <dd>match-v1</dd>');
+  });
+
   it('NFR-07: a search name is escaped like any other value', async () => {
     const response = await testApp.post(`/api/runs/${String(runId)}/listings`, {
       listings: [
         {
           source: 'linkedin',
           sourceJobId: '4480000009',
-          title: 'SDET',
+          title: 'Dispatcher',
           company: 'Example Co',
           location: '',
           url: 'https://www.linkedin.com/jobs/view/4480000009/',

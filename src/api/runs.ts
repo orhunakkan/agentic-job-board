@@ -11,7 +11,7 @@ import {
   RunListQuerySchema,
   ScoresRequestSchema,
 } from '../schemas/api.ts';
-import type { AppContext } from './context.ts';
+import { readSetup, type AppContext } from './context.ts';
 import { toJobSummary, toRunSummary } from './views.ts';
 
 // The /find-jobs run lifecycle (PLAN.md §4.1; FR-06, FR-11, FR-15, FR-18): where LinkedIn searches resume, start a
@@ -45,6 +45,16 @@ export function runRoutes(context: AppContext): Route[] {
       path: '/api/runs',
       handler: (request) => {
         parseInput(EmptyRequestSchema, request.body);
+        // Setup comes first (FR-24): this stops /find-jobs and Find Now in the app itself, not only in the procedure.
+        const { ready, ...setup } = readSetup(context);
+        if (!ready) {
+          throw new HttpError(
+            409,
+            'setup_required',
+            'The board is not set up yet: save your profile and add LinkedIn searches or the feeds file (see /setup)',
+            setup,
+          );
+        }
         return ok({ runId: repos.runs.create(context.now()) }, 201);
       },
     },

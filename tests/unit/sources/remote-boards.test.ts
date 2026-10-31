@@ -8,25 +8,25 @@ describe('Remote OK', () => {
   const answer = [
     { last_updated: 1_792_857_604, legal: 'API Terms of Service: Please link back to the URL on Remote OK…' },
     {
-      slug: 'remote-senior-sdet-example-labs-1137563',
+      slug: 'remote-senior-dispatcher-example-labs-1137563',
       id: '1137563',
       epoch: 1_792_857_600,
       date: '2026-10-23T16:00:18+00:00',
       company: 'Example Labs',
-      position: 'Senior SDET',
-      tags: ['qa', 'dev'],
+      position: 'Senior Dispatcher',
+      tags: ['nurse', 'dev'],
       description: '<p>Ship quality.</p>',
       location: '',
       salary_min: 0,
       salary_max: 0,
-      url: 'https://remoteOK.com/remote-jobs/remote-senior-sdet-example-labs-1137563',
-      apply_url: 'https://remoteOK.com/remote-jobs/remote-senior-sdet-example-labs-1137563',
+      url: 'https://remoteOK.com/remote-jobs/remote-senior-dispatcher-example-labs-1137563',
+      apply_url: 'https://remoteOK.com/remote-jobs/remote-senior-dispatcher-example-labs-1137563',
     },
     {
       id: 2,
       date: '2026-10-22T16:00:18+00:00',
       company: 'Sample Co',
-      position: 'QA Lead',
+      position: 'Lead Nurse',
       location: 'USA',
       salary_min: 140_000,
       salary_max: 170_000,
@@ -42,10 +42,10 @@ describe('Remote OK', () => {
     expect(listings[0]).toEqual({
       source: 'remoteok',
       sourceJobId: '1137563',
-      title: 'Senior SDET',
+      title: 'Senior Dispatcher',
       company: 'Example Labs',
       location: 'Remote',
-      url: 'https://remoteOK.com/remote-jobs/remote-senior-sdet-example-labs-1137563',
+      url: 'https://remoteOK.com/remote-jobs/remote-senior-dispatcher-example-labs-1137563',
       postedAt: '2026-10-23T16:00:18.000Z',
       salary: null,
       description: 'Ship quality.',
@@ -60,13 +60,13 @@ describe('Remote OK', () => {
 
 describe('Himalayas', () => {
   it('FR-15: searches one keyword in the US and reads the page path as the job ID', () => {
-    const request = himalayasSearch('test automation');
+    const request = himalayasSearch('patient care');
     const { listings } = request.read({
       comments: 'Search results come 20 to a page.',
       totalCount: 1,
       jobs: [
         {
-          title: 'Senior QA Automation Engineer',
+          title: 'Senior Sales Representative',
           excerpt: 'Short',
           companyName: 'Example Labs',
           companySlug: 'example-labs',
@@ -78,21 +78,21 @@ describe('Himalayas', () => {
           seniority: ['Senior'],
           pubDate: 1_792_666_342,
           description: '<p>Automate it.</p>',
-          applicationLink: 'https://himalayas.app/companies/example-labs/jobs/senior-qa?utm_source=api',
-          guid: 'https://himalayas.app/companies/example-labs/jobs/senior-qa',
+          applicationLink: 'https://himalayas.app/companies/example-labs/jobs/senior-nurse?utm_source=api',
+          guid: 'https://himalayas.app/companies/example-labs/jobs/senior-nurse',
         },
       ],
     });
 
-    expect(request.url).toBe('https://himalayas.app/jobs/api/search?q=test%20automation&country=US');
+    expect(request.url).toBe('https://himalayas.app/jobs/api/search?q=patient%20care&country=US');
     expect(listings).toEqual([
       {
         source: 'himalayas',
-        sourceJobId: 'example-labs/jobs/senior-qa',
-        title: 'Senior QA Automation Engineer',
+        sourceJobId: 'example-labs/jobs/senior-nurse',
+        title: 'Senior Sales Representative',
         company: 'Example Labs',
         location: 'Remote (United States)',
-        url: 'https://himalayas.app/companies/example-labs/jobs/senior-qa',
+        url: 'https://himalayas.app/companies/example-labs/jobs/senior-nurse',
         postedAt: '2026-10-22T10:52:22.000Z',
         salary: '$90K – $120K',
         description: 'Automate it.',
@@ -110,8 +110,8 @@ describe('Jobicy', () => {
       jobs: [
         {
           id: 156_466,
-          url: 'https://jobicy.com/jobs/156466-manager-software-test-automation',
-          jobTitle: 'Manager Software Test Automation',
+          url: 'https://jobicy.com/jobs/156466-manager-patient-care',
+          jobTitle: 'Manager, Patient Care',
           companyName: 'Example Health',
           jobGeo: 'Canada,  USA',
           jobLevel: 'Senior',

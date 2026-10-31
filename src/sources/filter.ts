@@ -3,7 +3,7 @@ import type { SourcesConfig } from './source-config.ts';
 // Which listings are worth sending to the app (FR-15). The feeds carry every kind of job; only titles in the
 // owner's target family should reach the board and the scoring.
 
-/** Whether `text` contains one of `terms` as whole words, ignoring case: "qa" matches "Senior QA", not "Qatar". */
+/** Whether `text` contains one of `terms` as whole words, ignoring case: "rn" matches "ICU RN - Days", not "Learning Designer". */
 export function containsAny(text: string, terms: readonly string[]): boolean {
   return terms.some((term) => wholeWords(term).test(text));
 }

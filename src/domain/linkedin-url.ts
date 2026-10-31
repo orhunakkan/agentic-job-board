@@ -23,7 +23,7 @@ export function canonicalizeJobUrl(link: string): LinkedInJobLink | null {
   return { jobId, url: canonicalJobUrl(jobId) };
 }
 
-/** The job a search or collection page has open, e.g. /jobs/search/?currentJobId=4473592349&keywords=qa. */
+/** The job a search or collection page has open, e.g. /jobs/search/?currentJobId=4473592349&keywords=nurse. */
 function currentJobId(url: URL): string | undefined {
   const jobId = url.searchParams.get('currentJobId');
   return JOBS_PAGE.test(url.pathname) && jobId !== null && JOB_ID.test(jobId) ? jobId : undefined;

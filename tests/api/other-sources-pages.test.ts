@@ -52,7 +52,7 @@ describe('LinkedIn and other sources on the pages', () => {
     expect(board).toMatch(/<a href="\/\?origin=other" aria-current="page"\s*>Other sources/);
     expect(board).toMatch(/href="\/\?origin=other&amp;tab=new" aria-current="page"\s*>New <span class="count">3</);
     expect(board).toContain('<input type="hidden" name="origin" value="other" />');
-    expect(board).toContain('>Open on Greenhouse<span class="visually-hidden">: Senior SDET (Playwright)');
+    expect(board).toContain('>Open on Greenhouse<span class="visually-hidden">: Senior Dispatcher (Night Desk)');
     expect(board).toContain('>Open on Hacker News<');
     expect(board).toContain('<span class="flag">Himalayas</span>');
     expect(board).toContain('<span class="salary">$150K – $180K</span>');
@@ -60,11 +60,11 @@ describe('LinkedIn and other sources on the pages', () => {
   });
 
   it('FR-17: filters, sorting and paging links keep the other-sources view', async () => {
-    const board = await page('/?origin=other&q=sdet&sort=recent');
+    const board = await page('/?origin=other&q=dispatcher&sort=recent');
 
     expect(cardIds(board)).toHaveLength(2);
     expect(board).toContain('<a class="clear" href="/?origin=other&amp;tab=new">Clear filters</a>');
-    expect(board).toContain('name="return" value="/?origin=other&amp;tab=new&amp;q=sdet&amp;sort=recent"');
+    expect(board).toContain('name="return" value="/?origin=other&amp;tab=new&amp;q=dispatcher&amp;sort=recent"');
   });
 
   it('FR-17: an empty other-sources tab says how to fetch the feeds', async () => {
@@ -102,7 +102,7 @@ describe('LinkedIn and other sources on the pages', () => {
     expect(detail).toContain('<dt>Posted</dt>');
     expect(detail).toContain('<h2 id="description-heading">Description</h2>');
     expect(detail).toContain(
-      '<div class="description">About the role\n\nOwn the test platform.\n• Playwright\n• k6</div>',
+      '<div class="description">About the role\n\nRun the night dispatch desk.\n• Load planning\n• Driver check-ins</div>',
     );
     expect(detail.replace(/\s+/g, ' ')).toContain(`Listed on Greenhouse · <a href="/runs">run ${String(runId)}</a>`);
   });
@@ -116,7 +116,7 @@ describe('LinkedIn and other sources on the pages', () => {
   });
 
   it('FR-10: a LinkedIn job page is unchanged: LinkedIn link, job ID, no description', async () => {
-    const detail = await page(`/jobs/${String(jobAt(linkedinJobs, 'Workiva').id)}`);
+    const detail = await page(`/jobs/${String(jobAt(linkedinJobs, 'Ledgerly').id)}`);
 
     expect(detail).toContain('href="/?tab=new"');
     expect(detail).toContain('>Open on LinkedIn<');

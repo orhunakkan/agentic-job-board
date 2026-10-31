@@ -3,6 +3,7 @@ import { TABS } from '../domain/board-tabs.ts';
 import { JOB_SOURCES, ORIGINS } from '../domain/job-source.ts';
 import { canonicalJobUrl } from '../domain/linkedin-url.ts';
 import { isLabelConsistent, RUBRICS, SCORE_LABELS } from '../domain/score.ts';
+import { FILE_STATUSES, PROFILE_STATUSES } from '../domain/setup.ts';
 import { STATUSES } from '../domain/status.ts';
 import { WORKPLACES } from '../domain/workplace.ts';
 import { LINKEDIN_SESSION_STATES } from '../linkedin/session.ts';
@@ -126,6 +127,16 @@ export const LinkedInSessionResponseSchema = z.strictObject({
 /** When a run last stored a job a LinkedIn search found: where `postedWithin: since-last-run` starts (Phase 11). */
 export const IngestStateResponseSchema = z.strictObject({ lastLinkedInSearchAt: IsoTimestamp.nullable() });
 
+// --- GET /api/setup ---------------------------------------------------------------------------------------------
+
+/** Whether the board is set up (FR-24, DEC-066): the profile, and whether each source's file is there and valid. */
+export const SetupResponseSchema = z.strictObject({
+  profile: z.enum(PROFILE_STATUSES),
+  linkedinSearches: z.enum(FILE_STATUSES),
+  sources: z.enum(FILE_STATUSES),
+  ready: z.boolean(),
+});
+
 // --- POST /api/runs ----------------------------------------------------------------------------------------------
 
 export const CreateRunResponseSchema = z.strictObject({ runId: Id });
@@ -207,7 +218,7 @@ export const ScoringQueueItemSchema = z.strictObject({
   salary: z.string().nullable(),
   postedAt: IsoTimestamp.nullable(),
   description: z.string().nullable(),
-  /** match-v1 when there is a description, triage-v1 when there isn't. */
+  /** match-v2 when there is a description, triage-v2 when there isn't. */
   rubric: z.enum(RUBRICS),
   /** The score it has from another rubric, or null when it has none yet. */
   currentRubric: z.string().nullable(),

@@ -7,15 +7,15 @@ Feature: Sending listings to a run
   The listings in these scenarios come from the free job feeds, unless a scenario says LinkedIn.
 
   Scenario: A run is told how many listings were new and how many were seen before
-    Given an earlier run received "Senior SDET" and "QA Lead"
-    When a later run receives "Senior SDET", "QA Lead" and "Test Architect"
+    Given an earlier run received "Senior Dispatcher" and "Lead Nurse"
+    When a later run receives "Senior Dispatcher", "Lead Nurse" and "Test Architect"
     Then the run is told it received 3 listings: 1 new and 2 seen again
     And the new job it is told about is "Test Architect"
 
   @FR-18
   Scenario: A LinkedIn job a search finds again is seen again, not new
-    Given an earlier run received the LinkedIn job "Senior SDET"
-    When a later run receives the LinkedIn job "Senior SDET"
+    Given an earlier run received the LinkedIn job "Senior Dispatcher"
+    When a later run receives the LinkedIn job "Senior Dispatcher"
     Then the run is told it received 1 listing: 0 new and 1 seen again
 
   @NFR-09

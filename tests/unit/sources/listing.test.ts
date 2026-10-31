@@ -4,13 +4,13 @@ import { formatSalary, remoteLocation, toListing, type RawListing } from '../../
 const RAW: RawListing = {
   source: 'greenhouse',
   sourceJobId: 5550001,
-  title: '  <b>Senior</b>   SDET ',
+  title: '  <b>Senior</b>   Dispatcher ',
   company: 'Example Labs',
   location: 'Remote, US',
   url: 'https://job-boards.greenhouse.io/examplelabs/jobs/5550001',
   postedAt: '2026-10-20T09:00:00-04:00',
   salary: '$150K – $180K',
-  description: '<p>Build the test platform.</p>',
+  description: '<p>Plan the routes for our fleet.</p>',
 };
 
 describe('toListing', () => {
@@ -18,13 +18,13 @@ describe('toListing', () => {
     expect(toListing(RAW)).toEqual({
       source: 'greenhouse',
       sourceJobId: '5550001',
-      title: 'Senior SDET',
+      title: 'Senior Dispatcher',
       company: 'Example Labs',
       location: 'Remote, US',
       url: 'https://job-boards.greenhouse.io/examplelabs/jobs/5550001',
       postedAt: '2026-10-20T13:00:00.000Z',
       salary: '$150K – $180K',
-      description: 'Build the test platform.',
+      description: 'Plan the routes for our fleet.',
     });
   });
 

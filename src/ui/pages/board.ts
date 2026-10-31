@@ -1,6 +1,7 @@
 import type { JobRecord } from '../../db/repositories/jobs.ts';
 import { TABS, type BoardSort, type Tab } from '../../domain/board-tabs.ts';
 import { ORIGINS, type Origin } from '../../domain/job-source.ts';
+import { viewReady, type SetupStatus } from '../../domain/setup.ts';
 import type { FindNowRun } from '../../find-now/claude-runner.ts';
 import { BOARD_SORTS } from '../../schemas/pages.ts';
 import { flags, listingFacts, notice, scoreBadge, sourceLink, statusButtons } from '../components.ts';
@@ -26,6 +27,7 @@ export interface BoardView {
   changed: JobRecord | null;
   cleared: number | null; // how many jobs Clear All just dismissed
   findNow: FindNowRun | null;
+  setup: SetupStatus; // the board opens once the profile is saved; Find Now also needs the view's source (FR-24)
   now: string;
 }
 
@@ -51,6 +53,13 @@ export function boardPage(view: BoardView): SafeHtml {
       )
     }
     ${view.cleared !== null && notice(clearedMessage(view.origin, view.cleared))}
+    ${
+      view.setup.linkedinSearches !== 'ready' &&
+      view.setup.sources !== 'ready' &&
+      html`<p class="notice setup-notice" id="setup-notice">
+        Nothing to search yet: add your LinkedIn searches or the free job feeds. See <a href="/setup">Setup</a>.
+      </p>`
+    }
     <nav aria-label="Job sources">
       <ul class="origins">
         ${ORIGINS.map(
@@ -121,6 +130,12 @@ export function boardPage(view: BoardView): SafeHtml {
 
 const SELECTED = raw('selected');
 const DISABLED = raw('disabled');
+const UNREADY = raw('disabled aria-describedby="find-now-reason"');
+
+function findNowButton(view: BoardView): SafeHtml {
+  const running = view.findNow?.outcome === 'running';
+  return html`<button type="submit" class="button" ${running && DISABLED}>Find Now</button>`;
+}
 
 /**
  * Find Now and Clear All for the view (FR-21, FR-22). Clear All asks first, in a disclosure that needs no
@@ -129,10 +144,11 @@ const DISABLED = raw('disabled');
  */
 function boardActions(view: BoardView): SafeHtml {
   const newJobs = view.counts.new;
+  const ready = viewReady(view.setup, view.origin);
   return html`<div class="board-actions">
       <form class="inline-form" method="post" action="/board/find">
         <input type="hidden" name="origin" value="${view.origin}" />
-        <button type="submit" class="button" ${view.findNow?.outcome === 'running' && DISABLED}>Find Now</button>
+        ${ready ? findNowButton(view) : html`<button type="submit" class="button" ${UNREADY}>Find Now</button>`}
       </form>
       ${
         newJobs > 0 &&
@@ -149,7 +165,18 @@ function boardActions(view: BoardView): SafeHtml {
         </details>`
       }
     </div>
-    ${view.findNow !== null && findNowLine(view.findNow)}`;
+    ${!ready && findNowReason(view.origin)} ${view.findNow !== null && findNowLine(view.findNow)}`;
+}
+
+/** Why Find Now is off for this view until its source is ready (FR-24); pressing it anyway lands here. */
+function findNowReason(origin: Origin): SafeHtml {
+  const needs =
+    origin === 'linkedin'
+      ? 'Find Now needs your LinkedIn searches: the searches file is not there or not valid yet.'
+      : 'Find Now needs the free job feeds: the feeds file is not there, not valid, or turns nothing on yet.';
+  return html`<p class="find-now-reason" id="find-now-reason" tabindex="-1">
+    ${needs} See <a href="/setup">Setup</a>.
+  </p>`;
 }
 
 function newJobsOf(origin: Origin, count: number): string {
