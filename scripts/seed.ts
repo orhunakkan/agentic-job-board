@@ -10,6 +10,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { openDatabase, transaction } from '../src/db/database.ts';
 import { migrate } from '../src/db/migrate.ts';
 import { createRepositories, type Repositories } from '../src/db/repositories/index.ts';
+import type { JobFilter } from '../src/db/repositories/jobs.ts';
 import { labelForScore } from '../src/domain/score.ts';
 import type { Status } from '../src/domain/status.ts';
 import { ingestListings, type IncomingListing } from '../src/ingest/listing-ingest.ts';
@@ -149,10 +150,16 @@ export const SEED_PROFILE: Profile = {
   excludedCompanies: [],
 };
 
+/** Picks one of the items with the next random number. */
+function picker(nextRandom: () => number) {
+  return <T>(items: readonly T[]): T => items[Math.floor(nextRandom() * items.length)] as T;
+}
+
 function fakeJob(linkedinId: string, nextRandom: () => number): FakeJob {
-  const pick = <T>(items: readonly T[]): T => items[Math.floor(nextRandom() * items.length)] as T;
+  const pick = picker(nextRandom);
   const role = pick(ROLES);
-  const specialty = role.cap === undefined ? pick(role.specialties) : { suffix: '', bonus: 0, reason: '' };
+  // A capped role names no specialty; its reason is the cap's.
+  const specialty = role.cap === undefined ? pick(role.specialties) : NO_SPECIALTY;
   const location = pick(LOCATIONS);
   const noise = Math.round((nextRandom() - 0.5) * 8);
   const raw = Math.min(100, Math.max(0, role.base + specialty.bonus + location.adjust + noise));
@@ -182,6 +189,14 @@ const PATHS: readonly (readonly Status[])[] = [
 const JOBS_PER_PAGE = 6;
 const NEW_PER_PAGE = 4; // the other two are jobs an earlier page already listed, as searches repeat
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** A board filter that leaves every job in. */
+const EVERY_JOB: Omit<JobFilter, 'sort' | 'limit' | 'offset'> = {
+  sources: null,
+  statuses: null,
+  minScore: null,
+  text: null,
+  unscoredOnly: false,
+};
 
 /** mulberry32: a small, fast PRNG, so a seed always gives the same data. */
 function random(seed: number): () => number {
@@ -196,7 +211,7 @@ function random(seed: number): () => number {
 }
 
 export function seedDatabase(db: DatabaseSync, repos: Repositories, options: SeedOptions): SeedSummary {
-  const existing = repos.jobs.count({ sources: null, statuses: null, minScore: null, text: null, unscoredOnly: false });
+  const existing = repos.jobs.count(EVERY_JOB);
   if (existing > 0) {
     throw new SeedError(`the database already has ${String(existing)} jobs; seed only into a new database`);
   }
@@ -204,7 +219,7 @@ export function seedDatabase(db: DatabaseSync, repos: Repositories, options: See
   if (repos.profile.state().status !== 'saved') repos.profile.put(SEED_PROFILE, options.until);
 
   const nextRandom = random(options.seed);
-  const pick = <T>(items: readonly T[]): T => items[Math.floor(nextRandom() * items.length)] as T;
+  const pick = picker(nextRandom);
   const until = Date.parse(options.until);
   const pageCount = Math.ceil(options.count / NEW_PER_PAGE);
   const runCount = Math.min(30, pageCount);
@@ -246,16 +261,7 @@ export function seedDatabase(db: DatabaseSync, repos: Repositories, options: See
   const byStatus: Record<string, number> = {};
   let scored = 0;
   transaction(db, () => {
-    const jobs = repos.jobs.list({
-      sources: null,
-      statuses: null,
-      minScore: null,
-      text: null,
-      unscoredOnly: false,
-      sort: 'recent',
-      limit: options.count,
-      offset: 0,
-    });
+    const jobs = repos.jobs.list({ ...EVERY_JOB, sort: 'recent', limit: options.count, offset: 0 });
     for (const job of jobs) {
       const fake = byLinkedinId.get(job.sourceJobId);
       if (fake !== undefined && nextRandom() < 0.9) {
