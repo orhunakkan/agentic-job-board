@@ -3,7 +3,7 @@
 // with its advisories by severity. Each keeps the command's raw output as an attachment. A check that could not run
 // at all is broken.
 import { z } from 'zod';
-import { stripAnsi } from '../labels.ts';
+import { stripAnsi, type ResultDraft } from '../labels.ts';
 import type { ErrorInfo } from '../result-schema.ts';
 import { repoPath } from '../target.ts';
 import { converted, plainDraft, type Converted, type ConvertedAttachment } from './write.ts';
@@ -28,19 +28,24 @@ function problem(message: string): ErrorInfo {
   return { message, expected: null, actual: null, stack: null };
 }
 
+/** A check's result, timed by the command that ran it. */
+function checkDraft(
+  output: CommandOutput,
+  fields: Pick<ResultDraft, 'name' | 'suites' | 'status' | 'error'> & Partial<ResultDraft>,
+): ResultDraft {
+  return plainDraft({ ...fields, start: output.start, stop: output.stop, testType: 'static' });
+}
+
 function couldNotRun(name: string, suites: string[], output: CommandOutput): Converted {
   const reason =
     output.exitCode === null ? 'could not be started' : `stopped with exit code ${String(output.exitCode)}`;
   const detail = (output.stderr.trim() || output.stdout.trim()).split('\n').slice(0, 20).join('\n');
   return converted(
-    plainDraft({
+    checkDraft(output, {
       name,
       suites,
       status: 'broken',
-      start: output.start,
-      stop: output.stop,
       error: problem(`${output.command} ${reason}${detail === '' ? '' : `:\n${detail}`}`),
-      testType: 'static',
     }),
     raw(output),
   );
@@ -51,36 +56,19 @@ const TSC_ERROR = /^(.+)\((\d+),(\d+)\): error (TS\d+): (.*)$/;
 export function convertTsc(config: string, output: CommandOutput): Converted[] {
   const name = `tsc --noEmit (${config})`;
   const suites = ['TypeScript'];
-  if (output.exitCode === 0) {
-    return [
-      converted(
-        plainDraft({
-          name,
-          suites,
-          status: 'passed',
-          start: output.start,
-          stop: output.stop,
-          error: null,
-          testType: 'static',
-        }),
-      ),
-    ];
-  }
+  if (output.exitCode === 0) return [converted(checkDraft(output, { name, suites, status: 'passed', error: null }))];
   const errors = `${output.stdout}\n${output.stderr}`.split('\n').filter((line) => TSC_ERROR.test(line.trim()));
   if (errors.length === 0) return [couldNotRun(name, suites, output)];
   return [
     converted(
-      plainDraft({
+      checkDraft(output, {
         name,
         suites,
         status: 'failed',
-        start: output.start,
-        stop: output.stop,
         error: problem(
           `${String(errors.length)} type error${errors.length === 1 ? '' : 's'}:\n${errors.map((line) => line.trim()).join('\n')}`,
         ),
         parameters: [{ name: 'errors', value: String(errors.length) }],
-        testType: 'static',
       }),
       raw(output),
     ),
@@ -152,12 +140,10 @@ export function convertPrettier(output: CommandOutput): Converted[] {
     .filter((file) => file !== '' && !file.startsWith('Code style issues'));
   return [
     converted(
-      plainDraft({
+      checkDraft(output, {
         name,
         suites,
         status: output.exitCode === 0 ? 'passed' : 'failed',
-        start: output.start,
-        stop: output.stop,
         error:
           output.exitCode === 0
             ? null
@@ -165,7 +151,6 @@ export function convertPrettier(output: CommandOutput): Converted[] {
                 `${String(differing.length)} file${differing.length === 1 ? '' : 's'} differ from Prettier's format:\n${differing.join('\n')}`,
               ),
         parameters: [{ name: 'files that differ', value: String(differing.length) }],
-        testType: 'static',
       }),
       raw(output),
     ),
@@ -198,12 +183,10 @@ export function convertAudit(output: CommandOutput): Converted[] {
     );
   return [
     converted(
-      plainDraft({
+      checkDraft(output, {
         name,
         suites,
         status: serious === 0 ? 'passed' : 'failed',
-        start: output.start,
-        stop: output.stop,
         error:
           serious === 0
             ? null
@@ -211,7 +194,6 @@ export function convertAudit(output: CommandOutput): Converted[] {
                 `${String(serious)} high or critical advisor${serious === 1 ? 'y' : 'ies'}:\n${advisories.join('\n')}`,
               ),
         parameters: SEVERITIES.map((severity) => ({ name: severity, value: String(counts[severity] ?? 0) })),
-        testType: 'static',
       }),
       raw(output, 'application/json'),
     ),

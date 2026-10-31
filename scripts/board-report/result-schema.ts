@@ -11,6 +11,11 @@ export const STATUSES = ['passed', 'failed', 'broken', 'skipped'] as const;
 export const Status = z.enum(STATUSES);
 export type Status = z.infer<typeof Status>;
 
+/** Failed (an assertion didn't hold) or broken (an error): what fails a run. */
+export function isFailing(status: Status): boolean {
+  return status === 'failed' || status === 'broken';
+}
+
 /** The test types of PLAN.md §8.1 and the BDD layer (§8.5), in the order the report shows them. */
 export const TEST_TYPES = [
   'static',

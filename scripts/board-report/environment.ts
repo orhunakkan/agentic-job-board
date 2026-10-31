@@ -46,11 +46,10 @@ export function collectEnvironment(sources: EnvironmentSources = realSources()):
   const { env } = sources;
   const repository = env['GITHUB_REPOSITORY'] ?? repositoryOf(sources.run('git', ['remote', 'get-url', 'origin']));
   const commit = env['GITHUB_SHA'] ?? sources.run('git', ['rev-parse', 'HEAD'])?.trim() ?? null;
+  // A pull request's branch is its head ref; other runs leave GITHUB_HEAD_REF empty.
+  const headRef = env['GITHUB_HEAD_REF'] === '' ? undefined : env['GITHUB_HEAD_REF'];
   const branch =
-    (env['GITHUB_HEAD_REF'] === undefined || env['GITHUB_HEAD_REF'] === '' ? undefined : env['GITHUB_HEAD_REF']) ??
-    env['GITHUB_REF_NAME'] ??
-    sources.run('git', ['rev-parse', '--abbrev-ref', 'HEAD'])?.trim() ??
-    null;
+    headRef ?? env['GITHUB_REF_NAME'] ?? sources.run('git', ['rev-parse', '--abbrev-ref', 'HEAD'])?.trim() ?? null;
   const status = sources.run('git', ['status', '--porcelain']);
   const dirty = status === null ? 'unknown' : status.trim() === '' ? 'no' : 'yes';
 

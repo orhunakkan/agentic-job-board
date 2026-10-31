@@ -27,15 +27,14 @@ const Export = z.object({ metrics: z.record(z.string(), MetricSchema), root_grou
 function measured(metric: Record<string, unknown>): { name: string; value: string }[] {
   return Object.entries(metric)
     .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
-    .map(([name, value]) => ({
-      name,
-      value:
-        name === 'value' || name === 'rate'
-          ? String(Math.round(value * 10_000) / 10_000)
-          : Number.isInteger(value)
-            ? String(value)
-            : value.toFixed(2),
-    }));
+    .map(([name, value]) => ({ name, value: formatValue(name, value) }));
+}
+
+/** A rate to four decimals; any other value as it is when whole, else to two decimals. */
+function formatValue(name: string, value: number): string {
+  if (name === 'value' || name === 'rate') return String(Math.round(value * 10_000) / 10_000);
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(2);
 }
 
 export function convertK6(summaryText: string, start: number, stop: number): Converted[] {
