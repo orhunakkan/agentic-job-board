@@ -116,7 +116,9 @@ describe('the profile form', () => {
       /<input type="text" id="profile-field" name="field" value="" aria-invalid="true" aria-describedby="profile-field-hint profile-field-error"/,
     );
     expect(page).toContain('<p class="field-error" id="profile-field-error">Enter your line of work.</p>');
-    expect(page).toContain('<p class="field-error" id="profile-yearsExperience-error">Enter a whole number from 0 to 60.</p>');
+    expect(page).toContain(
+      '<p class="field-error" id="profile-yearsExperience-error">Enter a whole number from 0 to 60.</p>',
+    );
     expect(page).toContain('id="profile-locations-error"');
     expect(page).toContain('value="six"');
     expect(page).toContain('Kept &lt;exactly&gt; as typed</textarea>');

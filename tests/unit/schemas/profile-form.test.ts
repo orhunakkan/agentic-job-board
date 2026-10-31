@@ -53,7 +53,7 @@ describe('parseProfileForm', () => {
   });
 
   it('FR-01: an unticked checkbox is not sent, and means not relocating', () => {
-    const { relocate: _ticked, ...unticked } = form();
+    const unticked = Object.fromEntries(Object.entries(form()).filter(([name]) => name !== 'relocate'));
 
     const result = parseProfileForm(unticked);
 
@@ -77,13 +77,23 @@ describe('parseProfileForm', () => {
   });
 
   it.each<[string, Record<string, string>, string, string]>([
-    ['years that are not a number', { yearsExperience: 'seven' }, 'yearsExperience', 'Enter a whole number from 0 to 60.'],
+    [
+      'years that are not a number',
+      { yearsExperience: 'seven' },
+      'yearsExperience',
+      'Enter a whole number from 0 to 60.',
+    ],
     ['years above 60', { yearsExperience: '61' }, 'yearsExperience', 'Enter a whole number from 0 to 60.'],
     ['years with a decimal', { yearsExperience: '7.5' }, 'yearsExperience', 'Enter a whole number from 0 to 60.'],
     ['a level the board does not know', { seniority: 'principal' }, 'seniority', 'Choose your level.'],
     ['a line of work over 200 characters', { field: 'x'.repeat(201) }, 'field', 'Keep it to 200 characters.'],
     ['a summary over 1,000 characters', { summary: 'x'.repeat(1001) }, 'summary', 'Keep it to 1,000 characters.'],
-    ['a role over 200 characters', { targetRoles: 'x'.repeat(201) }, 'targetRoles', 'Keep each line to 200 characters.'],
+    [
+      'a role over 200 characters',
+      { targetRoles: 'x'.repeat(201) },
+      'targetRoles',
+      'Keep each line to 200 characters.',
+    ],
     [
       'more than 50 skills',
       { coreSkills: Array.from({ length: 51 }, (_, index) => `skill ${String(index)}`).join('\n') },
