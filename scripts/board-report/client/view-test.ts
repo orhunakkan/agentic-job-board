@@ -6,7 +6,7 @@ import type { AttachmentView, StepView, TestDetail, TestEntry } from '../build/d
 import type { ErrorInfo } from '../result-schema.ts';
 import { browserChip, chip, flakyChip, statusBadge, statusIcon, STATUS_WORD, typeChip } from './badges.ts';
 import { historyDots } from './charts.ts';
-import { el, externalLink, pre, srOnly } from './dom.ts';
+import { el, externalLink, pre, scrollingTable, srOnly } from './dom.ts';
 import { loadDetail } from './detail.ts';
 import { formatDuration } from './format.ts';
 import { href, type Route } from './route.ts';
@@ -49,7 +49,7 @@ function dataTable(rows: readonly string[][]): HTMLElement {
   table.appendChild(
     el('tbody', {}, ...body.map((row) => el('tr', {}, ...row.map((cell) => el('td', { text: cell }))))),
   );
-  return el('div', { class: 'table-scroll', tabindex: 0, role: 'region', 'aria-label': 'Data table' }, table);
+  return scrollingTable('Data table', table);
 }
 
 /**
@@ -237,9 +237,8 @@ function stepList(steps: readonly StepView[]): HTMLOListElement {
 }
 
 function parametersTable(parameters: readonly { name: string; value: string }[]): HTMLElement {
-  return el(
-    'div',
-    { class: 'table-scroll', tabindex: 0, role: 'region', 'aria-label': 'Parameters' },
+  return scrollingTable(
+    'Parameters',
     el(
       'table',
       { class: 'kv-table' },
