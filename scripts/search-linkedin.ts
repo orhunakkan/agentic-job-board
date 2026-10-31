@@ -197,14 +197,7 @@ async function search(
         if (raw.length < SEARCH_PAGE_SIZE || allOlder) break;
       }
     } catch (error) {
-      if (error instanceof LinkedInSignedOutError) throw error;
-      if (error instanceof LinkedInBusyError) {
-        limited(options, summary, state, error);
-      } else {
-        const failure = `${entry.name}: ${reason(error)}`;
-        summary.failures.push(failure);
-        log(`${failure} (skipped)`);
-      }
+      pageFailed(options, summary, state, error, entry.name, 'skipped');
     }
   }
 
@@ -281,28 +274,34 @@ async function readJobPage(
     summary.detailsRead += 1;
     return details;
   } catch (error) {
-    if (error instanceof LinkedInSignedOutError) throw error;
-    if (error instanceof LinkedInBusyError) {
-      limited(options, summary, state, error);
-      return null;
-    }
-    const failure = `job ${jobId}: ${reason(error)}`;
-    summary.failures.push(failure);
-    options.log(`${failure} (sent without its job page)`);
+    pageFailed(options, summary, state, error, `job ${jobId}`, 'sent without its job page');
     return null;
   }
 }
 
-/** Stops asking LinkedIn for anything more in this run; what was read so far is still sent. */
-function limited(
+/**
+ * What a page that could not be read means for the run. Signed out ends it. LinkedIn limiting requests stops it
+ * asking for anything more; what was read so far is still sent. Any other failure costs only `what` (a search or a
+ * job page), and the log line says what happens `instead`.
+ */
+function pageFailed(
   options: SearchLinkedInOptions,
   summary: SearchLinkedInSummary,
   state: RunState,
-  error: LinkedInBusyError,
+  error: unknown,
+  what: string,
+  instead: string,
 ): void {
-  state.limited = true;
-  summary.failures.push(error.message);
-  options.log(error.message);
+  if (error instanceof LinkedInSignedOutError) throw error;
+  if (error instanceof LinkedInBusyError) {
+    state.limited = true;
+    summary.failures.push(error.message);
+    options.log(error.message);
+    return;
+  }
+  const failure = `${what}: ${reason(error)}`;
+  summary.failures.push(failure);
+  options.log(`${failure} (${instead})`);
 }
 
 /** Posted before the window starts. A card that gives only a date counts as posted at the end of that day. */
