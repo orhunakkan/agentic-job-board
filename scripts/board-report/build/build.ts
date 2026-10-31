@@ -206,15 +206,7 @@ function detailOf({ result, dir }: StoredResult, outDir: string): TestDetail {
     mkdirSync(join(outDir, 'attachments', result.id), { recursive: true });
     copyFileSync(from, join(outDir, path));
     const kind = kindOf(attachment);
-    let text: string | null = null;
-    let truncated = false;
-    if (kind === 'text' || kind === 'json') {
-      const raw = readFileSync(from, 'utf8');
-      text = kind === 'json' ? prettyJson(raw) : raw;
-      truncated = text.length > TEXT_LIMIT;
-      if (truncated) text = text.slice(0, TEXT_LIMIT);
-    }
-    return [{ name: attachment.name, type: attachment.type, kind, path, text, truncated }];
+    return [{ name: attachment.name, type: attachment.type, kind, path, ...shownText(from, kind) }];
   };
   const stepOf = (step: TestStep): StepView => ({
     name: step.name,
@@ -247,6 +239,14 @@ export function kindOf(attachment: Pick<Attachment, 'name' | 'type'>): Attachmen
   if (type === 'application/zip' && attachment.name === 'trace') return 'trace';
   if (type.startsWith('text/') || type === 'application/x-ndjson') return 'text';
   return 'file';
+}
+
+/** The text the report shows for a text or JSON attachment (JSON pretty-printed), cut at TEXT_LIMIT. */
+function shownText(file: string, kind: AttachmentKind): Pick<AttachmentView, 'text' | 'truncated'> {
+  if (kind !== 'text' && kind !== 'json') return { text: null, truncated: false };
+  const raw = readFileSync(file, 'utf8');
+  const text = kind === 'json' ? prettyJson(raw) : raw;
+  return { text: text.slice(0, TEXT_LIMIT), truncated: text.length > TEXT_LIMIT };
 }
 
 function prettyJson(raw: string): string {
