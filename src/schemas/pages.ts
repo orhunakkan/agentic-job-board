@@ -26,6 +26,11 @@ export const JobPageQuerySchema = z.object({
   notes: z.literal('saved').optional(),
 });
 
+/** The profile page: `saved=yes` once, after the form saved it (FR-01). */
+export const ProfilePageQuerySchema = z.object({
+  saved: z.literal('yes').optional(),
+});
+
 export const StatusFormSchema = z.strictObject({
   status: z.enum(STATUSES),
   return: z.string().max(2000).optional(),

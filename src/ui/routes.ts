@@ -11,10 +11,18 @@ import { changeJobStatus, dismissNewJobs, JobNotFoundError } from '../jobs/statu
 import { linkedInSessionStatus } from '../linkedin/session.ts';
 import { IdParamSchema } from '../schemas/api.ts';
 import {
+  EMPTY_PROFILE_FORM,
+  parseProfileForm,
+  ProfileFormSchema,
+  profileFormValues,
+  profileFormValuesFromOld,
+} from '../schemas/profile-form.ts';
+import {
   BoardActionFormSchema,
   BoardQuerySchema,
   JobPageQuerySchema,
   NotesFormSchema,
+  ProfilePageQuerySchema,
   safeReturnPath,
   StatusFormSchema,
   ThemeFormSchema,
@@ -25,7 +33,7 @@ import { layout, type NavItem } from './layout.ts';
 import { boardPage } from './pages/board.ts';
 import { errorPage, errorTitle } from './pages/error.ts';
 import { jobDetailPage } from './pages/job-detail.ts';
-import { profilePage } from './pages/profile.ts';
+import { profileFormPage, profilePage } from './pages/profile.ts';
 import { runsPage } from './pages/runs.ts';
 import { setupPage } from './pages/setup.ts';
 import { themeCookie, themeOf, themeReturnPath } from './theme.ts';
@@ -210,7 +218,43 @@ export function pageRoutes(context: AppContext): Route[] {
     {
       method: 'GET',
       path: '/profile',
-      handler: (request) => page(request, 'Profile', 'profile', profilePage(repos.profile.get())),
+      handler: (request) => {
+        const query = parseInput(ProfilePageQuerySchema, pageQuery(request), 'query string');
+        return page(request, 'Profile', 'profile', profilePage(repos.profile.get(), query.saved === 'yes'));
+      },
+    },
+    {
+      // The profile form (FR-01, DEC-065): empty on a first run, the saved profile to edit, or what still fits of a
+      // profile saved in an older shape.
+      method: 'GET',
+      path: '/profile/edit',
+      handler: (request) => {
+        const state = repos.profile.state();
+        const view =
+          state.status === 'saved'
+            ? { values: profileFormValues(state.profile), reason: 'edit' as const }
+            : state.status === 'outdated'
+              ? { values: profileFormValuesFromOld(state.old), reason: 'outdated' as const }
+              : { values: EMPTY_PROFILE_FORM, reason: 'new' as const };
+        return page(request, 'Edit profile', 'profile', profileFormPage({ ...view, errors: {} }));
+      },
+    },
+    {
+      // Saves the form like PUT /api/profile, then shows the profile with a one-time notice; a form with errors comes
+      // back as a 400 with each error next to its field and everything typed kept.
+      method: 'POST',
+      path: '/profile',
+      accepts: 'form',
+      handler: (request) => {
+        const result = parseProfileForm(parseInput(ProfileFormSchema, request.body, 'form'));
+        if (result.ok) {
+          repos.profile.put(result.profile, context.now());
+          return redirect('/profile?saved=yes#notice');
+        }
+        const reason = repos.profile.state().status === 'saved' ? 'edit' : 'new';
+        const body = profileFormPage({ values: result.values, errors: result.errors, reason });
+        return { ...page(request, 'Edit profile', 'profile', body), status: 400 };
+      },
     },
     {
       // The header's light/dark toggle (FR-23, DEC-061): keeps the choice in a cookie and reloads the same page. No

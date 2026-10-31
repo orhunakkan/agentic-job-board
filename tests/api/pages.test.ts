@@ -377,13 +377,13 @@ describe('the HTML pages', () => {
     it('FR-01: the profile page explains how to load a profile until one exists', async () => {
       const empty = await startTestApp({ setup: 'none' });
       try {
-        expect((await empty.get('/profile')).text).toContain('No profile loaded yet.');
+        expect((await empty.get('/profile')).text).toContain('No profile yet.');
       } finally {
         await empty.close();
       }
     });
 
-    it('FR-01: shows every profile field, read-only', async () => {
+    it('FR-01: shows every profile field, with nothing to type into on the page itself', async () => {
       await testApp.call('PUT', '/api/profile', PROFILE);
 
       const profile = await page('/profile');
@@ -405,7 +405,7 @@ describe('the HTML pages', () => {
       ]) {
         expect(profile).toContain(text);
       }
-      // The header's theme toggle is a form on every page (FR-23); the profile itself stays read-only.
+      // The header's theme toggle is a form on every page (FR-23); the profile is changed on its own form page.
       expect(/<main[\s\S]*<\/main>/.exec(profile)?.[0]).not.toContain('<form');
     });
 

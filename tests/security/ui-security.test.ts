@@ -77,6 +77,8 @@ describe('HTML page security', () => {
     `/jobs/${String(jobId)}?notes=saved`,
     '/runs',
     '/profile',
+    '/profile/edit',
+    '/setup',
   ];
 
   it('NFR-07: hostile text from LinkedIn searches, scores, notes and the profile is escaped on every page', async () => {
@@ -181,6 +183,34 @@ describe('HTML page security', () => {
       expect(response.headers.getSetCookie()).toEqual([]);
     },
   );
+
+  it.each(CROSS_SITE_HEADERS)(
+    'FR-01, NFR-01: a profile form post with %s is refused with 403 and changes nothing',
+    async (_case, headers) => {
+      const before = (await testApp.get('/api/profile')).text;
+      const response = await testApp.form(
+        '/profile',
+        { field: 'Changed by another site', targetRoles: 'x', seniority: 'mid', yearsExperience: '1', coreSkills: 'x' },
+        headers,
+      );
+
+      expect(response.status).toBe(403);
+      expect(response.text).toContain('Requests from other sites are not allowed');
+      expect((await testApp.get('/api/profile')).text).toBe(before);
+    },
+  );
+
+  it('FR-01, NFR-07: hostile text sent back in the profile form is escaped where the form shows it again', async () => {
+    const hostile = '"><script>alert(12)</script>';
+    const fields = { field: hostile, summary: `</textarea>${hostile}`, targetRoles: hostile, seniority: hostile };
+
+    const { status, text } = await testApp.form('/profile', fields);
+
+    expect(status).toBe(400);
+    expect(text).not.toMatch(/<script|<\/textarea><|<[^>]*\son[a-z]+=/i);
+    expect(text).toContain('value="&quot;&gt;&lt;script&gt;alert(12)&lt;/script&gt;"');
+    expect(text).toContain('&lt;/textarea&gt;&quot;&gt;&lt;script&gt;alert(12)');
+  });
 
   it('FR-23, NFR-01: the theme cookie is out of reach of scripts and is not sent on other sites’ posts', async () => {
     const response = await testApp.form('/theme', { theme: 'light', return: '/runs' });
