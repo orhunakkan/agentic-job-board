@@ -13,6 +13,15 @@ import { href, type Route } from './route.ts';
 import { card, emptyState, viewHeader } from './shell.ts';
 import { report, typeTitle } from './state.ts';
 
+function diffSide(title: 'Expected' | 'Actual', value: string | null, heading: 'h2' | 'h3'): HTMLElement {
+  return el(
+    'div',
+    { class: `diff-side diff-${title.toLowerCase()}` },
+    el(heading, { class: 'diff-title', text: title }),
+    pre(value ?? '(nothing)'),
+  );
+}
+
 function errorBlock(error: ErrorInfo, heading: 'h2' | 'h3' = 'h3'): HTMLElement {
   const parts: (Node | null)[] = [pre(error.message, 'error-message')];
   if (error.expected !== null || error.actual !== null) {
@@ -20,18 +29,8 @@ function errorBlock(error: ErrorInfo, heading: 'h2' | 'h3' = 'h3'): HTMLElement 
       el(
         'div',
         { class: 'diff' },
-        el(
-          'div',
-          { class: 'diff-side diff-expected' },
-          el(heading, { class: 'diff-title', text: 'Expected' }),
-          pre(error.expected ?? '(nothing)'),
-        ),
-        el(
-          'div',
-          { class: 'diff-side diff-actual' },
-          el(heading, { class: 'diff-title', text: 'Actual' }),
-          pre(error.actual ?? '(nothing)'),
-        ),
+        diffSide('Expected', error.expected, heading),
+        diffSide('Actual', error.actual, heading),
       ),
     );
   }
@@ -260,6 +259,14 @@ function parametersTable(parameters: readonly { name: string; value: string }[])
   );
 }
 
+/** The test's file and line, a link when the run gave one; null for results with no file. */
+function sourceLine(test: TestEntry): HTMLElement | null {
+  if (test.file === null) return null;
+  const where = test.line === null ? test.file : `${test.file}:${String(test.line)}`;
+  if (test.sourceUrl === null) return el('span', { class: 'mono', text: where });
+  return externalLink(test.sourceUrl, where, { class: 'mono' });
+}
+
 function summary(test: TestEntry): HTMLElement {
   const data = report();
   const meta = el(
@@ -291,19 +298,12 @@ function summary(test: TestEntry): HTMLElement {
       el('li', {}, el('a', { class: 'chip chip-link chip-tag', href: href('types', { tag }), text: tag })),
     );
   }
-  const where = `${test.file ?? ''}${test.line === null ? '' : `:${String(test.line)}`}`;
-  const source =
-    test.file === null
-      ? null
-      : test.sourceUrl === null
-        ? el('span', { class: 'mono', text: where })
-        : externalLink(test.sourceUrl, where, { class: 'mono' });
   const facts = el('dl', { class: 'facts' });
   const fact = (name: string, value: Node | string | null): void => {
     if (value === null) return;
     facts.append(el('dt', { text: name }), el('dd', {}, value));
   };
-  fact('Source', source);
+  fact('Source', sourceLine(test));
   fact('Suites', test.suites.length === 0 ? null : test.suites.join(' › '));
   fact('Step', test.step);
   fact('Worker', test.worker);
@@ -327,6 +327,28 @@ function summary(test: TestEntry): HTMLElement {
   );
 }
 
+/** One console stream under its name; null when the test wrote nothing to it. */
+function outputBlock(stream: 'stdout' | 'stderr', text: string, className = ''): HTMLElement | null {
+  if (text === '') return null;
+  return el('div', {}, el('h3', { class: 'output-title', text: stream }), pre(text, className));
+}
+
+function retryList(retries: TestDetail['retries']): HTMLOListElement {
+  return el(
+    'ol',
+    { class: 'retries' },
+    ...retries.map((retry) =>
+      el(
+        'li',
+        {},
+        statusBadge(retry.status),
+        el('span', { class: 'duration', text: formatDuration(retry.duration) }),
+        retry.message === null ? null : el('code', { class: 'error-line', text: retry.message }),
+      ),
+    ),
+  );
+}
+
 function detailSections(detail: TestDetail): HTMLElement[] {
   const sections: HTMLElement[] = [];
   if (detail.error !== null) sections.push(card('Error', 'error-card', errorBlock(detail.error)));
@@ -335,38 +357,9 @@ function detailSections(detail: TestDetail): HTMLElement[] {
   const stdout = detail.stdout.join('');
   const stderr = detail.stderr.join('');
   if (stdout !== '' || stderr !== '') {
-    sections.push(
-      card(
-        'Output',
-        '',
-        stdout === '' ? null : el('div', {}, el('h3', { class: 'output-title', text: 'stdout' }), pre(stdout)),
-        stderr === ''
-          ? null
-          : el('div', {}, el('h3', { class: 'output-title', text: 'stderr' }), pre(stderr, 'stderr')),
-      ),
-    );
+    sections.push(card('Output', '', outputBlock('stdout', stdout), outputBlock('stderr', stderr, 'stderr')));
   }
-  if (detail.retries.length > 0) {
-    sections.push(
-      card(
-        'Retries',
-        '',
-        el(
-          'ol',
-          { class: 'retries' },
-          ...detail.retries.map((retry) =>
-            el(
-              'li',
-              {},
-              statusBadge(retry.status),
-              el('span', { class: 'duration', text: formatDuration(retry.duration) }),
-              retry.message === null ? null : el('code', { class: 'error-line', text: retry.message }),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  if (detail.retries.length > 0) sections.push(card('Retries', '', retryList(detail.retries)));
   if (sections.length === 0) sections.push(emptyState('This test recorded no error, steps, attachments or output.'));
   return sections;
 }
