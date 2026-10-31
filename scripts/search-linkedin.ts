@@ -33,6 +33,7 @@ import {
   LinkedInSearchConfigError,
   parseLinkedInSearchConfig,
   resolveSearches,
+  type LinkedInSearch,
   type LinkedInSearchConfig,
 } from '../src/linkedin/search-config.ts';
 import type { SearchLinkedInSummary } from '../src/linkedin/search-summary.ts';
@@ -154,7 +155,7 @@ async function search(
   summary: SearchLinkedInSummary,
   state: RunState,
 ): Promise<IncomingListing[]> {
-  const { config, log, pages } = options;
+  const { config } = options;
   const now = options.now();
   const searches = resolveSearches(config).filter((entry) => options.only === null || entry.name === options.only);
   if (searches.length === 0) throw new LinkedInSearchConfigError(`No search is named "${String(options.only)}".`);
@@ -168,34 +169,8 @@ async function search(
     if (state.limited) break;
     summary.searches += 1;
     const window = windowSeconds(entry.postedWithin, lastSearchAt, now);
-    const cutoff = Date.parse(now) - window * 1000;
     try {
-      for (let page = 0; page < entry.maxPages; page += 1) {
-        const raw = await pages.searchPage(searchUrl(entry, page, window));
-        summary.pages += 1;
-        if (raw === 'no-results') break;
-
-        const cards = raw.flatMap((card) => toSearchCard(card, now) ?? []);
-        if (raw.length > 0 && cards.length === 0) {
-          throw new LinkedInPageFormatError(`no job card on page ${String(page + 1)} could be read`);
-        }
-        summary.cards += cards.length;
-        let kept = 0;
-        for (const card of cards) {
-          if (containsAny(card.title, config.excludeKeywords)) {
-            summary.excluded += 1;
-          } else if (postedBefore(card, cutoff)) {
-            summary.older += 1;
-          } else {
-            kept += 1;
-            if (!found.has(card.jobId)) found.set(card.jobId, { card, searchName: entry.name, cutoff });
-          }
-        }
-        log(`${entry.name}, page ${String(page + 1)}: ${String(cards.length)} jobs, ${String(kept)} kept`);
-
-        const allOlder = entry.sort === 'recent' && cards.every((card) => postedBefore(card, cutoff));
-        if (raw.length < SEARCH_PAGE_SIZE || allOlder) break;
-      }
+      await runSearch(options, summary, entry, window, now, found);
     } catch (error) {
       pageFailed(options, summary, state, error, entry.name, 'skipped');
     }
@@ -221,6 +196,47 @@ async function search(
   }
   summary.matched = listings.length;
   return listings;
+}
+
+/**
+ * Reads one search's pages (jobs posted in the last `window` seconds) and adds the jobs it keeps to `found`, until
+ * the last page or, for a search sorted by date, a page of only older jobs.
+ */
+async function runSearch(
+  options: SearchLinkedInOptions,
+  summary: SearchLinkedInSummary,
+  entry: LinkedInSearch,
+  window: number,
+  now: string,
+  found: Map<string, FoundJob>,
+): Promise<void> {
+  const cutoff = Date.parse(now) - window * 1000;
+  for (let page = 0; page < entry.maxPages; page += 1) {
+    const raw = await options.pages.searchPage(searchUrl(entry, page, window));
+    summary.pages += 1;
+    if (raw === 'no-results') return;
+
+    const cards = raw.flatMap((card) => toSearchCard(card, now) ?? []);
+    if (raw.length > 0 && cards.length === 0) {
+      throw new LinkedInPageFormatError(`no job card on page ${String(page + 1)} could be read`);
+    }
+    summary.cards += cards.length;
+    let kept = 0;
+    for (const card of cards) {
+      if (containsAny(card.title, options.config.excludeKeywords)) {
+        summary.excluded += 1;
+      } else if (postedBefore(card, cutoff)) {
+        summary.older += 1;
+      } else {
+        kept += 1;
+        if (!found.has(card.jobId)) found.set(card.jobId, { card, searchName: entry.name, cutoff });
+      }
+    }
+    options.log(`${entry.name}, page ${String(page + 1)}: ${String(cards.length)} jobs, ${String(kept)} kept`);
+
+    const allOlder = entry.sort === 'recent' && cards.every((card) => postedBefore(card, cutoff));
+    if (raw.length < SEARCH_PAGE_SIZE || allOlder) return;
+  }
 }
 
 /** Reads the job pages of LinkedIn jobs in New and Saved that have no description yet (--backfill). */
