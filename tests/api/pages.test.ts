@@ -1,23 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { JobSummary } from '../../src/schemas/api.ts';
 import { PAGE_SIZE } from '../../src/ui/routes.ts';
+import { SAMPLE_PROFILE } from '../helpers/profiles.ts';
 import { jobAt, seedBoard } from '../helpers/seed-board.ts';
 import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
 // The HTML pages of PLAN.md §6.2 over real HTTP: what each page lists, every form post and its redirect,
 // and every error status as a page (FR-07 to FR-12).
 
-const PROFILE = {
-  targetRoles: ['SDET', 'QA Automation Engineer'],
-  seniority: 'senior',
-  yearsExperience: 8,
-  coreSkills: ['Playwright', 'TypeScript'],
-  secondarySkills: ['Java'],
-  locations: { remoteUS: true, hybridMetros: ['Austin, TX'], onsiteMetros: [], relocate: false },
-  workAuthorization: 'US, no sponsorship needed',
-  dealBreakers: ['manual-only testing roles'],
-  excludedCompanies: ['Example Corp'],
-};
+const PROFILE = SAMPLE_PROFILE;
 
 /** The job IDs of the board cards, in page order. */
 function cardIds(page: string): number[] {
@@ -393,16 +384,19 @@ describe('the HTML pages', () => {
       const profile = await page('/profile');
 
       for (const text of [
-        '<li>SDET</li>',
+        'Freight and logistics dispatch',
+        'Dispatcher for a regional carrier; looking for a lead role on a larger fleet.',
+        '<li>Truck Dispatcher</li>',
         'Senior, 8 years of experience',
-        '<li>Playwright</li>',
-        '<li>Java</li>',
-        '<li>Remote (US)</li>',
+        '<li>Load planning</li>',
+        '<li>Spanish</li>',
+        '<li>CDL-A</li>',
+        '<li>Remote: United States</li>',
         '<li>Hybrid: Austin, TX</li>',
         'Not relocating.',
         'US, no sponsorship needed',
-        '<li>manual-only testing roles</li>',
-        '<li>Example Corp</li>',
+        '<li>overnight shifts only</li>',
+        '<li>Example Freight Co</li>',
       ]) {
         expect(profile).toContain(text);
       }
@@ -411,9 +405,14 @@ describe('the HTML pages', () => {
     });
 
     it('FR-01: empty lists read "None"', async () => {
-      await testApp.call('PUT', '/api/profile', { ...PROFILE, secondarySkills: [], excludedCompanies: [] });
+      await testApp.call('PUT', '/api/profile', {
+        ...PROFILE,
+        secondarySkills: [],
+        credentials: [],
+        excludedCompanies: [],
+      });
 
-      expect((await page('/profile')).match(/<dd>None<\/dd>/g)).toHaveLength(2);
+      expect((await page('/profile')).match(/<dd>None<\/dd>/g)).toHaveLength(3);
     });
   });
 

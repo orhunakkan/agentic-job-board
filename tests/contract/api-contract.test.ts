@@ -19,6 +19,7 @@ import {
 import { createLinkedInSessionFile, saveLinkedInSession } from '../../src/linkedin/session.ts';
 import { ProfileSchema } from '../../src/schemas/profile.ts';
 import { fakeLinkedInStorageState } from '../helpers/fixtures.ts';
+import { SAMPLE_PROFILE } from '../helpers/profiles.ts';
 import { LINKEDIN_LISTINGS } from '../helpers/seed-board.ts';
 import { startTestApp, type ApiResponse, type TestApp } from '../helpers/test-app.ts';
 
@@ -48,17 +49,7 @@ describe('API responses match their schemas', () => {
   });
 
   it('FR-01: PUT and GET /api/profile', async () => {
-    const profile = {
-      targetRoles: ['SDET'],
-      seniority: 'senior',
-      yearsExperience: 8,
-      coreSkills: ['Playwright'],
-      secondarySkills: [],
-      locations: { remoteUS: true, hybridMetros: [], onsiteMetros: [], relocate: false },
-      workAuthorization: 'US',
-      dealBreakers: [],
-      excludedCompanies: [],
-    };
+    const profile = SAMPLE_PROFILE;
     conforms(ProfileSchema, await testApp.call('PUT', '/api/profile', profile), 200);
     conforms(ProfileSchema, await testApp.get('/api/profile'), 200);
   });

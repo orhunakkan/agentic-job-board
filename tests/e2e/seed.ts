@@ -3,6 +3,7 @@ import { expect, type APIRequestContext } from '@playwright/test';
 import type { ListingSource } from '../../src/domain/job-source.ts';
 import type { IncomingListing } from '../../src/ingest/listing-ingest.ts';
 import { CreateRunResponseSchema, IngestListingsResponseSchema } from '../../src/schemas/api.ts';
+import { SAMPLE_PROFILE } from '../helpers/profiles.ts';
 
 // Every E2E test seeds its own jobs through the JSON API, as /find-jobs and its scripts would, into the one shared
 // E2E server. A unique tag in each title (and unique job IDs) keeps parallel tests and browser projects apart: a
@@ -131,14 +132,4 @@ export function seedListings(
   );
 }
 
-export const PROFILE = {
-  targetRoles: ['SDET', 'QA Automation Engineer'],
-  seniority: 'senior',
-  yearsExperience: 8,
-  coreSkills: ['Playwright', 'TypeScript'],
-  secondarySkills: ['Java'],
-  locations: { remoteUS: true, hybridMetros: [], onsiteMetros: [], relocate: false },
-  workAuthorization: 'US, no sponsorship needed',
-  dealBreakers: ['manual-only testing roles'],
-  excludedCompanies: [],
-};
+export const PROFILE = SAMPLE_PROFILE;

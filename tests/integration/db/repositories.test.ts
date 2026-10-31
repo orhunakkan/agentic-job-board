@@ -5,12 +5,15 @@ import { createTestDatabase, type TestDatabase } from '../helpers/test-database.
 
 // Fictional data only: test data must never contain the owner's real details.
 const PROFILE: Profile = {
-  targetRoles: ['SDET'],
+  field: 'Accounting',
+  summary: '',
+  targetRoles: ['Staff Accountant'],
   seniority: 'senior',
   yearsExperience: 8,
-  coreSkills: ['Playwright'],
+  coreSkills: ['Reconciliations'],
   secondarySkills: [],
-  locations: { remoteUS: true, hybridMetros: [], onsiteMetros: [], relocate: false },
+  credentials: ['CPA'],
+  locations: { remote: ['United States'], hybridAreas: [], onsiteAreas: [], relocate: false },
   workAuthorization: 'US, no sponsorship needed',
   dealBreakers: [],
   excludedCompanies: [],
@@ -103,10 +106,26 @@ describe('repositories', () => {
       expect(testDb.repos.profile.get()).toBeNull();
     });
 
-    it('FR-01: refuses to read back a profile that no longer validates', () => {
-      testDb.db.prepare("INSERT INTO profile (id, data, updated_at) VALUES (1, '{\"targetRoles\":[]}', 'x')").run();
+    it('FR-01: reads a stored profile that no longer validates as outdated, with its old values', () => {
+      const old = { targetRoles: ['Staff Accountant'], seniority: 'junior', locations: { remoteUS: true } };
+      testDb.db.prepare('INSERT INTO profile (id, data, updated_at) VALUES (1, ?, ?)').run(JSON.stringify(old), 'x');
 
-      expect(() => testDb.repos.profile.get()).toThrow();
+      expect(testDb.repos.profile.state()).toEqual({ status: 'outdated', old });
+      expect(testDb.repos.profile.get()).toBeNull();
+    });
+
+    it('FR-01: reads a stored row that is not even JSON as outdated', () => {
+      testDb.db.prepare("INSERT INTO profile (id, data, updated_at) VALUES (1, 'not json', 'x')").run();
+
+      expect(testDb.repos.profile.state()).toEqual({ status: 'outdated', old: null });
+    });
+
+    it('FR-01: tells a missing profile from a saved one', () => {
+      expect(testDb.repos.profile.state()).toEqual({ status: 'missing' });
+
+      testDb.repos.profile.put(PROFILE, '2026-10-23T12:00:00.000Z');
+
+      expect(testDb.repos.profile.state()).toEqual({ status: 'saved', profile: PROFILE });
     });
   });
 

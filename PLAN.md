@@ -318,21 +318,33 @@ CREATE TABLE status_history (
 
 All timestamps are ISO-8601 UTC strings. Every query is a prepared statement with bound parameters; string-built SQL is forbidden.
 
-### 5.2 Profile shape (`src/schemas/profile.ts`)
+### 5.2 Profile shape (`src/schemas/profile.ts`, Phase 16, DEC-065)
+
+The profile is the only place a line of work, role, skill or location preference comes from. No field has a default. Text is at most 200 characters and a list at most 50 items, unless stated.
 
 ```ts
 {
-  targetRoles: string[];          // e.g. "Senior QA Engineer", "SDET", "Test Automation Engineer", "AI QA Engineer"
-  seniority: 'junior' | 'mid' | 'senior' | 'staff' | 'lead';
-  yearsExperience: number;
-  coreSkills: string[];           // e.g. Playwright, TypeScript, Cypress, Selenium, API testing, CI/CD
-  secondarySkills: string[];      // e.g. Java, REST Assured, SQL, Postman, AWS, Azure
-  locations: { remoteUS: boolean; hybridMetros: string[]; onsiteMetros: string[]; relocate: boolean };
-  workAuthorization: string;      // e.g. "US, no sponsorship needed"
-  dealBreakers: string[];         // e.g. "manual-only roles", "hardware/embedded test"
+  field: string;                  // "Your line of work", e.g. "Registered nursing, critical care"
+  summary: string;                // up to 1,000 characters, may be empty
+  targetRoles: string[];          // at least 1
+  seniority: 'entry' | 'mid' | 'senior' | 'lead' | 'manager' | 'director' | 'executive';
+  yearsExperience: number;        // whole number, 0–60
+  coreSkills: string[];           // at least 1: main skills, tools or specialties
+  secondarySkills: string[];
+  credentials: string[];          // licenses, certifications or clearances held, e.g. "CPA", "CDL-A"
+  locations: {
+    remote: string[];             // countries or regions the user can work remotely from; empty = not open to remote
+    hybridAreas: string[];
+    onsiteAreas: string[];
+    relocate: boolean;
+  };                              // at least one of the three lists is non-empty
+  workAuthorization: string;      // where the user can work, and whether they need sponsorship
+  dealBreakers: string[];
   excludedCompanies: string[];
 }
 ```
+
+A stored profile that fails this schema (for example one saved before Phase 16) reads as **outdated**: the repository reports it instead of throwing, and the form opens prefilled with the old values that still fit.
 
 ### 5.3 LinkedIn URL canonicalization (`src/domain/linkedin-url.ts`)
 

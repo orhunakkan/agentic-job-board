@@ -51,12 +51,15 @@ describe('HTML page security', () => {
     });
     await testApp.form(`/jobs/${String(jobId)}/notes`, { notes: '</textarea><script>alert(6)</script>' });
     await testApp.call('PUT', '/api/profile', {
+      field: '<script>alert(9)</script>',
+      summary: '<img src=x onerror=alert(10)>',
       targetRoles: ['<script>alert(7)</script>'],
       seniority: 'senior',
       yearsExperience: 8,
       coreSkills: ['<b>x</b>'],
       secondarySkills: [],
-      locations: { remoteUS: true, hybridMetros: ['<i>y</i>'], onsiteMetros: [], relocate: false },
+      credentials: ['<u>z</u>'],
+      locations: { remote: ['<s>r</s>'], hybridAreas: ['<i>y</i>'], onsiteAreas: [], relocate: false },
       workAuthorization: '"><script>alert(8)</script>',
       dealBreakers: [],
       excludedCompanies: [],
@@ -81,7 +84,7 @@ describe('HTML page security', () => {
       const { text } = await testApp.get(path);
 
       // Escaped text may still read "onerror=" or "onmouseover"; it is only dangerous as real markup.
-      expect(text, path).not.toMatch(/<script|<img|<svg|<iframe|<b>|<i>|<\/textarea><|<[^>]*\son[a-z]+=/i);
+      expect(text, path).not.toMatch(/<script|<img|<svg|<iframe|<b>|<i>|<u>|<s>|<\/textarea><|<[^>]*\son[a-z]+=/i);
     }
 
     expect((await testApp.get('/?q=script')).text).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
@@ -89,7 +92,12 @@ describe('HTML page security', () => {
     expect(detail).toContain('&lt;/textarea&gt;&lt;script&gt;alert(6)');
     expect(detail).toContain('&lt;script&gt;alert(5)&lt;/script&gt;');
     expect(detail).toContain('“&quot;&gt;&lt;svg onload=alert(3)&gt;”');
-    expect((await testApp.get('/profile')).text).toContain('&quot;&gt;&lt;script&gt;alert(8)');
+    const profile = (await testApp.get('/profile')).text;
+    expect(profile).toContain('&quot;&gt;&lt;script&gt;alert(8)');
+    expect(profile).toContain('&lt;script&gt;alert(9)&lt;/script&gt;');
+    expect(profile).toContain('&lt;img src=x onerror=alert(10)&gt;');
+    expect(profile).toContain('&lt;u&gt;z&lt;/u&gt;');
+    expect(profile).toContain('&lt;s&gt;r&lt;/s&gt;');
   });
 
   it('NFR-07: a hostile search term is escaped where the form shows it again', async () => {

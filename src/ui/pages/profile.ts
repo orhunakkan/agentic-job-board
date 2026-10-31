@@ -16,10 +16,10 @@ export function profilePage(profile: Profile | null): SafeHtml {
 
   const { locations } = profile;
   const where = [
-    locations.remoteUS ? 'Remote (US)' : null,
-    ...locations.hybridMetros.map((metro) => `Hybrid: ${metro}`),
-    ...locations.onsiteMetros.map((metro) => `On-site: ${metro}`),
-  ].filter((entry) => entry !== null);
+    ...locations.remote.map((region) => `Remote: ${region}`),
+    ...locations.hybridAreas.map((area) => `Hybrid: ${area}`),
+    ...locations.onsiteAreas.map((area) => `On-site: ${area}`),
+  ];
 
   return html`
     <h1>Profile</h1>
@@ -28,6 +28,10 @@ export function profilePage(profile: Profile | null): SafeHtml {
       it again with <code>PUT /api/profile</code>.
     </p>
     <dl class="details profile">
+      <dt>Line of work</dt>
+      <dd>${profile.field}</dd>
+      <dt>Summary</dt>
+      <dd>${profile.summary === '' ? 'None' : profile.summary}</dd>
       <dt>Target roles</dt>
       <dd>${list(profile.targetRoles)}</dd>
       <dt>Seniority</dt>
@@ -36,6 +40,8 @@ export function profilePage(profile: Profile | null): SafeHtml {
       <dd>${list(profile.coreSkills)}</dd>
       <dt>Secondary skills</dt>
       <dd>${list(profile.secondarySkills)}</dd>
+      <dt>Licenses and certifications</dt>
+      <dd>${list(profile.credentials)}</dd>
       <dt>Locations</dt>
       <dd>${list(where)}${locations.relocate ? ' Open to relocation.' : ' Not relocating.'}</dd>
       <dt>Work authorization</dt>

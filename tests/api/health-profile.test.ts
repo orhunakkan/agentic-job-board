@@ -1,20 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Profile } from '../../src/schemas/profile.ts';
+import { SAMPLE_PROFILE } from '../helpers/profiles.ts';
 import { startTestApp, type TestApp } from '../helpers/test-app.ts';
 
-// Fictional profile: test data must never contain the owner's real details.
-const PROFILE: Profile = {
-  targetRoles: ['Senior QA Engineer', 'SDET'],
-  seniority: 'senior',
-  yearsExperience: 8,
-  coreSkills: ['Playwright', 'TypeScript'],
-  secondarySkills: ['Java'],
-  locations: { remoteUS: true, hybridMetros: [], onsiteMetros: [], relocate: false },
-  workAuthorization: 'US, no sponsorship needed',
-  dealBreakers: ['manual-only roles'],
-  excludedCompanies: [],
-};
+const PROFILE: Profile = SAMPLE_PROFILE;
 
 const packageJson = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
   version: string;
