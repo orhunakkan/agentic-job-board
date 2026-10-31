@@ -194,9 +194,8 @@ function message(key: ProfileFormErrorKey, issue: z.core.$ZodIssue): string {
   const list = LISTS.has(key as ProfileFormTextField);
   if (issue.code === 'too_big') {
     if (!list) return 'Keep it to 200 characters.';
-    return issue.path.length > (key === 'remote' || key === 'hybridAreas' || key === 'onsiteAreas' ? 2 : 1)
-      ? 'Keep each line to 200 characters.'
-      : 'Enter at most 50 lines.';
+    // A path that ends at a line's index is about that line; one that ends at the list is about the list's length.
+    return typeof issue.path.at(-1) === 'number' ? 'Keep each line to 200 characters.' : 'Enter at most 50 lines.';
   }
   if (list) return 'Enter at least one, one per line.';
   return REQUIRED_TEXT[key] ?? 'Check this field.';
