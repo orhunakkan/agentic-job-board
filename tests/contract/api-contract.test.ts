@@ -15,6 +15,7 @@ import {
   RunSummarySchema,
   ScoresResponseSchema,
   ScoringQueueResponseSchema,
+  SetupResponseSchema,
 } from '../../src/schemas/api.ts';
 import { createLinkedInSessionFile, saveLinkedInSession } from '../../src/linkedin/session.ts';
 import { ProfileSchema } from '../../src/schemas/profile.ts';
@@ -52,6 +53,20 @@ describe('API responses match their schemas', () => {
     const profile = SAMPLE_PROFILE;
     conforms(ProfileSchema, await testApp.call('PUT', '/api/profile', profile), 200);
     conforms(ProfileSchema, await testApp.get('/api/profile'), 200);
+  });
+
+  it('FR-24: GET /api/setup', async () => {
+    conforms(SetupResponseSchema, await testApp.get('/api/setup'), 200);
+  });
+
+  it('FR-24: POST /api/runs on a board that is not set up is a 409 error body', async () => {
+    const empty = await startTestApp({ setup: 'none' });
+    try {
+      conforms(SetupResponseSchema, await empty.get('/api/setup'), 200);
+      conforms(ErrorResponseSchema, await empty.post('/api/runs'), 409);
+    } finally {
+      await empty.close();
+    }
   });
 
   it('FR-18: GET /api/ingest/state before any LinkedIn search', async () => {

@@ -39,6 +39,8 @@ export class BoardWorld extends World<BoardParameters> {
   readonly clock = fakeClock();
   /** How Find Now starts its stand-in for Claude Code; set it before the app starts. */
   claudeCommand: readonly string[] = fakeClaudeCommand();
+  /** Whether the app starts set up (FR-24): profile and both source files there, or empty as on a first run. */
+  setup: 'ready' | 'none' = 'ready';
 
   #database: TestDatabase | undefined;
   #app: TestApp | undefined;
@@ -52,7 +54,7 @@ export class BoardWorld extends World<BoardParameters> {
 
   /** The real app for the API and E2E steps, started on first use. */
   async app(): Promise<TestApp> {
-    this.#app ??= await startTestApp({ claudeCommand: this.claudeCommand });
+    this.#app ??= await startTestApp({ claudeCommand: this.claudeCommand, setup: this.setup });
     return this.#app;
   }
 
