@@ -101,6 +101,7 @@ export function renderRequirements(main: HTMLElement, route: Route): void {
   const draw = (): void => {
     const words = filters.q.trim().toLowerCase();
     const testFilters: Filters = { ...filters, q: '' };
+    const filtered = hasFilters(testFilters);
     const views: RequirementView[] = [];
     for (const requirement of data.data.requirements) {
       if (only !== null && requirement.id !== only) continue;
@@ -109,7 +110,6 @@ export function renderRequirements(main: HTMLElement, route: Route): void {
       const shown = all.filter(
         (test) => matchesFilters(test, testFilters) && (titleMatches || matchesFilters(test, filters)),
       );
-      const filtered = hasFilters(testFilters);
       if (filtered && shown.length === 0) continue;
       if (!filtered && !titleMatches && shown.length === 0) continue;
       if (requirement.retired && all.length === 0 && only === null) continue;

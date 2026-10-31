@@ -4,7 +4,7 @@
 // its attachments, such as the failure screenshot of tests/features/e2e/hooks.ts.
 import { z } from 'zod';
 import { expectedAndActual, stripAnsi, type ResultDraft } from '../labels.ts';
-import type { ErrorInfo, Parameter, Status, TestStep } from '../result-schema.ts';
+import type { ErrorInfo, Parameter, Retry, Status, TestStep } from '../result-schema.ts';
 import { converted, type Converted, type ConvertedAttachment } from './write.ts';
 
 export const BROWSER_OF_PROFILE: Readonly<Record<string, string>> = {
@@ -122,6 +122,12 @@ const Envelope = z.object({
     .optional(),
 });
 type Envelope = z.infer<typeof Envelope>;
+type Pickle = NonNullable<Envelope['pickle']>;
+type TestCase = NonNullable<Envelope['testCase']>;
+type TestCaseStarted = NonNullable<Envelope['testCaseStarted']>;
+type TestCaseFinished = NonNullable<Envelope['testCaseFinished']>;
+type StepResult = NonNullable<Envelope['testStepFinished']>['testStepResult'];
+type MessageAttachment = NonNullable<Envelope['attachment']>;
 
 export class CucumberMessagesError extends Error {
   override name = 'CucumberMessagesError';
@@ -130,8 +136,6 @@ export class CucumberMessagesError extends Error {
 function ms(time: Timestamp): number {
   return time.seconds * 1000 + Math.round(time.nanos / 1e6);
 }
-
-type StepResult = NonNullable<Envelope['testStepFinished']>['testStepResult'];
 
 function stepStatus(result: StepResult): Status {
   switch (result.status) {
@@ -166,9 +170,8 @@ export function scenarioStatus(steps: readonly Pick<TestStep, 'status'>[]): Stat
   return 'skipped';
 }
 
-/** One converted result per scenario run in a profile's messages (its last attempt; earlier ones are retries). */
-export function convertCucumber(ndjson: string, profile: string): Converted[] {
-  const envelopes = ndjson
+function parseEnvelopes(ndjson: string, profile: string): Envelope[] {
+  return ndjson
     .split('\n')
     .filter((line) => line.trim() !== '')
     .map((line, index) => {
@@ -180,137 +183,180 @@ export function convertCucumber(ndjson: string, profile: string): Converted[] {
         );
       }
     });
+}
 
-  const gherkinSteps = new Map<string, z.infer<typeof GherkinStep>>();
-  const scenarios = new Map<string, { scenario: z.infer<typeof Scenario>; feature: string; rule: string | null }>();
-  const exampleRows = new Map<string, { header: string[]; values: string[]; line: number }>();
-  const visit = (children: readonly Child[], feature: string, rule: string | null): void => {
-    for (const child of children) {
-      for (const step of [...(child.background?.steps ?? []), ...(child.scenario?.steps ?? [])])
-        gherkinSteps.set(step.id, step);
-      if (child.scenario !== undefined) {
-        scenarios.set(child.scenario.id, { scenario: child.scenario, feature, rule });
-        for (const examples of child.scenario.examples) {
-          const header = examples.tableHeader?.cells.map((cell) => cell.value) ?? [];
-          for (const row of examples.tableBody) {
-            exampleRows.set(row.id, { header, values: row.cells.map((cell) => cell.value), line: row.location.line });
-          }
-        }
-      }
-      if (child.rule !== undefined) visit(child.rule.children, feature, child.rule.name);
-    }
+/** Everything a profile's messages say, by ID. Step starts, results and attachments are keyed by `<run>/<step>`. */
+interface Messages {
+  gherkinSteps: Map<string, z.infer<typeof GherkinStep>>;
+  scenarios: Map<string, { scenario: z.infer<typeof Scenario>; feature: string; rule: string | null }>;
+  exampleRows: Map<string, { header: string[]; values: string[]; line: number }>;
+  pickles: Map<string, Pickle>;
+  hooks: Map<string, NonNullable<Envelope['hook']>>;
+  testCases: Map<string, TestCase>;
+  started: Map<string, TestCaseStarted>;
+  stepStarts: Map<string, number>;
+  stepResults: Map<string, StepResult>;
+  attachments: Map<string, MessageAttachment[]>;
+  finished: TestCaseFinished[];
+}
+
+function indexMessages(envelopes: readonly Envelope[]): Messages {
+  const messages: Messages = {
+    gherkinSteps: new Map(),
+    scenarios: new Map(),
+    exampleRows: new Map(),
+    pickles: new Map(),
+    hooks: new Map(),
+    testCases: new Map(),
+    started: new Map(),
+    stepStarts: new Map(),
+    stepResults: new Map(),
+    attachments: new Map(),
+    finished: [],
   };
-
-  const pickles = new Map<string, NonNullable<Envelope['pickle']>>();
-  const hooks = new Map<string, NonNullable<Envelope['hook']>>();
-  const testCases = new Map<string, NonNullable<Envelope['testCase']>>();
-  const started = new Map<string, NonNullable<Envelope['testCaseStarted']>>();
-  const stepStarts = new Map<string, number>();
-  const stepResults = new Map<string, StepResult>();
-  const attachments = new Map<string, NonNullable<Envelope['attachment']>[]>();
-  const finished: NonNullable<Envelope['testCaseFinished']>[] = [];
-
   for (const envelope of envelopes) {
     if (envelope.gherkinDocument?.feature !== undefined)
-      visit(envelope.gherkinDocument.feature.children, envelope.gherkinDocument.feature.name, null);
-    if (envelope.pickle !== undefined) pickles.set(envelope.pickle.id, envelope.pickle);
-    if (envelope.hook !== undefined) hooks.set(envelope.hook.id, envelope.hook);
-    if (envelope.testCase !== undefined) testCases.set(envelope.testCase.id, envelope.testCase);
-    if (envelope.testCaseStarted !== undefined) started.set(envelope.testCaseStarted.id, envelope.testCaseStarted);
+      addFeature(messages, envelope.gherkinDocument.feature.children, envelope.gherkinDocument.feature.name, null);
+    if (envelope.pickle !== undefined) messages.pickles.set(envelope.pickle.id, envelope.pickle);
+    if (envelope.hook !== undefined) messages.hooks.set(envelope.hook.id, envelope.hook);
+    if (envelope.testCase !== undefined) messages.testCases.set(envelope.testCase.id, envelope.testCase);
+    if (envelope.testCaseStarted !== undefined)
+      messages.started.set(envelope.testCaseStarted.id, envelope.testCaseStarted);
     if (envelope.testStepStarted !== undefined) {
       const { testCaseStartedId, testStepId, timestamp } = envelope.testStepStarted;
-      stepStarts.set(`${testCaseStartedId}/${testStepId}`, ms(timestamp));
+      messages.stepStarts.set(`${testCaseStartedId}/${testStepId}`, ms(timestamp));
     }
     if (envelope.testStepFinished !== undefined) {
       const { testCaseStartedId, testStepId, testStepResult } = envelope.testStepFinished;
-      stepResults.set(`${testCaseStartedId}/${testStepId}`, testStepResult);
+      messages.stepResults.set(`${testCaseStartedId}/${testStepId}`, testStepResult);
     }
     if (envelope.attachment?.testCaseStartedId !== undefined) {
       const key = `${envelope.attachment.testCaseStartedId}/${envelope.attachment.testStepId ?? ''}`;
-      attachments.set(key, [...(attachments.get(key) ?? []), envelope.attachment]);
+      messages.attachments.set(key, [...(messages.attachments.get(key) ?? []), envelope.attachment]);
     }
-    if (envelope.testCaseFinished !== undefined) finished.push(envelope.testCaseFinished);
+    if (envelope.testCaseFinished !== undefined) messages.finished.push(envelope.testCaseFinished);
   }
+  return messages;
+}
 
+/** The Gherkin steps, scenarios and example rows of a feature, its rules' included. */
+function addFeature(messages: Messages, children: readonly Child[], feature: string, rule: string | null): void {
+  for (const child of children) {
+    for (const step of [...(child.background?.steps ?? []), ...(child.scenario?.steps ?? [])])
+      messages.gherkinSteps.set(step.id, step);
+    if (child.scenario !== undefined) {
+      messages.scenarios.set(child.scenario.id, { scenario: child.scenario, feature, rule });
+      for (const examples of child.scenario.examples) {
+        const header = examples.tableHeader?.cells.map((cell) => cell.value) ?? [];
+        for (const row of examples.tableBody) {
+          messages.exampleRows.set(row.id, {
+            header,
+            values: row.cells.map((cell) => cell.value),
+            line: row.location.line,
+          });
+        }
+      }
+    }
+    if (child.rule !== undefined) addFeature(messages, child.rule.children, feature, child.rule.name);
+  }
+}
+
+/** The scenario's steps as they ran, hooks included, and the files they attached. */
+function stepsOf(
+  messages: Messages,
+  run: TestCaseStarted,
+  testCase: TestCase,
+  pickle: Pickle,
+): { steps: TestStep[]; files: ConvertedAttachment[] } {
+  const files: ConvertedAttachment[] = [];
+  let seenPickleStep = false;
+  const steps = testCase.testSteps.map((testStep): TestStep => {
+    const key = `${run.id}/${testStep.id}`;
+    const result = messages.stepResults.get(key);
+    const pickleStep = pickle.steps.find((step) => step.id === testStep.pickleStepId);
+    const gherkin = pickleStep === undefined ? undefined : messages.gherkinSteps.get(pickleStep.astNodeIds[0] ?? '');
+    if (pickleStep !== undefined) seenPickleStep = true;
+    const hook = testStep.hookId === undefined ? undefined : messages.hooks.get(testStep.hookId);
+    const hookName = hook?.name ?? (seenPickleStep ? 'After hook' : 'Before hook');
+    const keyword = gherkin?.keyword.trim() ?? null;
+    const step: TestStep = {
+      name: pickleStep === undefined ? hookName : `${keyword ?? ''} ${pickleStep.text}`.trim(),
+      category: pickleStep === undefined ? 'hook' : keyword,
+      status: result === undefined ? 'skipped' : stepStatus(result),
+      start: messages.stepStarts.get(key) ?? null,
+      duration: result === undefined ? null : ms(result.duration),
+      error: result === undefined ? null : errorOf(result),
+      parameters: [],
+      dataTable: pickleStep?.argument?.dataTable?.rows.map((row) => row.cells.map((cell) => cell.value)) ?? null,
+      docString: pickleStep?.argument?.docString?.content ?? null,
+      attachments: [],
+      steps: [],
+    };
+    for (const attachment of messages.attachments.get(key) ?? []) files.push(attachmentFile(attachment, step));
+    return step;
+  });
+  return { steps, files };
+}
+
+function attachmentFile(attachment: MessageAttachment, step: TestStep): ConvertedAttachment {
+  return {
+    name: attachment.fileName ?? (attachment.mediaType.startsWith('image/') ? 'screenshot' : 'attachment'),
+    type: attachment.mediaType,
+    body: attachment.contentEncoding === 'BASE64' ? Buffer.from(attachment.body, 'base64') : attachment.body,
+    step,
+  };
+}
+
+/** Where the scenario is: its file, feature and rule as suites, its line, and its example row as parameters. */
+function placeOf(messages: Messages, pickle: Pickle): Pick<ResultDraft, 'file' | 'line' | 'suites' | 'parameters'> {
+  const found = messages.scenarios.get(pickle.astNodeIds[0] ?? '');
+  const row = messages.exampleRows.get(pickle.astNodeIds[1] ?? '');
+  const parameters: Parameter[] =
+    row === undefined ? [] : row.header.map((name, index) => ({ name, value: row.values[index] ?? '' }));
+  const file = pickle.uri.replaceAll('\\', '/');
+  const feature = found?.feature ?? file;
+  const suites = [file, feature, ...(found?.rule === null || found?.rule === undefined ? [] : [found.rule])];
+  return { file, line: row?.line ?? found?.scenario.location.line ?? null, suites, parameters };
+}
+
+/** One converted result per scenario run in a profile's messages (its last attempt; earlier ones are retries). */
+export function convertCucumber(ndjson: string, profile: string): Converted[] {
+  const messages = indexMessages(parseEnvelopes(ndjson, profile));
   const browser = BROWSER_OF_PROFILE[profile] ?? null;
-  const earlier = new Map<string, { status: Status; duration: number; message: string | null }[]>();
+  const earlier = new Map<string, Retry[]>();
   const results: Converted[] = [];
 
-  for (const done of finished) {
-    const run = started.get(done.testCaseStartedId);
-    const testCase = run === undefined ? undefined : testCases.get(run.testCaseId);
-    const pickle = testCase === undefined ? undefined : pickles.get(testCase.pickleId);
+  for (const done of messages.finished) {
+    const run = messages.started.get(done.testCaseStartedId);
+    const testCase = run === undefined ? undefined : messages.testCases.get(run.testCaseId);
+    const pickle = testCase === undefined ? undefined : messages.pickles.get(testCase.pickleId);
     if (run === undefined || testCase === undefined || pickle === undefined) {
       throw new CucumberMessagesError(`the ${profile} messages end a scenario they never started`);
     }
-    const files: ConvertedAttachment[] = [];
-    let seenPickleStep = false;
-    const steps: TestStep[] = testCase.testSteps.map((testStep) => {
-      const key = `${run.id}/${testStep.id}`;
-      const result = stepResults.get(key);
-      const pickleStep = pickle.steps.find((step) => step.id === testStep.pickleStepId);
-      const gherkin = pickleStep === undefined ? undefined : gherkinSteps.get(pickleStep.astNodeIds[0] ?? '');
-      if (pickleStep !== undefined) seenPickleStep = true;
-      const hook = testStep.hookId === undefined ? undefined : hooks.get(testStep.hookId);
-      const hookName = hook?.name ?? (seenPickleStep ? 'After hook' : 'Before hook');
-      const keyword = gherkin?.keyword.trim() ?? null;
-      const step: TestStep = {
-        name: pickleStep === undefined ? hookName : `${keyword ?? ''} ${pickleStep.text}`.trim(),
-        category: pickleStep === undefined ? 'hook' : keyword,
-        status: result === undefined ? 'skipped' : stepStatus(result),
-        start: stepStarts.get(key) ?? null,
-        duration: result === undefined ? null : ms(result.duration),
-        error: result === undefined ? null : errorOf(result),
-        parameters: [],
-        dataTable: pickleStep?.argument?.dataTable?.rows.map((row) => row.cells.map((cell) => cell.value)) ?? null,
-        docString: pickleStep?.argument?.docString?.content ?? null,
-        attachments: [],
-        steps: [],
-      };
-      for (const attachment of attachments.get(key) ?? []) {
-        files.push({
-          name: attachment.fileName ?? (attachment.mediaType.startsWith('image/') ? 'screenshot' : 'attachment'),
-          type: attachment.mediaType,
-          body: attachment.contentEncoding === 'BASE64' ? Buffer.from(attachment.body, 'base64') : attachment.body,
-          step,
-        });
-      }
-      return step;
-    });
-
+    const { steps, files } = stepsOf(messages, run, testCase, pickle);
     const status = scenarioStatus(steps);
-    const durations = steps.map((step) => step.duration ?? 0).reduce((sum, value) => sum + value, 0);
-    const start = ms(run.timestamp);
-    const stop = Math.max(ms(done.timestamp), start);
+    const error = steps.find((step) => step.error !== null)?.error ?? null;
     if (done.willBeRetried) {
-      const failure = steps.find((step) => step.error !== null)?.error?.message ?? null;
+      const duration = steps.map((step) => step.duration ?? 0).reduce((sum, value) => sum + value, 0);
       earlier.set(testCase.pickleId, [
         ...(earlier.get(testCase.pickleId) ?? []),
-        { status, duration: durations, message: failure },
+        { status, duration, message: error?.message ?? null },
       ]);
       continue;
     }
 
-    const scenarioId = pickle.astNodeIds[0] ?? '';
-    const found = scenarios.get(scenarioId);
-    const row = exampleRows.get(pickle.astNodeIds[1] ?? '');
-    const parameters: Parameter[] =
-      row === undefined ? [] : row.header.map((name, index) => ({ name, value: row.values[index] ?? '' }));
-    const file = pickle.uri.replaceAll('\\', '/');
-    const feature = found?.feature ?? file;
-    const suites = [file, feature, ...(found?.rule === null || found?.rule === undefined ? [] : [found.rule])];
+    const start = ms(run.timestamp);
+    const stop = Math.max(ms(done.timestamp), start);
+    const place = placeOf(messages, pickle);
     const draft: ResultDraft = {
       name: pickle.name,
-      fullName: [...suites.slice(1), pickle.name].join(' > '),
+      fullName: [...place.suites.slice(1), pickle.name].join(' > '),
       status,
       start,
       stop,
       duration: stop - start,
-      file,
-      line: row?.line ?? found?.scenario.location.line ?? null,
-      suites,
-      parameters,
-      error: steps.find((step) => step.error !== null)?.error ?? null,
+      ...place,
+      error,
       steps,
       attachments: [],
       stdout: [],

@@ -29,8 +29,8 @@ export function greenhouseBoard(slug: string): FeedRequest {
     source: 'greenhouse',
     name,
     url: `https://boards-api.greenhouse.io/v1/boards/${segment(slug)}/jobs?content=true`,
-    read: (body) => ({
-      ...readJobs(name, body, JobsEnvelope, GreenhouseJob, (job) => ({
+    read: (body) =>
+      readJobs(name, body, JobsEnvelope, GreenhouseJob, (job) => ({
         source: 'greenhouse',
         sourceJobId: job.id,
         title: job.title,
@@ -41,8 +41,6 @@ export function greenhouseBoard(slug: string): FeedRequest {
         salary: null,
         description: job.content ?? null,
       })),
-      followUps: [],
-    }),
   };
 }
 
@@ -68,8 +66,8 @@ export function leverBoard(slug: string): FeedRequest {
     source: 'lever',
     name,
     url: `https://api.lever.co/v0/postings/${segment(slug)}?mode=json`,
-    read: (body) => ({
-      ...readJobs(name, body, z.array(z.unknown()), LeverJob, (job) => {
+    read: (body) =>
+      readJobs(name, body, z.array(z.unknown()), LeverJob, (job) => {
         const place = job.categories?.allLocations?.join(', ') ?? job.categories?.location ?? '';
         return {
           source: 'lever',
@@ -88,8 +86,6 @@ export function leverBoard(slug: string): FeedRequest {
           description: [job.descriptionPlain, job.additionalPlain].filter(Boolean).join('\n\n') || null,
         };
       }),
-      followUps: [],
-    }),
   };
 }
 
@@ -116,8 +112,8 @@ export function ashbyBoard(slug: string): FeedRequest {
     source: 'ashby',
     name,
     url: `https://api.ashbyhq.com/posting-api/job-board/${segment(slug)}?includeCompensation=true`,
-    read: (body) => ({
-      ...readJobs(name, body, JobsEnvelope, AshbyJob, (job) => {
+    read: (body) =>
+      readJobs(name, body, JobsEnvelope, AshbyJob, (job) => {
         if (job.isListed === false) return null;
         const places = [job.location, ...(job.secondaryLocations ?? []).map((place) => place.location)];
         return {
@@ -133,8 +129,6 @@ export function ashbyBoard(slug: string): FeedRequest {
           description: job.descriptionPlain ?? null,
         };
       }),
-      followUps: [],
-    }),
   };
 }
 
@@ -218,23 +212,20 @@ export function workableBoard(slug: string): FeedRequest {
     url: `https://apply.workable.com/api/v1/widget/accounts/${segment(slug)}?details=true`,
     read: (body) => {
       const company = z.object({ name: MaybeText }).safeParse(body);
-      return {
-        ...readJobs(name, body, JobsEnvelope, WorkableJob, (job) => {
-          const place = [job.city, job.state, job.country].filter(Boolean).join(', ');
-          return {
-            source: 'workable',
-            sourceJobId: job.shortcode,
-            title: job.title,
-            company: (company.success ? company.data.name : null) ?? slug,
-            location: job.telecommuting === true ? remoteLocation(place) : place,
-            url: job.url,
-            postedAt: job.published_on ?? null,
-            salary: null,
-            description: job.description ?? null,
-          };
-        }),
-        followUps: [],
-      };
+      return readJobs(name, body, JobsEnvelope, WorkableJob, (job) => {
+        const place = [job.city, job.state, job.country].filter(Boolean).join(', ');
+        return {
+          source: 'workable',
+          sourceJobId: job.shortcode,
+          title: job.title,
+          company: (company.success ? company.data.name : null) ?? slug,
+          location: job.telecommuting === true ? remoteLocation(place) : place,
+          url: job.url,
+          postedAt: job.published_on ?? null,
+          salary: null,
+          description: job.description ?? null,
+        };
+      });
     },
   };
 }

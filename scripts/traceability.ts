@@ -249,14 +249,6 @@ export function buildMatrix(
     const tests = byRequirement.get(requirement.id) ?? [];
     const passed = tests.filter((test) => test.passed).length;
     const files = [...new Set(tests.map((test) => `\`${test.file}\``))].join(', ');
-    const result =
-      tests.length === 0
-        ? requirement.retired === undefined
-          ? '⚠️ no named test'
-          : '🗄️ retired'
-        : passed === tests.length
-          ? '✅ pass'
-          : `❌ ${String(tests.length - passed)} failing`;
     const also = [
       requirement.retired,
       requirement.also,
@@ -264,7 +256,7 @@ export function buildMatrix(
     ]
       .filter((text) => text !== undefined)
       .join('; ');
-    return `| ${requirement.id} | ${requirement.title} | ${String(passed)}/${String(tests.length)} | ${result} | ${files} | ${also} |`;
+    return `| ${requirement.id} | ${requirement.title} | ${String(passed)}/${String(tests.length)} | ${matrixResult(requirement, passed, tests.length)} | ${files} | ${also} |`;
   });
 
   const details = REQUIREMENTS.map((requirement) => {
@@ -299,6 +291,16 @@ ${details.join('\n\n')}
 ${scenarios === undefined ? '' : bddSection(scenarios)}`;
 }
 
+/** A requirement's Result column: a requirement without tests is either retired or still missing them. */
+function matrixResult(requirement: Requirement, passed: number, total: number): string {
+  if (total > 0) return passResult(passed, total);
+  return requirement.retired === undefined ? '⚠️ no named test' : '🗄️ retired';
+}
+
+function passResult(passed: number, total: number): string {
+  return passed === total ? '✅ pass' : `❌ ${String(total - passed)} failing`;
+}
+
 /** The Cucumber scenarios under each requirement, below the matrix (PLAN.md Phase 13 task 9). */
 function bddSection(scenarios: readonly ScenarioCase[]): string {
   const intro = `
@@ -316,8 +318,7 @@ The Cucumber scenarios in \`tests/features/\` (PLAN.md §8.5), from the JSON rep
 
   const rows = covered.map(({ requirement, runs }) => {
     const passed = runs.filter((scenario) => scenario.passed).length;
-    const result = passed === runs.length ? '✅ pass' : `❌ ${String(runs.length - passed)} failing`;
-    return `| ${requirement.id} | ${requirement.title} | ${String(runs.length)} | ${String(passed)} | ${result} |`;
+    return `| ${requirement.id} | ${requirement.title} | ${String(runs.length)} | ${String(passed)} | ${passResult(passed, runs.length)} |`;
   });
 
   const details = covered.map(({ requirement, runs }) => {

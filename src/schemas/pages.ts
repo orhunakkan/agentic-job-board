@@ -58,8 +58,6 @@ export const NotesFormSchema = z.strictObject({
     .pipe(z.string().max(5000, 'must be at most 5,000 characters')),
 });
 
-export type BoardQuery = z.infer<typeof BoardQuerySchema>;
-
 /** Form fields and query values left empty ("Any" in a select) mean "not set". */
 export function withoutEmpty(values: Readonly<Record<string, string>>): Record<string, string> {
   return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== ''));

@@ -161,9 +161,12 @@ if (import.meta.main) {
     });
     console.log(JSON.stringify(summary));
   } catch (error) {
-    if (error instanceof SourcesConfigError || error instanceof AppRequestError) {
+    if (error instanceof SourcesConfigError) {
       console.error(error.message);
-      process.exitCode = error instanceof SourcesConfigError ? 2 : 1;
+      process.exitCode = 2;
+    } else if (error instanceof AppRequestError) {
+      console.error(error.message);
+      process.exitCode = 1;
     } else if (error instanceof z.ZodError || (error instanceof TypeError && 'code' in error)) {
       console.error(usage);
       process.exitCode = 2;

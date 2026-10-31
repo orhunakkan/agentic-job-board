@@ -99,6 +99,11 @@ export function pre(text: string, className = ''): HTMLPreElement {
   return el('pre', { class: `code ${className}`.trim(), tabindex: 0, text });
 }
 
+/** A table in a box that scrolls sideways; focusable and named, like `pre`, so keyboard users can scroll it. */
+export function scrollingTable(label: string, table: HTMLTableElement): HTMLDivElement {
+  return el('div', { class: 'table-scroll', tabindex: 0, role: 'region', 'aria-label': label }, table);
+}
+
 /** Renders the first `size` items and a button that shows the next ones, so long lists stay fast. */
 export function chunked<T>(
   list: HTMLElement,

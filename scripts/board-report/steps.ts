@@ -10,7 +10,7 @@ import { convertCoverage, type Threshold } from './converters/coverage.ts';
 import { convertK6 } from './converters/k6.ts';
 import { convertAudit, convertEslint, convertPrettier, convertTsc, type CommandOutput } from './converters/static.ts';
 import { plainDraft, writeConverted, type Converted } from './converters/write.ts';
-import { readResults, type Step, type TestType } from './result-schema.ts';
+import { isFailing, readResults, type Step, type TestType } from './result-schema.ts';
 import { RESULTS_ENV, STEP_ENV } from './target.ts';
 
 export interface ProcessCommand {
@@ -166,7 +166,7 @@ async function runStatic(context: StepContext): Promise<CommandOutput[]> {
   for (const [label, command, convert] of steps) {
     const output = await processes.run(command);
     const results = writeConverted(context.dir, 'static', convert(output));
-    const failing = results.filter((result) => result.status === 'failed' || result.status === 'broken').length;
+    const failing = results.filter((result) => isFailing(result.status)).length;
     context.log(
       `  ${output.exitCode === 0 ? '✔' : '✘'} ${label}: ${String(results.length)} checked, ${String(failing)} failing`,
     );
@@ -241,16 +241,10 @@ async function runPerf(context: StepContext): Promise<CommandOutput> {
 }
 
 function addBrokenIfNothingFailed(context: StepContext, outputs: readonly CommandOutput[], started: number): void {
-  const failing = readResults(context.dir).some(
-    ({ result }) => result.status === 'failed' || result.status === 'broken',
-  );
-  if (failing) return;
-  const failed = outputs.filter((output) => output.exitCode !== 0);
-  const reason = failed
-    .map(
-      (output) =>
-        `${output.command} ${output.exitCode === null ? 'could not be started' : `exited with ${String(output.exitCode)}`}`,
-    )
+  if (readResults(context.dir).some(({ result }) => isFailing(result.status))) return;
+  const reason = outputs
+    .filter((output) => output.exitCode !== 0)
+    .map((output) => `${output.command} ${howItEnded(output.exitCode)}`)
     .join('\n');
   writeBroken(
     context,
@@ -258,6 +252,10 @@ function addBrokenIfNothingFailed(context: StepContext, outputs: readonly Comman
     `${reason}\nNo test result explains it: see the command's output above it in the console.`,
     started,
   );
+}
+
+function howItEnded(exitCode: number | null): string {
+  return exitCode === null ? 'could not be started' : `exited with ${String(exitCode)}`;
 }
 
 function writeBroken(context: StepContext, name: string, message: string, started: number): void {

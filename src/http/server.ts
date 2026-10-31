@@ -5,7 +5,7 @@ import { InvalidTransitionError, JobNotFoundError } from '../jobs/status-service
 import type { Logger } from '../logger.ts';
 import { parseCookies } from './cookies.ts';
 import { errorBody, html, HttpError, queryObject, type Reply } from './respond.ts';
-import { createRouter, type RouteMatch, type Route } from './router.ts';
+import { createRouter, type BodyKind, type RouteMatch, type Route } from './router.ts';
 import {
   isAllowedHost,
   isCrossSite,
@@ -120,21 +120,7 @@ async function dispatch(
   if (found.kind === 'not_found') throw new HttpError(404, 'not_found', 'There is nothing at this path');
   if (found.kind === 'method_not_allowed') throw new MethodNotAllowed(found.allowed);
 
-  let body: unknown;
-  if (isStateChanging(method)) {
-    if ((found.route.accepts ?? 'json') === 'json') {
-      if (!isJsonContentType(request.headers['content-type'])) {
-        throw new HttpError(415, 'unsupported_media_type', 'Send the body as JSON with Content-Type: application/json');
-      }
-      body = parseJson(await readBody(request));
-    } else {
-      if (!isFormContentType(request.headers['content-type'])) {
-        throw new HttpError(415, 'unsupported_media_type', 'Send the form as application/x-www-form-urlencoded');
-      }
-      body = queryObject(new URLSearchParams((await readBody(request)).toString('utf8')), 'form');
-    }
-  }
-
+  const body = isStateChanging(method) ? await readWriteBody(request, found.route.accepts ?? 'json') : undefined;
   return found.route.handler({
     method: found.route.method,
     path: url.pathname,
@@ -153,6 +139,21 @@ class MethodNotAllowed extends Error {
     super(`Use ${allowed.join(' or ')} for this path`);
     this.allowed = allowed;
   }
+}
+
+/** A write's body: parsed JSON for the API, the form fields for the pages; any other content type is a 415. */
+async function readWriteBody(request: IncomingMessage, accepts: BodyKind): Promise<unknown> {
+  const contentType = request.headers['content-type'];
+  if (accepts === 'json') {
+    if (!isJsonContentType(contentType)) {
+      throw new HttpError(415, 'unsupported_media_type', 'Send the body as JSON with Content-Type: application/json');
+    }
+    return parseJson(await readBody(request));
+  }
+  if (!isFormContentType(contentType)) {
+    throw new HttpError(415, 'unsupported_media_type', 'Send the form as application/x-www-form-urlencoded');
+  }
+  return queryObject(new URLSearchParams((await readBody(request)).toString('utf8')), 'form');
 }
 
 function readBody(request: IncomingMessage): Promise<Buffer> {

@@ -1,21 +1,22 @@
 import { readSetup, type AppContext } from '../api/context.ts';
-import type { JobRecord } from '../db/repositories/jobs.ts';
-import { defaultSortForTab, statusesForTab, TABS, tabForStatus, type Tab } from '../domain/board-tabs.ts';
+import { findJob } from '../api/jobs.ts';
+import type { ProfileState } from '../db/repositories/profile.ts';
+import { defaultSortForTab, statusesForTab, TABS, tabForStatus } from '../domain/board-tabs.ts';
 import { ORIGINS, originOf, sourcesForOrigin, type Origin } from '../domain/job-source.ts';
 import { viewReady, type ProfileStatus } from '../domain/setup.ts';
 import { html as htmlReply, parseInput, queryObject, redirect, type TextReply } from '../http/respond.ts';
 import type { ApiRequest, Route } from '../http/router.ts';
 import type { ErrorRequest } from '../http/server.ts';
 import { staticRoutes } from '../http/static.ts';
-import { changeJobStatus, dismissNewJobs, JobNotFoundError } from '../jobs/status-service.ts';
+import { changeJobStatus, dismissNewJobs } from '../jobs/status-service.ts';
 import { linkedInSessionStatus } from '../linkedin/session.ts';
-import { IdParamSchema } from '../schemas/api.ts';
 import {
   EMPTY_PROFILE_FORM,
   parseProfileForm,
   ProfileFormSchema,
   profileFormValues,
   profileFormValuesFromOld,
+  type ProfileFormValues,
 } from '../schemas/profile-form.ts';
 import {
   BoardActionFormSchema,
@@ -61,13 +62,6 @@ export function pageRoutes(context: AppContext): Route[] {
     );
   }
 
-  function findJob(request: ApiRequest): JobRecord {
-    const jobId = parseInput(IdParamSchema, request.params['id'], 'job ID');
-    const job = repos.jobs.get(jobId);
-    if (job === null) throw new JobNotFoundError(jobId);
-    return job;
-  }
-
   function pageQuery(request: ApiRequest): Record<string, string> {
     return withoutEmpty(queryObject(request.query));
   }
@@ -91,16 +85,13 @@ export function pageRoutes(context: AppContext): Route[] {
         };
         const sort = query.sort ?? defaultSortForTab(query.tab);
         const everyJob = { statuses: null, minScore: null, text: null, unscoredOnly: false };
-        const counts = Object.fromEntries(
-          TABS.map((tab) => [tab, repos.jobs.count({ ...everyJob, sources, statuses: statusesForTab(tab) })]),
-        ) as Record<Tab, number>;
+        const counts = countEach(TABS, (tab) =>
+          repos.jobs.count({ ...everyJob, sources, statuses: statusesForTab(tab) }),
+        );
         // The LinkedIn | Other sources switch counts each view's New jobs only (DEC-054).
-        const originCounts = Object.fromEntries(
-          ORIGINS.map((origin) => [
-            origin,
-            repos.jobs.count({ ...everyJob, sources: sourcesForOrigin(origin), statuses: statusesForTab('new') }),
-          ]),
-        ) as Record<Origin, number>;
+        const originCounts = countEach(ORIGINS, (origin) =>
+          repos.jobs.count({ ...everyJob, sources: sourcesForOrigin(origin), statuses: statusesForTab('new') }),
+        );
 
         // A page past the end (the last job on it was just moved away, or an old bookmark) shows the last page.
         const total = repos.jobs.count(filter);
@@ -156,7 +147,7 @@ export function pageRoutes(context: AppContext): Route[] {
       method: 'GET',
       path: '/jobs/:id',
       handler: (request) => {
-        const job = findJob(request);
+        const job = findJob(repos, request);
         const query = parseInput(JobPageQuerySchema, pageQuery(request), 'query string');
         const origin = originOf(job.source);
         const body = jobDetailPage({
@@ -177,7 +168,7 @@ export function pageRoutes(context: AppContext): Route[] {
       path: '/jobs/:id/status',
       accepts: 'form',
       handler: (request) => {
-        const job = findJob(request);
+        const job = findJob(repos, request);
         const form = parseInput(StatusFormSchema, request.body, 'form');
         changeJobStatus(db, repos, job.id, form.status, context.now);
 
@@ -192,7 +183,7 @@ export function pageRoutes(context: AppContext): Route[] {
       path: '/jobs/:id/notes',
       accepts: 'form',
       handler: (request) => {
-        const job = findJob(request);
+        const job = findJob(repos, request);
         const { notes } = parseInput(NotesFormSchema, request.body, 'form');
         repos.jobs.updateNotes(job.id, notes);
         return redirect(`/jobs/${String(job.id)}?notes=saved#notice`);
@@ -230,13 +221,8 @@ export function pageRoutes(context: AppContext): Route[] {
       path: '/profile/edit',
       handler: (request) => {
         const state = repos.profile.state();
-        const view =
-          state.status === 'saved'
-            ? { values: profileFormValues(state.profile), reason: 'edit' as const }
-            : state.status === 'outdated'
-              ? { values: profileFormValuesFromOld(state.old), reason: 'outdated' as const }
-              : { values: EMPTY_PROFILE_FORM, reason: 'new' as const };
-        return page(request, 'Edit profile', 'profile', profileFormPage({ ...view, errors: {} }));
+        const view = { values: startingValues(state), errors: {}, reason: FORM_REASONS[state.status] };
+        return page(request, 'Edit profile', 'profile', profileFormPage(view));
       },
     },
     {
@@ -278,6 +264,22 @@ const FORM_REASONS: Readonly<Record<ProfileStatus, ProfileFormView['reason']>> =
   outdated: 'outdated',
   saved: 'edit',
 };
+
+/** What the profile form starts with: the saved profile, what still fits of an outdated one, or nothing. */
+function startingValues(state: ProfileState): ProfileFormValues {
+  switch (state.status) {
+    case 'saved':
+      return profileFormValues(state.profile);
+    case 'outdated':
+      return profileFormValuesFromOld(state.old);
+    case 'missing':
+      return EMPTY_PROFILE_FORM;
+  }
+}
+
+function countEach<K extends string>(keys: readonly K[], count: (key: K) => number): Record<K, number> {
+  return Object.fromEntries(keys.map((key) => [key, count(key)])) as Record<K, number>;
+}
 
 /** LinkedIn is the board's default view, so its URLs carry no origin (DEC-036). */
 function originQuery(origin: Origin): string {

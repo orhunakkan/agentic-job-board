@@ -4,7 +4,8 @@
 // builds a report; `build` builds one from whatever results are there.
 import type { ReportIndex } from './build/data-shape.ts';
 import { headline, TYPE_INFO } from './build/build.ts';
-import { Step, STEPS, TEST_TYPES, type TestType } from './result-schema.ts';
+import { totalsOf, type Totals } from './history.ts';
+import { isFailing, Step, STEPS, TEST_TYPES, type TestType } from './result-schema.ts';
 import type { StepRun } from './steps.ts';
 
 /** Names that stand for several steps. `all` is one run of every test type (`npm run test:all`). */
@@ -92,21 +93,26 @@ export async function runCommand(plan: CommandPlan, deps: CommandDeps): Promise<
 
 const FAILURES_SHOWN = 20;
 
+/** Each test type that has tests in the report, in the report's order, with its totals. */
+function totalsByType(index: ReportIndex): { type: TestType; totals: Totals }[] {
+  return TEST_TYPES.flatMap((type) => {
+    const tests = index.tests.filter((test) => test.type === type);
+    return tests.length === 0 ? [] : [{ type, totals: totalsOf(tests) }];
+  });
+}
+
 /** The short summary printed after a run: totals by type, the failures by name, and where the report is. */
 export function summaryLines(index: ReportIndex): string[] {
   const lines = ['', `board-report: ${headline(index)}`];
-  for (const type of TEST_TYPES) {
-    const tests = index.tests.filter((test) => test.type === type);
-    if (tests.length === 0) continue;
-    const count = (status: string) => tests.filter((test) => test.status === status).length;
-    const failing = count('failed') + count('broken');
+  for (const { type, totals } of totalsByType(index)) {
+    const failing = totals.failed + totals.broken;
     lines.push(
-      `  ${failing === 0 ? '✔' : '✘'} ${TYPE_INFO[type].title.padEnd(16)} ${String(count('passed')).padStart(5)} passed` +
+      `  ${failing === 0 ? '✔' : '✘'} ${TYPE_INFO[type].title.padEnd(16)} ${String(totals.passed).padStart(5)} passed` +
         (failing === 0 ? '' : `, ${String(failing)} failed`) +
-        (count('skipped') === 0 ? '' : `, ${String(count('skipped'))} skipped`),
+        (totals.skipped === 0 ? '' : `, ${String(totals.skipped)} skipped`),
     );
   }
-  const failures = index.tests.filter((test) => test.status === 'failed' || test.status === 'broken');
+  const failures = index.tests.filter((test) => isFailing(test.status));
   if (failures.length > 0) {
     lines.push('', 'Failures:');
     for (const test of failures.slice(0, FAILURES_SHOWN)) {
@@ -121,16 +127,12 @@ export function summaryLines(index: ReportIndex): string[] {
 /** The run's totals by type and its failures, for the GitHub Actions summary page (PLAN.md Phase 14 task 12). */
 export function githubSummary(index: ReportIndex): string {
   const cell = (text: string) => text.replaceAll('|', '\\|').replaceAll('\n', ' ');
-  const rows = TEST_TYPES.flatMap((type: TestType) => {
-    const tests = index.tests.filter((test) => test.type === type);
-    if (tests.length === 0) return [];
-    const count = (status: string) => String(tests.filter((test) => test.status === status).length);
-    return [
-      `| ${TYPE_INFO[type].title} | ${count('passed')} | ${count('failed')} | ${count('broken')} | ${count('skipped')} |`,
-    ];
-  });
+  const rows = totalsByType(index).map(
+    ({ type, totals }) =>
+      `| ${TYPE_INFO[type].title} | ${String(totals.passed)} | ${String(totals.failed)} | ${String(totals.broken)} | ${String(totals.skipped)} |`,
+  );
   const failures = index.tests
-    .filter((test) => test.status === 'failed' || test.status === 'broken')
+    .filter((test) => isFailing(test.status))
     .map(
       (test) =>
         `- ❌ **${cell(TYPE_INFO[test.type].title)}**${test.browser === null ? '' : ` (${test.browser})`}: ${cell(test.name)}${test.errorLine === null ? '' : ` — ${cell(test.errorLine).slice(0, 200)}`}`,
