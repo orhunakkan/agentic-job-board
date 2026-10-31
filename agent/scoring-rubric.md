@@ -89,3 +89,24 @@ The flags and the salary never change the score: "actively hiring", Easy Apply a
 ## Calibration (`match-v2` and `triage-v2`)
 
 [`tests/fixtures/calibration/calibration.json`](../tests/fixtures/calibration/calibration.json) holds invented, clearly fake jobs for the three sample profiles above, each with the rubric the queue would give it and the label it should get. `tests/contract/calibration.test.ts` checks that the file parses and that every job names a profile and a label. At a checkpoint the agent scores every fixture job with its rubric and reports how many land on their expected label; a job that doesn't is either a wording problem in this rubric (fix it and bump the version) or a wrong expectation (the owner decides).
+
+### Calibration run, 2026-10-31 (Phase 16)
+
+Scored by the agent that wrote this rubric and the fixtures, so it shows the rubric is consistent with itself; the owner's spot-check at CP-16 is the independent one. All 12 land on their expected label.
+
+| Fixture job                | Rubric      | Role | Sen. | Skills | Loc. | Cap | Score | Label    | Expected | On target |
+| -------------------------- | ----------- | ---- | ---- | ------ | ---- | --- | ----- | -------- | -------- | --------- |
+| `nurse-icu-days`           | `match-v2`  | 33   | 12   | 24     | 25   | –   | 94    | strong   | strong   | ✅        |
+| `nurse-travel-contract`    | `match-v2`  | 32   | 12   | 22     | 25   | 30  | 30    | weak     | weak     | ✅        |
+| `nurse-manager`            | `match-v2`  | 20   | 7    | 11     | 25   | –   | 63    | possible | possible | ✅        |
+| `nurse-icu-nights`         | `triage-v2` | 36   | 10   | 16     | 3    | 30  | 30    | weak     | weak     | ✅        |
+| `accountant-senior-hybrid` | `match-v2`  | 34   | 13   | 22     | 25   | –   | 94    | strong   | strong   | ✅        |
+| `accountant-payables`      | `match-v2`  | 20   | 7    | 12     | 25   | –   | 64    | possible | possible | ✅        |
+| `accountant-tax-manager`   | `triage-v2` | 22   | 9    | 10     | 3    | –   | 44    | weak     | weak     | ✅        |
+| `accountant-payroll-cpp`   | `match-v2`  | 22   | 12   | 3      | 12   | –   | 49    | weak     | weak     | ✅        |
+| `developer-go-remote`      | `match-v2`  | 34   | 14   | 25     | 25   | –   | 98    | strong   | strong   | ✅        |
+| `developer-ads-excluded`   | `match-v2`  | 34   | 14   | 25     | 25   | 30  | 30    | weak     | weak     | ✅        |
+| `developer-python-hybrid`  | `match-v2`  | 29   | 12   | 16     | 2    | –   | 59    | possible | possible | ✅        |
+| `developer-go-canada`      | `triage-v2` | 37   | 18   | 18     | 20   | –   | 93    | strong   | strong   | ✅        |
+
+Two land close to a band edge: `accountant-payroll-cpp` (49, sunk by the CPP certification it requires) and `developer-python-hybrid` (59, hybrid in a city the developer didn't list). The travel-nurse and night-shift jobs are capped by the nurse's deal-breakers, and the ads job by an excluded company.

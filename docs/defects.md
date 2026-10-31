@@ -25,8 +25,9 @@ Every defect found while building the Agentic Job Board (PLAN.md Phase 8 task 2)
 | DEF-021 | The Firefox dark-mode accessibility runs checked the light theme      | Low      | E2E suite (Phase 15)             | Fixed  | `9133cd9`  |
 | DEF-022 | board-report's WebKit E2E tests time out on the CI runner             | Medium   | CI on `main` (after CP-15)       | Fixed  | `fc2841a`  |
 | DEF-023 | board-report's Firefox axe tests time out on the CI runner            | Medium   | CI on `main` (after DEF-022)     | Fixed  | `9882e2c`  |
+| DEF-024 | The board's Firefox axe tests hang in a full local E2E run            | Medium   | E2E suite (Phase 16)             | Open   |            |
 
-Open defects: none.
+Open defects: DEF-024 (the owner decides the fix at CP-16).
 
 ## Details
 
@@ -113,7 +114,7 @@ Open defects: none.
 ### DEF-015: A LinkedIn search reads only 7 of the 25 jobs on a page
 
 - **Severity:** High (most jobs a search finds never reach the board)
-- **Steps:** `node scripts/search-linkedin.ts --dry-run --no-details --search "Senior QA"` with the live session.
+- **Steps:** `node scripts/search-linkedin.ts --dry-run --no-details --search "<one of the owner's searches>"` with the live session.
 - **Expected:** 25 jobs per full page, up to `maxPages`.
 - **Actual:** "page 1: 7 jobs", and the search stopped, since a page under 25 counts as the last. LinkedIn shows the first 7 cards and adds the other 18 about a second later; the script counted after half a second of no change.
 - **Fix:** the list counts as loaded only when the number of cards has stayed the same for 2 s (DEC-045). The saved pages can't reproduce LinkedIn's staged loading, so the live run is the check: 4 pages, 100 jobs. **Status:** Fixed in `11d0c37`.
@@ -181,3 +182,11 @@ Open defects: none.
 - **Expected:** "axe finds no violations" in light and dark mode in `tests/e2e/board-report.spec.ts` passes on Firefox, as it did in the two runs before.
 - **Actual:** both ran past the 30 s limit on Firefox. Each opens eight views of the report and runs axe on each. On the CI runner they took 20 s, then 24 s after Phase 15, then more than 30 s. The step timings show no hang: every step was two to four times slower than on Chromium (13 s), and the time ran out on the last view. axe found no violation. The other board-report tests stay under 15 s on Firefox.
 - **Fix:** these two tests get Playwright's triple time budget (`test.slow`) on Firefox too, with the reason written next to it; WebKit already has it (DEF-022). No assertion, test or browser was dropped. **Status:** Fixed in `9882e2c`.
+
+### DEF-024: The board's Firefox axe tests hang in a full local E2E run
+
+- **Severity:** Medium (the full E2E gate fails locally; every page still has no axe violation)
+- **Steps:** `npx playwright test` with the default number of workers on the owner's Windows 11 machine, 2026-10-31.
+- **Expected:** every test passes, as at CP-15.
+- **Actual:** 7 of the board's accessibility tests on Firefox (`tests/e2e/a11y.spec.ts`, light and dark, different ones each run) run past the 30 s limit inside `AxeBuilder.analyze()` (`frame.evaluate`), and closing one context once failed with a Firefox protocol error. The same 7 failures happen on `main` (checked in a temporary worktree), so Phase 16 didn't cause them. The file passes on Firefox on its own (49 of 49), the Firefox project passes on its own (90 of 90), and the full suite passes with `--workers=3` (359 of 359).
+- **Fix:** none yet. Options for the owner: fewer Playwright workers locally, `test.slow` for the Firefox accessibility tests as in DEF-023, or looking for the hang in Firefox itself. **Status:** Open.

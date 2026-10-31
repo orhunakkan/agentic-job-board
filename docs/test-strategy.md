@@ -15,26 +15,28 @@ This document explains how the Agentic Job Board is tested, why each layer exist
 
 ### 2.1 In scope
 
-| Area                 | What we verify                                                                                                                                                  |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LinkedIn searches    | Search options become LinkedIn's URL parameters; search cards and job pages become jobs with description, salary, workplace and posted time (FR-18, FR-19)      |
-| Deduplication        | One job per source and job ID; a LinkedIn job found again, or known from an alert email, is the same job (FR-04, FR-16, FR-18)                                  |
-| Domain rules         | Status workflow (all 49 from/to pairs), score-to-label bands, URL canonicalization (FR-06, FR-08)                                                               |
-| Persistence          | Migrations, repositories, transactions and rollback on `node:sqlite`                                                                                            |
-| JSON API             | Every endpoint and status code: 200/201, 400, 404, 409, 413, 415 (FR-06, FR-11, FR-20, NFR-09)                                                                  |
-| Agent ↔ app contract | The payloads `/find-jobs` sends and the answers it reads (scripts' summaries, scoring queue) match their Zod schemas                                            |
-| Security             | Loopback binding, DNS-rebinding guard, same-origin form posts, output escaping, parameterized SQL, security headers, no stored tracking tokens (NFR-01, NFR-07) |
-| UI                   | Board, job detail, runs and profile pages: flows, responsiveness and accessibility (FR-07, FR-09, FR-10, NFR-06, NFR-11)                                        |
-| Performance          | p95 latency and error rate with 5,000 jobs (NFR-05)                                                                                                             |
+| Area                 | What we verify                                                                                                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LinkedIn searches    | Search options become LinkedIn's URL parameters; search cards and job pages become jobs with description, salary, workplace and posted time (FR-18, FR-19)             |
+| Deduplication        | One job per source and job ID; a LinkedIn job found again, or known from an alert email, is the same job (FR-04, FR-16, FR-18)                                         |
+| Domain rules         | Status workflow (all 49 from/to pairs), score-to-label bands, URL canonicalization (FR-06, FR-08)                                                                      |
+| Persistence          | Migrations, repositories, transactions and rollback on `node:sqlite`                                                                                                   |
+| JSON API             | Every endpoint and status code: 200/201, 400, 404, 409, 413, 415 (FR-06, FR-11, FR-20, NFR-09)                                                                         |
+| Agent ↔ app contract | The payloads `/find-jobs` sends and the answers it reads (scripts' summaries, scoring queue) match their Zod schemas                                                   |
+| Security             | Loopback binding, DNS-rebinding guard, same-origin form posts, output escaping, parameterized SQL, security headers, no stored tracking tokens (NFR-01, NFR-07)        |
+| Setup and profile    | Setup first: the profile and the two source files, `GET /api/setup`, the 409 on runs, Find Now per view; the profile form, its errors and outdated rows (FR-01, FR-24) |
+| Any line of work     | No tracked file names the old target field; no default role, skill, field or place in the schema, rubric or agent instructions; test data mixes fields (NFR-14)        |
+| UI                   | Board, job detail, runs and profile pages: flows, responsiveness and accessibility (FR-07, FR-09, FR-10, NFR-06, NFR-11)                                               |
+| Performance          | p95 latency and error rate with 5,000 jobs (NFR-05)                                                                                                                    |
 
 ### 2.2 Out of scope
 
-| Item                                               | Reason                                                                                                                                                           |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Quality of Claude's scores (AI evals, red-teaming) | Post-MVP R4. In the MVP, scores are checked by hand against a six-job calibration set at CP-5.                                                                   |
-| LinkedIn and the job feeds themselves              | Third-party systems. We test against sanitized copies of their pages and answers, never against the live services; the live check is by hand at each checkpoint. |
-| Multi-user, authentication, hosting                | Not part of the MVP (R6).                                                                                                                                        |
-| Browsers older than the current Playwright builds  | Single owner on current browsers.                                                                                                                                |
+| Item                                               | Reason                                                                                                                                                                                                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Quality of Claude's scores (AI evals, red-teaming) | Post-MVP R4. In the MVP, scores were checked by hand against a six-job calibration set at CP-5; from Phase 16 the agent scores the invented jobs of `tests/fixtures/calibration/` at each checkpoint, and a contract test checks the file. |
+| LinkedIn and the job feeds themselves              | Third-party systems. We test against sanitized copies of their pages and answers, never against the live services; the live check is by hand at each checkpoint.                                                                           |
+| Multi-user, authentication, hosting                | Not part of the MVP (R6).                                                                                                                                                                                                                  |
+| Browsers older than the current Playwright builds  | Single owner on current browsers.                                                                                                                                                                                                          |
 
 ## 3. Risks and how they are tested
 

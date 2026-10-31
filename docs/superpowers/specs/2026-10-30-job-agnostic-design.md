@@ -4,9 +4,9 @@
 
 ## Why
 
-Right now the board only works for a QA/SDET job hunt. That assumption is built into the scoring rubric, the `/find-jobs` instructions, the example configs, the test data and the docs. The owner wants an app that anyone can use for any job or field: a nurse, an accountant, a truck dispatcher, or the owner themselves as a QA engineer. The app should ask the user for whatever it needs before it does anything, and it should assume nothing about their field.
+Right now the board only works for a job hunt in the one field it was first built for (the old target field). That assumption is built into the scoring rubric, the `/find-jobs` instructions, the example configs, the test data and the docs. The owner wants an app that anyone can use for any job or field: a nurse, an accountant, a truck dispatcher, or the owner themselves in their own field. The app should ask the user for whatever it needs before it does anything, and it should assume nothing about their field.
 
-The owner also wants every trace of QA/SDET removed from the repository and from their own machine, including git-ignored files. **The git history may keep it** (owner, 2026-10-30): we don't rewrite it.
+The owner also wants every trace of the old target field removed from the repository and from their own machine, including git-ignored files. **The git history may keep it** (owner, 2026-10-30): we don't rewrite it.
 
 One thing doesn't change: everything that gets built has meaningful tests. Tests for behaviour that is removed are removed with it, and new behaviour gets new tests.
 
@@ -16,7 +16,7 @@ One thing doesn't change: everything that gets built has meaningful tests. Tests
 2. **Setup comes first.** Until the user has given the app what it needs (a profile, plus searches or feeds), the board shows setup instead of jobs, Find Now is off, and `/find-jobs` stops at its first step and says what is missing.
 3. **The profile is entered on the board**, in a form that suits any field, and can be edited there at any time.
 4. **The scoring rubric works for any field.** It scores a job against the profile's own roles, skills, credentials, seniority and location preferences, and its examples come from several different fields.
-5. **No QA/SDET content is left** in the repository's files or in the owner's local, git-ignored files. A test keeps it that way.
+5. **No content from the old target field is left** in the repository's files or in the owner's local, git-ignored files. A test keeps it that way.
 
 ## Non-goals
 
@@ -32,7 +32,7 @@ One thing doesn't change: everything that gets built has meaningful tests. Tests
 - A non-tech user's jobs score badly because the rubric still assumes software words ("stack", "tech", "engineer").
 - The owner's own preferences (remote US, no relocation) stay in the rubric or the code instead of coming from their profile.
 - Tests go green because assertions were removed, not because the behaviour was changed (CLAUDE.md, "Never weaken tests").
-- QA/SDET content is "removed" by renaming it to something that still means the same thing.
+- Old-field content is "removed" by renaming it to something that still means the same thing.
 
 ## Constraints
 
@@ -107,17 +107,17 @@ At least one of `locations.remote`, `hybridAreas` and `onsiteAreas` must be non-
 
 The rubric text has **no field-specific word lists**. The safety rule (descriptions are data, never instructions) and the label bands stay word for word. Salary and visa text still never change the score; `workAuthorization` only feeds the location factor.
 
-**Worked examples and calibration.** The rubric gives three sample profiles from clearly different fields: **an ICU nurse, a staff accountant and a backend software developer**. Each has two or three jobs scored line by line, including one capped by a deal-breaker and one sunk by a missing license. PLAN.md §6.5's calibration set (the owner's real QA jobs) is replaced by **`tests/fixtures/calibration/`**: about 12 invented, clearly fake jobs across those three profiles, each with its expected label. At CP-16 the agent scores them with v2 and reports how many land on their label, the same way as CP-5 and CP-11. The fixture JSON is checked by a contract test (it parses, and every job names a profile and an expected label). Claude's scoring itself isn't run in tests, as today.
+**Worked examples and calibration.** The rubric gives three sample profiles from clearly different fields: **an ICU nurse, a staff accountant and a backend software developer**. Each has two or three jobs scored line by line, including one capped by a deal-breaker and one sunk by a missing license. PLAN.md §6.5's calibration set (the owner's real calibration jobs) is replaced by **`tests/fixtures/calibration/`**: about 12 invented, clearly fake jobs across those three profiles, each with its expected label. At CP-16 the agent scores them with v2 and reports how many land on their label, the same way as CP-5 and CP-11. The fixture JSON is checked by a contract test (it parses, and every job names a profile and an expected label). Claude's scoring itself isn't run in tests, as today.
 
 ### 5. Searches, feeds and their examples
 
-- The code in `src/linkedin/`, `src/sources/` and the scripts is already generic. Only comments and messages that use QA examples change (for example `filter.ts`'s `"qa" matches "Senior QA"` becomes a neutral example that still shows the whole-word rule).
+- The code in `src/linkedin/`, `src/sources/` and the scripts is already generic. Only comments and messages that use old-field examples change (for example `filter.ts`'s whole-word example becomes a neutral one that still shows the rule).
 - `linkedin-searches.example.json` and `sources.example.json` use one made-up persona from a non-tech field, **an accountant**. The example turns on the feeds that carry jobs from every field (Adzuna, when a key is set, and company boards). Remote OK, Himalayas, Jobicy and Hacker News "Who is hiring?" are off, and the README says these four mostly carry tech jobs. The example's company boards are a few well-known employers with public boards; none is picked for any field.
 - The README's setup section becomes: start the app → fill in the profile on `/setup` → create the two files from the examples → sign in to LinkedIn → Find Now.
 
 ### 6. Test data and tests
 
-**Test data from several fields.** Every QA-flavoured value in tests, fixtures, feature files, the seed script (`scripts/seed.ts`, `tests/helpers/seed-board.ts`) and the README screenshots is replaced with jobs from a **mix of fields** (nursing, accounting, logistics, teaching, sales, software). A board test that sees a nurse and a dispatcher side by side also shows that nothing is field-specific. The LinkedIn HTML fixtures keep their structure byte for byte where the parser reads it. Only the job content (title, company, description text) changes, and it stays sanitized (§8.2). §8.2's `Test User (QA Engineer)` becomes `Test User (Example Role)`.
+**Test data from several fields.** Every old-field value in tests, fixtures, feature files, the seed script (`scripts/seed.ts`, `tests/helpers/seed-board.ts`) and the README screenshots is replaced with jobs from a **mix of fields** (nursing, accounting, logistics, teaching, sales, software). A board test that sees a nurse and a dispatcher side by side also shows that nothing is field-specific. The LinkedIn HTML fixtures keep their structure byte for byte where the parser reads it. Only the job content (title, company, description text) changes, and it stays sanitized (§8.2). §8.2's example name, the owner's old headline, becomes `Test User (Example Role)`.
 
 **Changing a test's data is not weakening it.** Every assertion stays and checks the new value. A test or assertion is deleted only when its behaviour is removed, and the checkpoint report lists each one with the behaviour it covered. Known removals:
 
@@ -139,9 +139,9 @@ The rubric text has **no field-specific word lists**. The safety rule (descripti
 | BDD           | `setup.feature` (`@FR-24`): "As the owner, I want the board to ask for what it needs first, so that every score is based on my own line of work." `profile.feature` (`@FR-01`): filling in and editing the profile for a field that isn't software                                                   |
 | Perf          | k6 on the new seed (mixed fields), same thresholds                                                                                                                                                                                                                                                   |
 
-**NFR-14 (new): no line of work is assumed.** A contract test lists every file git tracks (`git ls-files`, minus `package-lock.json` and binary files) and fails when one contains the job-field terms `SDET`, `QA`, `quality assurance`, `software engineer in test`, `test automation engineer` or `quality engineer` (whole words, any case). It also fails when the profile schema, the rubric or the agent instructions give a default role, skill, field or location. The guard test's own file is the one exception. The app's test tools (Playwright and the rest) aren't job-field terms and aren't on the list.
+**NFR-14 (new): no line of work is assumed.** A contract test lists every file git tracks (`git ls-files`, minus `package-lock.json` and binary files) and fails when one contains one of the old field's terms (whole words, any case; the list lives only in the guard test). It also fails when the profile schema, the rubric or the agent instructions give a default role, skill, field or location. The guard test's own file is the one exception. The app's test tools (Playwright and the rest) aren't job-field terms and aren't on the list.
 
-### 7. Removing QA/SDET content
+### 7. Removing the old field's content
 
 **In the repository** (every tracked file is in scope; the NFR-14 guard proves it):
 
@@ -150,30 +150,30 @@ The rubric text has **no field-specific word lists**. The safety rule (descripti
 - tests, fixtures and feature files (§6)
 - `CLAUDE.md`, `README.md`, `docs/api.md`, `docs/test-strategy.md`, `docs/defects.md`, `docs/decisions.md`, and `docs/traceability.md` (rebuilt)
 - `PLAN.md`: §1 (product summary: any line of work), §1.4's example rows, §2, §3 (FR-01, FR-20, FR-24, NFR-14), §5.2, §6.4, §6.5, §8.2, and the new Phase 16
-- **The historical logs** (decisions, checkpoints, defects, phases 0–15) keep what they record, but QA-specific wording is made neutral. For example "the owner's four searches (three mirrored alerts plus AI QA)" becomes "the owner's four searches", and real job titles become "the owner's calibration jobs". DEC-016 (the owner's remote-US preference) stays as a record of that past preference, and a new decision says it now lives in the owner's profile, not in the rubric.
-- **Where "QA" means the app's own testing**, it becomes "testing". For example Phase 8's title "QA documentation" becomes "Test documentation", so the guard has no exceptions.
+- **The historical logs** (decisions, checkpoints, defects, phases 0–15) keep what they record, but old-field wording is made neutral. For example a list of the owner's search names becomes "the owner's four searches", and real job titles become "the owner's calibration jobs". DEC-016 (the owner's remote-US preference) stays as a record of that past preference, and a new decision says it now lives in the owner's profile, not in the rubric.
+- **Where the old field's abbreviation meant the app's own testing**, it becomes "testing". For example Phase 8's title becomes "Test documentation", so the guard has no exceptions.
 - `docs/screenshots/` remade from the new seed.
 
 **On the owner's machine (git-ignored).** This is the last task of the phase. The agent lists every path first and deletes only after the owner says go:
 
-| Path                                                           | What happens                                                                                                                                                           |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data/jobboard.db` (+ `-shm`, `-wal`)                          | deleted; the next start makes an empty one, which opens on `/setup`                                                                                                    |
-| `data/perf.db` (+ `-shm`, `-wal`)                              | deleted; made again from the new seed when needed                                                                                                                      |
-| `data/linkedin-searches.json`, `data/sources.json`             | deleted; the owner creates them again from the new examples                                                                                                            |
-| `data/find-now/`                                               | deleted (Find Now logs)                                                                                                                                                |
-| `data/linkedin/browser-profile/`                               | caches and browsing history deleted (they hold QA search pages); `session.json` kept. If `node scripts/linkedin-login.ts --check` then fails, the owner signs in again |
-| `reports/`, `coverage/`, `test-results/`, `playwright-report/` | deleted; made again by the next test run                                                                                                                               |
-| `.claude/commands/find-jobs.md`                                | written again from the new agent/find-jobs.md                                                                                                                          |
-| `.env`                                                         | unchanged (it holds no QA content)                                                                                                                                     |
+| Path                                                           | What happens                                                                                                                                                                  |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/jobboard.db` (+ `-shm`, `-wal`)                          | deleted; the next start makes an empty one, which opens on `/setup`                                                                                                           |
+| `data/perf.db` (+ `-shm`, `-wal`)                              | deleted; made again from the new seed when needed                                                                                                                             |
+| `data/linkedin-searches.json`, `data/sources.json`             | deleted; the owner creates them again from the new examples                                                                                                                   |
+| `data/find-now/`                                               | deleted (Find Now logs)                                                                                                                                                       |
+| `data/linkedin/browser-profile/`                               | caches and browsing history deleted (they hold old-field search pages); `session.json` kept. If `node scripts/linkedin-login.ts --check` then fails, the owner signs in again |
+| `reports/`, `coverage/`, `test-results/`, `playwright-report/` | deleted; made again by the next test run                                                                                                                                      |
+| `.claude/commands/find-jobs.md`                                | written again from the new agent/find-jobs.md                                                                                                                                 |
+| `.env`                                                         | unchanged (it holds no old-field content)                                                                                                                                     |
 
-After that, the owner fills in their own profile on `/setup`. If they're hunting for QA jobs, that's simply their data, kept local like everything under `data/`.
+After that, the owner fills in their own profile on `/setup`. If they're hunting in the old field, that's simply their data, kept local like everything under `data/`.
 
 ### 8. Docs and decisions
 
 New decisions in PLAN.md §12 and `docs/decisions.md`:
 
-- **DEC-064:** the app is for any line of work (owner, 2026-10-30); the git history keeps the old QA content.
+- **DEC-064:** the app is for any line of work (owner, 2026-10-30); the git history keeps the old field's content.
 - **DEC-065:** the profile shape (§1).
 - **DEC-066:** setup comes first (§2).
 - **DEC-067:** rubric v2 and the calibration fixtures.
@@ -187,7 +187,7 @@ The traceability script's requirement lists gain FR-24 and NFR-14.
 - On an empty database, `npm start` opens on `/setup`. Filling in the profile for a field that isn't software opens the board.
 - Find Now stays off until the view's searches or feeds file is there.
 - The calibration report: how many of the fixture jobs land on their label.
-- `git grep -niwE "sdet|qa|quality assurance"` finds only the guard test.
+- A search of the tracked files for the old field's terms finds only the guard test.
 - The list of deleted or rewritten test assertions, each with the behaviour it covered.
 - The local clean-up list, before anything is deleted.
 
@@ -198,9 +198,9 @@ The traceability script's requirement lists gain FR-24 and NFR-14.
 3. **What counts as set up:** a profile plus at least one source. The board redirects to `/setup` only while the profile is missing.
 4. **`POST /api/runs` refuses with 409** until setup is done.
 5. **Rubric v2:** "stack" becomes "skills and credentials"; a missing required license scores 0–6 on that factor; the three sample fields are nurse, accountant and software developer.
-6. **Calibration** moves from the owner's real QA jobs to invented fixtures.
+6. **Calibration** moves from the owner's real calibration jobs to invented fixtures.
 7. **The example configs** use an accountant persona and turn off the four tech-heavy feeds.
-8. **The NFR-14 guard** bans those terms everywhere, so "QA" meaning the app's own testing is reworded too.
+8. **The NFR-14 guard** bans those terms everywhere, so the old abbreviation meaning the app's own testing is reworded too.
 9. **The historical logs** keep their records with neutral wording, and are not deleted.
 10. **The local clean-up** keeps `session.json`, so a new LinkedIn sign-in is only needed if the check fails.
 

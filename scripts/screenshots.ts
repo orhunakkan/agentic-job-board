@@ -5,7 +5,7 @@
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium, type Page } from '@playwright/test';
 import { buildFixtureReport } from '../tests/helpers/board-report-fixture.ts';
 import { startApp } from '../src/app.ts';
@@ -27,8 +27,9 @@ const app = await startApp({
   port: 0,
   dbPath: join(dir, 'shots.db'),
   linkedinSessionPath: join(dir, 'session.json'),
-  linkedinSearchesPath: join(dir, 'linkedin-searches.json'),
-  sourcesPath: join(dir, 'sources.json'),
+  // The committed examples stand in for the user's searches and feeds, so the board shows as set up (FR-24).
+  linkedinSearchesPath: fileURLToPath(new URL('../linkedin-searches.example.json', import.meta.url)),
+  sourcesPath: fileURLToPath(new URL('../sources.example.json', import.meta.url)),
   claudeCommand: ['claude-is-never-started-here'], // the screenshots never press Find Now
   logger: createLogger('warn'),
 });

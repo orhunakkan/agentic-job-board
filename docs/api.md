@@ -38,6 +38,7 @@ Errors always look like this:
 | `not_found`              | 404    | No such path, job or run                                                       |
 | `method_not_allowed`     | 405    | See the `Allow` header                                                         |
 | `invalid_transition`     | 409    | Not allowed by PLAN.md §5.4; `details` is `{ from, to }`                       |
+| `setup_required`         | 409    | `POST /api/runs` before setup is done; `details` has the setup statuses        |
 | `run_finished`           | 409    | Listings, scores or finish sent to a run that is already finished              |
 | `payload_too_large`      | 413    | Body over 1 MB                                                                 |
 | `unsupported_media_type` | 415    | Missing or wrong `Content-Type`                                                |
@@ -70,18 +71,34 @@ curl -s http://127.0.0.1:3000/api/health
 
 ```bash
 curl -s http://127.0.0.1:3000/api/profile
-# 200 Profile, or 404 not_found until a profile is loaded
+# 200 Profile, or 404 not_found while the profile is missing or saved in an older shape (outdated)
 ```
 
 ### `PUT /api/profile`
 
-Replaces the whole profile (PLAN.md §5.2). Load the approved profile once after the first start:
+Replaces the whole profile (PLAN.md §5.2, DEC-065), for scripts. The board's own form is `POST /profile` (below), which stores it the same way.
 
 ```bash
 curl -s -X PUT http://127.0.0.1:3000/api/profile \
-  -H "Content-Type: application/json" --data-binary @data/profile.json
+  -H "Content-Type: application/json" --data-binary @profile.json
 # 200 Profile; 400 validation_failed names every bad field
 ```
+
+### `GET /api/setup`
+
+Whether the board is set up (FR-24, DEC-066): the profile is saved, and each source's file (`data/linkedin-searches.json`, `data/sources.json`) is there and valid. Only the statuses, never the files' contents. `ready` is true when the profile is `saved` and at least one source is `ready`. `/find-jobs` reads it first and stops when it isn't.
+
+```bash
+curl -s http://127.0.0.1:3000/api/setup
+# 200 {"profile":"saved","linkedinSearches":"ready","sources":"missing","ready":true}
+```
+
+| Field              | Values                                                                                                      |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `profile`          | `missing`, `outdated` (saved in an older shape: fill it in again) or `saved`                                |
+| `linkedinSearches` | `missing`, `invalid` (not a valid searches file) or `ready`                                                 |
+| `sources`          | `missing`, `invalid` (not a valid feeds file, or one that turns on no feed and no company board) or `ready` |
+| `ready`            | `true` once the profile is saved and at least one source is ready                                           |
 
 ## LinkedIn login
 
@@ -117,6 +134,7 @@ curl -s http://127.0.0.1:3000/api/ingest/state
 ```bash
 curl -s -X POST http://127.0.0.1:3000/api/runs -H "Content-Type: application/json" -d '{}'
 # 201 {"runId":1}
+# 409 {"error":{"code":"setup_required","message":"The board is not set up yet: …","details":{"profile":"missing","linkedinSearches":"missing","sources":"missing"}}}
 ```
 
 ### `POST /api/runs/:id/emails` (retired)
@@ -144,7 +162,7 @@ Jobs from the owner's LinkedIn searches (FR-18, sent by `scripts/search-linkedin
 
 ```bash
 curl -s -X POST http://127.0.0.1:3000/api/runs/1/listings -H "Content-Type: application/json" \
-  -d '{"listings":[{"source":"greenhouse","sourceJobId":"5550001","title":"Senior SDET","company":"Example Labs","location":"Remote, United States","url":"https://job-boards.greenhouse.io/examplelabs/jobs/5550001","postedAt":"2026-10-20T13:00:00Z","salary":"$150K – $180K","description":"Own the test platform."}]}'
+  -d '{"listings":[{"source":"greenhouse","sourceJobId":"5550001","title":"Senior Dispatcher","company":"Example Labs","location":"Remote, United States","url":"https://job-boards.greenhouse.io/examplelabs/jobs/5550001","postedAt":"2026-10-20T13:00:00Z","salary":"$60K – $72K","description":"Run the night dispatch desk."}]}'
 # 200 {"received":1,"new":1,"seenAgain":0,"repeated":0,"newJobs":[JobSummary]}
 # 400 validation_failed, 404 for an unknown run, 409 run_finished for a finished one
 ```
@@ -161,11 +179,11 @@ curl -s -X POST http://127.0.0.1:3000/api/listings/known -H "Content-Type: appli
 
 ### `GET /api/scoring/queue?limit=10`
 
-The jobs `/find-jobs` still has to score (FR-20, DEC-043, DEC-044): every unscored job, then every job in New or Saved that has a description but was scored with another rubric than `match-v1` (for example before `--backfill` added the description). Newest first; `limit` is 1–25 (default 10); `total` counts the whole queue. Each item carries what the rubric reads: `id`, `source`, `title`, `company`, `location`, `workplace`, `salary`, `postedAt`, `description`, `rubric` (`match-v1` when there is a description, `triage-v1` when there isn't) and `currentRubric` (the rubric of its current score, or `null`). Posting the scores takes the jobs out of the queue.
+The jobs `/find-jobs` still has to score (FR-20, DEC-043, DEC-044): every unscored job, then every job in New or Saved that has a description but was scored with another rubric than `match-v2` (for example before `--backfill` added the description). Newest first; `limit` is 1–25 (default 10); `total` counts the whole queue. Each item carries what the rubric reads: `id`, `source`, `title`, `company`, `location`, `workplace`, `salary`, `postedAt`, `description`, `rubric` (`match-v2` when there is a description, `triage-v2` when there isn't) and `currentRubric` (the rubric of its current score, or `null`). Posting the scores takes the jobs out of the queue.
 
 ```bash
 curl -s "http://127.0.0.1:3000/api/scoring/queue?limit=10"
-# 200 {"items":[{"id":41,"source":"linkedin","title":"Senior SDET","rubric":"match-v1",…}],"total":23}
+# 200 {"items":[{"id":41,"source":"linkedin","title":"ICU Registered Nurse","rubric":"match-v2",…}],"total":23}
 ```
 
 ### `POST /api/runs/:id/scores`
@@ -174,7 +192,7 @@ Up to 50 scores per call, each job at most once. The label must match the score 
 
 ```bash
 curl -s -X POST http://127.0.0.1:3000/api/runs/1/scores -H "Content-Type: application/json" \
-  -d '{"rubricVersion":"match-v1","scores":[{"jobId":1,"score":88,"label":"strong","reason":"Senior automation role, remote US."}]}'
+  -d '{"rubricVersion":"match-v2","scores":[{"jobId":1,"score":88,"label":"strong","reason":"Day-shift ICU role in your area; asks for the licenses you hold."}]}'
 # 200 {"stored":1}; 400 validation_failed (e.g. score 80 with label weak) or unknown_jobs
 ```
 
@@ -212,7 +230,7 @@ curl -s "http://127.0.0.1:3000/api/runs?limit=5"
 `total` counts every match, not just the page.
 
 ```bash
-curl -s "http://127.0.0.1:3000/api/jobs?tab=new&minScore=50&q=playwright&limit=10"
+curl -s "http://127.0.0.1:3000/api/jobs?tab=new&minScore=50&q=dispatcher&limit=10"
 # 200 {"items":[JobSummary, …],"total":3}
 curl -s "http://127.0.0.1:3000/api/jobs?unscored=true&limit=100"   # unscored jobs (the agent uses /api/scoring/queue)
 ```
@@ -240,15 +258,18 @@ curl -s -X PATCH http://127.0.0.1:3000/api/jobs/1 -H "Content-Type: application/
 
 The board is server-rendered HTML with no client-side JavaScript (PLAN.md §6.2, DEC-006). The same Host, cross-site and size rules apply. Page forms post `application/x-www-form-urlencoded` (anything else is a 415), then redirect with `303 See Other`. Errors outside `/api/` are HTML pages with the same status codes, never JSON.
 
-| Route                   | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /`                 | The board. Query: `origin` (`linkedin` default, or `other` for the public feeds; each has its own tab counts, and the switch between them shows each view's New count, DEC-054), `tab` (`new` default, `saved`, `in-progress`, `closed`, `dismissed`), `minScore` (0–100), `q` (title or company), `sort` (`score`, `recent`, `changed`), `page` (50 jobs per page). Empty values mean "not set"; unknown keys are ignored                                                                                                 |
-| `GET /jobs/:id`         | Job detail: score and reason, status form (only allowed next statuses), notes, history, sightings (with the LinkedIn search that found the job), the link to the job on its source, and its description, salary, workplace, posted date and scoring rubric when known                                                                                                                                                                                                                                                      |
-| `POST /jobs/:id/status` | Form fields `status` and optional `return` (a path on this site; anything else falls back to the job page). 303 back with `changed=<id>`, which shows a notice. 409 page for a transition §5.4 doesn't allow                                                                                                                                                                                                                                                                                                               |
-| `POST /board/clear`     | Clear All (FR-21, DEC-051): form field `origin` (`linkedin` or `other`). Every New job of that view goes to Dismissed, with a history row each. 303 to the view's New tab with `cleared=<count>`, which shows a notice                                                                                                                                                                                                                                                                                                     |
-| `POST /board/find`      | Find Now (FR-22, DEC-052): form field `origin`. Starts `/find-jobs <origin>` in Claude Code's headless mode in the background, unless a run is going (then nothing starts). 303 to the view's New tab at `#find-now`, the line that says what is running or how the last run ended                                                                                                                                                                                                                                         |
-| `POST /jobs/:id/notes`  | Form field `notes` (up to 5,000 characters; CRLF is stored as LF). 303 to `/jobs/:id?notes=saved`                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `GET /runs`             | Every run with its counters; the email columns keep the counts of runs from the alert-email years (FR-11)                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `POST /theme`           | The header's light/dark toggle (FR-23, DEC-061): form fields `theme` (`light` or `dark`; anything else is a 400) and optional `return` (a path on this site, the page without its notice parameters; anything else falls back to `/`). 303 back to `return`, with `Set-Cookie: theme=<light\|dark>; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly`. Every page, error pages included, puts `data-theme` on `<html>` when the cookie is `light` or `dark`, and otherwise follows the system. It is the app's only cookie |
-| `GET /profile`          | The profile, read-only (FR-01)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `GET /static/<file>`    | `app.css` and `favicon.svg` only; every other name is a 404                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Route                   | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /`                 | The board; 303 to `/setup` while no valid profile is saved (FR-24), and a notice that links to it while no source is ready. Query: `origin` (`linkedin` default, or `other` for the public feeds; each has its own tab counts, and the switch between them shows each view's New count, DEC-054), `tab` (`new` default, `saved`, `in-progress`, `closed`, `dismissed`), `minScore` (0–100), `q` (title or company), `sort` (`score`, `recent`, `changed`), `page` (50 jobs per page). Empty values mean "not set"; unknown keys are ignored |
+| `GET /jobs/:id`         | Job detail: score and reason, status form (only allowed next statuses), notes, history, sightings (with the LinkedIn search that found the job), the link to the job on its source, and its description, salary, workplace, posted date and scoring rubric when known                                                                                                                                                                                                                                                                       |
+| `POST /jobs/:id/status` | Form fields `status` and optional `return` (a path on this site; anything else falls back to the job page). 303 back with `changed=<id>`, which shows a notice. 409 page for a transition §5.4 doesn't allow                                                                                                                                                                                                                                                                                                                                |
+| `POST /board/clear`     | Clear All (FR-21, DEC-051): form field `origin` (`linkedin` or `other`). Every New job of that view goes to Dismissed, with a history row each. 303 to the view's New tab with `cleared=<count>`, which shows a notice                                                                                                                                                                                                                                                                                                                      |
+| `POST /board/find`      | Find Now (FR-22, DEC-052): form field `origin`. Starts `/find-jobs <origin>` in Claude Code's headless mode in the background, unless a run is going (then nothing starts) or the view's own source isn't ready yet (FR-24; the button is disabled, with its reason, and a post starts nothing and lands at `#find-now-reason`). 303 to the view's New tab at `#find-now`, the line that says what is running or how the last run ended                                                                                                     |
+| `POST /jobs/:id/notes`  | Form field `notes` (up to 5,000 characters; CRLF is stored as LF). 303 to `/jobs/:id?notes=saved`                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `GET /runs`             | Every run with its counters; the email columns keep the counts of runs from the alert-email years (FR-11)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `POST /theme`           | The header's light/dark toggle (FR-23, DEC-061): form fields `theme` (`light` or `dark`; anything else is a 400) and optional `return` (a path on this site, the page without its notice parameters; anything else falls back to `/`). 303 back to `return`, with `Set-Cookie: theme=<light\|dark>; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly`. Every page, error pages included, puts `data-theme` on `<html>` when the cookie is `light` or `dark`, and otherwise follows the system. It is the app's only cookie                  |
+| `GET /setup`            | Setup (FR-24, DEC-066): a checklist of the profile, the LinkedIn searches and the feeds, each with its status and how to fix it; never a file's contents                                                                                                                                                                                                                                                                                                                                                                                    |
+| `GET /profile`          | The profile with an **Edit** button (FR-01); `saved=yes` shows the one-time notice after the form saved it                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `GET /profile/edit`     | The profile form: empty on a first run, the saved profile to change, or what still fits of a profile saved in an older shape                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `POST /profile`         | The profile form (FR-01, DEC-065): one text field or textarea per profile field (lists one item per line, trimmed, blank lines dropped), `seniority` from a select, `yearsExperience` a number, `relocate=yes` when the checkbox is ticked. Valid: stored like `PUT /api/profile`, then 303 to `/profile?saved=yes#notice`. Invalid: 400, the form again with each error next to its field, an error summary that takes the focus (the form posts to `/profile#errors`), and everything typed kept                                          |
+| `GET /static/<file>`    | `app.css` and `favicon.svg` only; every other name is a 404                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |

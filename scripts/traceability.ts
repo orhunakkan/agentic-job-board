@@ -59,7 +59,7 @@ export const REQUIREMENTS: readonly Requirement[] = [
   {
     id: 'FR-20',
     title: 'Scoring on the description',
-    also: 'Calibration set re-scored with match-v1 on 2026-10-25: 6/6 on the expected label (Agilent strong, DEC-050)',
+    also: 'Calibration set (tests/fixtures/calibration/) scored with match-v2 and triage-v2 on 2026-10-31: 12/12 on the expected label',
   },
   { id: 'FR-21', title: 'Clear All' },
   {
