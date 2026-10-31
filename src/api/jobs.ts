@@ -1,4 +1,5 @@
 import { transaction } from '../db/database.ts';
+import type { Repositories } from '../db/repositories/index.ts';
 import type { JobRecord } from '../db/repositories/jobs.ts';
 import { defaultSortForTab, statusesForTab } from '../domain/board-tabs.ts';
 import { sourcesForOrigin } from '../domain/job-source.ts';
@@ -12,13 +13,6 @@ import { toJobDetail, toJobSummary } from './views.ts';
 // The board's data (FR-07 to FR-10, FR-17): list with origin/tab/filters/sort, job detail, status and notes changes.
 export function jobRoutes(context: AppContext): Route[] {
   const { db, repos } = context;
-
-  function findJob(request: ApiRequest): JobRecord {
-    const jobId = parseInput(IdParamSchema, request.params['id'], 'job ID');
-    const job = repos.jobs.get(jobId);
-    if (job === null) throw new JobNotFoundError(jobId);
-    return job;
-  }
 
   return [
     {
@@ -45,13 +39,13 @@ export function jobRoutes(context: AppContext): Route[] {
     {
       method: 'GET',
       path: '/api/jobs/:id',
-      handler: (request) => ok(toJobDetail(findJob(request), repos)),
+      handler: (request) => ok(toJobDetail(findJob(repos, request), repos)),
     },
     {
       method: 'PATCH',
       path: '/api/jobs/:id',
       handler: (request) => {
-        const job = findJob(request);
+        const job = findJob(repos, request);
         const changes = parseInput(PatchJobRequestSchema, request.body);
 
         // Status and notes change together or not at all: an invalid transition also drops the notes.
@@ -63,4 +57,12 @@ export function jobRoutes(context: AppContext): Route[] {
       },
     },
   ];
+}
+
+/** The job named by the `:id` path parameter (404 when there is none); the board's pages read it the same way. */
+export function findJob(repos: Repositories, request: ApiRequest): JobRecord {
+  const jobId = parseInput(IdParamSchema, request.params['id'], 'job ID');
+  const job = repos.jobs.get(jobId);
+  if (job === null) throw new JobNotFoundError(jobId);
+  return job;
 }
