@@ -38,8 +38,8 @@ export function adzunaSearch(keyword: string, key: AdzunaKey): FeedRequest {
     source: 'adzuna',
     name,
     url: `https://api.adzuna.com/v1/api/jobs/us/search/1?${query.toString()}`,
-    read: (body) => ({
-      ...readJobs(
+    read: (body) =>
+      readJobs(
         name,
         body,
         z.object({ results: z.array(z.unknown()) }).transform((answer) => answer.results),
@@ -62,7 +62,5 @@ export function adzunaSearch(keyword: string, key: AdzunaKey): FeedRequest {
           };
         },
       ),
-      followUps: [],
-    }),
   };
 }

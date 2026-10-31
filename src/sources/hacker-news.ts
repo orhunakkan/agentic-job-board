@@ -41,8 +41,8 @@ export function hackerNewsPosts(storyId: string, roleKeywords: readonly string[]
     source: 'hackernews',
     name,
     url: `${ALGOLIA}/search?tags=comment,story_${encodeURIComponent(storyId)}&hitsPerPage=1000`,
-    read: (body) => ({
-      ...readJobs(
+    read: (body) =>
+      readJobs(
         name,
         body,
         z.object({ hits: z.array(z.unknown()) }).transform((answer) => answer.hits),
@@ -63,8 +63,6 @@ export function hackerNewsPosts(storyId: string, roleKeywords: readonly string[]
           };
         },
       ),
-      followUps: [],
-    }),
   };
 }
 

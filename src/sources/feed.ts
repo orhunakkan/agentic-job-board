@@ -28,14 +28,17 @@ export class FeedFormatError extends Error {
   override name = 'FeedFormatError';
 }
 
-/** Parses the feed's envelope (strictly enough to notice a format change) and each job on its own. */
+/**
+ * Parses the feed's envelope (strictly enough to notice a format change) and each job on its own. The result asks
+ * for no follow-ups; a feed that pages adds its own.
+ */
 export function readJobs<Job>(
   name: string,
   body: unknown,
   envelope: z.ZodType<unknown[]>,
   job: z.ZodType<Job>,
   toRaw: (job: Job) => RawListing | null,
-): { jobs: number; listings: IncomingListing[] } {
+): FeedResult {
   const parsed = envelope.safeParse(body);
   if (!parsed.success)
     throw new FeedFormatError(`${name}: unexpected answer (${String(parsed.error.issues.length)} problems)`);
@@ -47,7 +50,7 @@ export function readJobs<Job>(
     const listing = raw === null ? null : toListing(raw);
     return listing === null ? [] : [listing];
   });
-  return { jobs: parsed.data.length, listings };
+  return { jobs: parsed.data.length, listings, followUps: [] };
 }
 
 /** A path segment from the owner's config, so it can never change the host or the rest of the path. */
