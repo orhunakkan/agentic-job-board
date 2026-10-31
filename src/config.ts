@@ -63,16 +63,8 @@ const EnvSchema = z.object({
 });
 
 export function loadConfig(env: Readonly<Record<string, string | undefined>>): Config {
-  const parsed = EnvSchema.safeParse({
-    PORT: env['PORT'],
-    DB_PATH: env['DB_PATH'],
-    LOG_LEVEL: env['LOG_LEVEL'],
-    LOG_FORMAT: env['LOG_FORMAT'],
-    LINKEDIN_SESSION_PATH: env['LINKEDIN_SESSION_PATH'],
-    LINKEDIN_SEARCHES_PATH: env['LINKEDIN_SEARCHES_PATH'],
-    SOURCES_PATH: env['SOURCES_PATH'],
-    CLAUDE_COMMAND: env['CLAUDE_COMMAND'],
-  });
+  // EnvSchema reads only its own keys and drops the rest of the environment.
+  const parsed = EnvSchema.safeParse(env);
   if (!parsed.success) {
     const problems = parsed.error.issues.map((issue) => `  ${issue.path.join('.')}: ${issue.message}`);
     throw new ConfigError(`Invalid configuration (check .env, see .env.example):\n${problems.join('\n')}`);
