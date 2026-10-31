@@ -1,5 +1,5 @@
 import { readSetup, type AppContext } from '../api/context.ts';
-import type { JobRecord } from '../db/repositories/jobs.ts';
+import { findJob } from '../api/jobs.ts';
 import type { ProfileState } from '../db/repositories/profile.ts';
 import { defaultSortForTab, statusesForTab, TABS, tabForStatus } from '../domain/board-tabs.ts';
 import { ORIGINS, originOf, sourcesForOrigin, type Origin } from '../domain/job-source.ts';
@@ -8,9 +8,8 @@ import { html as htmlReply, parseInput, queryObject, redirect, type TextReply } 
 import type { ApiRequest, Route } from '../http/router.ts';
 import type { ErrorRequest } from '../http/server.ts';
 import { staticRoutes } from '../http/static.ts';
-import { changeJobStatus, dismissNewJobs, JobNotFoundError } from '../jobs/status-service.ts';
+import { changeJobStatus, dismissNewJobs } from '../jobs/status-service.ts';
 import { linkedInSessionStatus } from '../linkedin/session.ts';
-import { IdParamSchema } from '../schemas/api.ts';
 import {
   EMPTY_PROFILE_FORM,
   parseProfileForm,
@@ -61,13 +60,6 @@ export function pageRoutes(context: AppContext): Route[] {
         body,
       }),
     );
-  }
-
-  function findJob(request: ApiRequest): JobRecord {
-    const jobId = parseInput(IdParamSchema, request.params['id'], 'job ID');
-    const job = repos.jobs.get(jobId);
-    if (job === null) throw new JobNotFoundError(jobId);
-    return job;
   }
 
   function pageQuery(request: ApiRequest): Record<string, string> {
@@ -155,7 +147,7 @@ export function pageRoutes(context: AppContext): Route[] {
       method: 'GET',
       path: '/jobs/:id',
       handler: (request) => {
-        const job = findJob(request);
+        const job = findJob(repos, request);
         const query = parseInput(JobPageQuerySchema, pageQuery(request), 'query string');
         const origin = originOf(job.source);
         const body = jobDetailPage({
@@ -176,7 +168,7 @@ export function pageRoutes(context: AppContext): Route[] {
       path: '/jobs/:id/status',
       accepts: 'form',
       handler: (request) => {
-        const job = findJob(request);
+        const job = findJob(repos, request);
         const form = parseInput(StatusFormSchema, request.body, 'form');
         changeJobStatus(db, repos, job.id, form.status, context.now);
 
@@ -191,7 +183,7 @@ export function pageRoutes(context: AppContext): Route[] {
       path: '/jobs/:id/notes',
       accepts: 'form',
       handler: (request) => {
-        const job = findJob(request);
+        const job = findJob(repos, request);
         const { notes } = parseInput(NotesFormSchema, request.body, 'form');
         repos.jobs.updateNotes(job.id, notes);
         return redirect(`/jobs/${String(job.id)}?notes=saved#notice`);
