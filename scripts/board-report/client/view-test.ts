@@ -62,43 +62,51 @@ function afterPageLoad(run: () => void): void {
   else window.addEventListener('load', run, { once: true });
 }
 
-let lightbox: HTMLDialogElement | null = null;
+interface Lightbox {
+  dialog: HTMLDialogElement;
+  image: HTMLImageElement;
+  caption: HTMLParagraphElement;
+  open: HTMLAnchorElement;
+}
+
+let lightbox: Lightbox | null = null;
+
+/** The full-size screenshot dialog, made the first time a screenshot is opened and reused after that. */
+function makeLightbox(): Lightbox {
+  const image = el('img', { class: 'lightbox-image', alt: '' });
+  const caption = el('p', { class: 'lightbox-caption' });
+  const close = el('button', { type: 'button', class: 'button', text: 'Close' });
+  const open = el('a', {
+    class: 'button button-ghost',
+    target: '_blank',
+    rel: 'noopener noreferrer',
+    text: 'Open the file',
+  });
+  const dialog = el(
+    'dialog',
+    { class: 'lightbox', 'aria-label': 'Screenshot' },
+    el('div', { class: 'lightbox-bar' }, caption, el('div', { class: 'lightbox-actions' }, open, close)),
+    el('div', { class: 'lightbox-body' }, image),
+  );
+  close.addEventListener('click', () => {
+    dialog.close();
+  });
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  document.body.appendChild(dialog);
+  return { dialog, image, caption, open };
+}
 
 function openImage(path: string, name: string): void {
-  if (lightbox === null) {
-    const image = el('img', { class: 'lightbox-image', alt: '' });
-    const caption = el('p', { class: 'lightbox-caption' });
-    const close = el('button', { type: 'button', class: 'button', text: 'Close' });
-    const open = el('a', {
-      class: 'button button-ghost',
-      target: '_blank',
-      rel: 'noopener noreferrer',
-      text: 'Open the file',
-    });
-    lightbox = el(
-      'dialog',
-      { class: 'lightbox', 'aria-label': 'Screenshot' },
-      el('div', { class: 'lightbox-bar' }, caption, el('div', { class: 'lightbox-actions' }, open, close)),
-      el('div', { class: 'lightbox-body' }, image),
-    );
-    const dialog = lightbox;
-    close.addEventListener('click', () => {
-      dialog.close();
-    });
-    dialog.addEventListener('click', (event) => {
-      if (event.target === dialog) dialog.close();
-    });
-    document.body.appendChild(dialog);
-  }
-  const image = lightbox.querySelector('img');
-  const caption = lightbox.querySelector('.lightbox-caption');
-  const open = lightbox.querySelector('a');
-  image?.setAttribute('src', path);
-  image?.setAttribute('alt', name);
-  if (caption !== null) caption.textContent = name;
-  open?.setAttribute('href', path);
-  lightbox.setAttribute('aria-label', name);
-  lightbox.showModal();
+  lightbox ??= makeLightbox();
+  const { dialog, image, caption, open } = lightbox;
+  image.setAttribute('src', path);
+  image.setAttribute('alt', name);
+  caption.textContent = name;
+  open.setAttribute('href', path);
+  dialog.setAttribute('aria-label', name);
+  dialog.showModal();
 }
 
 function attachmentView(attachment: AttachmentView): HTMLElement {
