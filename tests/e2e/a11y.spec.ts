@@ -27,7 +27,7 @@ test.describe('accessibility', () => {
         title: 'Strong SDET',
         company: 'Top Co',
         score: 92,
-        rubricVersion: 'match-v1',
+        rubricVersion: 'match-v2',
         easyApply: true,
         workplace: 'remote',
         description: 'About the role\n\nOwn the test platform.',

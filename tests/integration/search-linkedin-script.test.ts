@@ -372,7 +372,7 @@ describe('scripts/search-linkedin.ts', () => {
   });
 
   describe('--backfill', () => {
-    it('FR-20: reads the job pages of LinkedIn jobs in New and Saved without a description, for match-v1', async () => {
+    it('FR-20: reads the job pages of LinkedIn jobs in New and Saved without a description, for match-v2', async () => {
       const seeded = standard();
       await searchLinkedIn(options(seeded.pages, { details: false }));
       const [first, second, third, closed] = (await linkedInJobs()).sort((left, right) =>
@@ -389,7 +389,7 @@ describe('scripts/search-linkedin.ts', () => {
       expect((await detail(first?.id ?? 0)).description).toContain('Playwright');
       expect((await detail(third?.id ?? 0)).description).toBeNull();
       const queue = ScoringQueueResponseSchema.parse((await testApp.get('/api/scoring/queue')).body);
-      expect(queue.items.filter((item) => item.rubric === 'match-v1').map((item) => item.id)).toHaveLength(2);
+      expect(queue.items.filter((item) => item.rubric === 'match-v2').map((item) => item.id)).toHaveLength(2);
       // A backfill names no search, so it doesn't move where since-last-run starts.
       const state = IngestStateResponseSchema.parse((await testApp.get('/api/ingest/state')).body);
       expect(Date.parse(state.lastLinkedInSearchAt ?? '')).toBeLessThan(Date.parse('2026-10-23T12:01:00.000Z'));

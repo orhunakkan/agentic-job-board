@@ -65,8 +65,8 @@ describe('agent/find-jobs.md examples match the API schemas', () => {
     const { items } = api.ScoringQueueResponseSchema.parse(example('ScoringQueueResponseSchema'));
 
     expect(items.map((item) => [item.rubric, item.description === null])).toEqual([
-      ['match-v1', false],
-      ['triage-v1', true],
+      ['match-v2', false],
+      ['triage-v2', true],
     ]);
   });
 });

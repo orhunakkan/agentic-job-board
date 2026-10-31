@@ -27,7 +27,7 @@ function putOnBoard(world: BoardWorld, rows: readonly JobRow[]): void {
       score: row.score,
       label: labelForScore(row.score),
       reason: 'Matches the profile.',
-      rubricVersion: row.description === null ? 'triage-v1' : 'match-v1',
+      rubricVersion: row.description === null ? 'triage-v2' : 'match-v2',
       scoredAt: world.clock(),
     });
   }

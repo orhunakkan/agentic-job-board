@@ -83,7 +83,7 @@ Given('the run received these jobs:', async function (this: BoardWorld, table: D
   const response = await storeScores(
     await this.app(),
     openRun(this),
-    'triage-v1',
+    'triage-v2',
     rows.flatMap((row) => (row.score === null ? [] : [{ jobId: this.jobId(row.title), score: row.score }])),
   );
   assert.equal(response.status, 200, response.text);
@@ -144,12 +144,12 @@ When(
 When(
   'a run scores {string} {int} but labels it {word}',
   async function (this: BoardWorld, title: string, value: number, label: string) {
-    await score(this, 'match-v1', [{ jobId: this.jobId(title), score: value, label: label.toLowerCase() }]);
+    await score(this, 'match-v2', [{ jobId: this.jobId(title), score: value, label: label.toLowerCase() }]);
   },
 );
 
 When("a run scores {string} and a job that doesn't exist", async function (this: BoardWorld, title: string) {
-  await score(this, 'match-v1', [
+  await score(this, 'match-v2', [
     { jobId: this.jobId(title), score: 80 },
     { jobId: 999999, score: 70 },
   ]);

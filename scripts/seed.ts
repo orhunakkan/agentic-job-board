@@ -196,7 +196,7 @@ export function seedDatabase(db: DatabaseSync, repos: Repositories, options: See
           score: fake.score,
           label: labelForScore(fake.score),
           reason: fake.reason,
-          rubricVersion: 'triage-v1',
+          rubricVersion: 'triage-v2',
           scoredAt: tick(),
         });
         repos.runs.addCounts(job.firstRunId ?? runIds[0] ?? 0, { jobsScored: 1 });

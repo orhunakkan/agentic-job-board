@@ -131,7 +131,7 @@ curl -s "http://127.0.0.1:3000/api/scoring/queue?limit=10"
       "salary": "$150K/yr - $180K/yr",
       "postedAt": "2026-10-24T09:00:00.000Z",
       "description": "About us\n\nWe build health software.\n\nWhat you'll do\n• Build our Playwright and TypeScript suites\n• Test our REST APIs\n\n5+ years of test automation. Remote in the US.",
-      "rubric": "match-v1",
+      "rubric": "match-v2",
       "currentRubric": null
     },
     {
@@ -144,7 +144,7 @@ curl -s "http://127.0.0.1:3000/api/scoring/queue?limit=10"
       "salary": null,
       "postedAt": null,
       "description": null,
-      "rubric": "triage-v1",
+      "rubric": "triage-v2",
       "currentRubric": null
     }
   ],
@@ -164,7 +164,7 @@ curl -s -X POST http://127.0.0.1:3000/api/runs/7/scores \
 
 ```json
 {
-  "rubricVersion": "match-v1",
+  "rubricVersion": "match-v2",
   "scores": [
     {
       "jobId": 41,
@@ -227,7 +227,7 @@ Print this summary in chat (FR-13), filling in the numbers from the replies:
 /find-jobs run 7 finished
 LinkedIn: 4 searches · 160 matching jobs · 39 new · 2 closed · 1 failed
 Feeds:    14 read · 23 matching jobs · 9 new · 0 failed
-Jobs:     48 new · 133 seen again · 51 scored (45 match-v1, 6 triage-v1)
+Jobs:     48 new · 133 seen again · 51 scored (45 match-v2, 6 triage-v2)
 
 Top new jobs
  94 strong    Senior SDET (Playwright) · Example Health · United States (Remote)

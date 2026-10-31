@@ -6,10 +6,10 @@ Feature: Scoring jobs
 
   Scenario: A stored score shows on the job with its label, its reason and its rubric
     Given the board has a job "Senior SDET"
-    When a run scores "Senior SDET" 82 with match-v1, because "Strong Playwright match."
+    When a run scores "Senior SDET" 82 with match-v2, because "Strong Playwright match."
     Then the scores are stored
     And "Senior SDET" has the score 82, labelled Strong, because "Strong Playwright match."
-    And "Senior SDET" was scored with match-v1
+    And "Senior SDET" was scored with match-v2
 
   Scenario: A label that doesn't match the score is refused
     Given the board has a job "Senior SDET"
@@ -32,5 +32,5 @@ Feature: Scoring jobs
     When I ask which jobs need a score
     Then the queue holds:
       | job         | rubric    |
-      | Senior SDET | match-v1  |
-      | QA Lead     | triage-v1 |
+      | Senior SDET | match-v2  |
+      | QA Lead     | triage-v2 |

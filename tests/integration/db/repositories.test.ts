@@ -430,42 +430,42 @@ describe('repositories', () => {
         const unscoredOld = add('1', null, '2026-10-20T00:00:00.000Z');
         const unscoredNew = add('2', 'About the job', '2026-10-22T00:00:00.000Z');
         const triaged = add('3', 'About the job', '2026-10-23T00:00:00.000Z');
-        score(triaged, 'triage-v1');
+        score(triaged, 'triage-v2');
         const saved = add('4', 'About the job', '2026-10-21T00:00:00.000Z');
-        score(saved, 'triage-v1');
+        score(saved, 'triage-v2');
         testDb.repos.jobs.updateStatus(saved, 'saved', '2026-10-23T00:00:00.000Z');
         const matched = add('5', 'About the job', '2026-10-24T00:00:00.000Z');
-        score(matched, 'match-v1');
+        score(matched, 'match-v2');
         const noDescription = add('6', null, '2026-10-24T00:00:00.000Z');
-        score(noDescription, 'triage-v1');
+        score(noDescription, 'triage-v2');
         const applied = add('7', 'About the job', '2026-10-24T00:00:00.000Z');
-        score(applied, 'triage-v1');
+        score(applied, 'triage-v2');
         testDb.repos.jobs.updateStatus(applied, 'applied', '2026-10-24T00:00:00.000Z');
         const unscoredDismissed = add('8', null, '2026-10-19T00:00:00.000Z');
         testDb.repos.jobs.updateStatus(unscoredDismissed, 'dismissed', '2026-10-24T00:00:00.000Z');
 
-        const { jobs, total } = testDb.repos.jobs.scoringQueue('match-v1', RESCORE, 10);
+        const { jobs, total } = testDb.repos.jobs.scoringQueue('match-v2', RESCORE, 10);
 
         expect(jobs.map((job) => job.id)).toEqual([unscoredNew, unscoredOld, unscoredDismissed, triaged, saved]);
         expect(total).toBe(5);
         expect(jobs[0]).toMatchObject({ description: 'About the job', score: null });
-        expect(jobs[3]).toMatchObject({ description: 'About the job', rubricVersion: 'triage-v1' });
+        expect(jobs[3]).toMatchObject({ description: 'About the job', rubricVersion: 'triage-v2' });
       });
 
       it('returns at most `limit` jobs but counts them all', () => {
         for (const id of ['1', '2', '3']) add(id, null, '2026-10-20T00:00:00.000Z');
 
-        const { jobs, total } = testDb.repos.jobs.scoringQueue('match-v1', RESCORE, 2);
+        const { jobs, total } = testDb.repos.jobs.scoringQueue('match-v2', RESCORE, 2);
 
         expect(jobs).toHaveLength(2);
         expect(total).toBe(3);
       });
 
       it('is empty once every job is scored with the right rubric', () => {
-        score(add('1', 'About the job', '2026-10-20T00:00:00.000Z'), 'match-v1');
-        score(add('2', null, '2026-10-20T00:00:00.000Z'), 'triage-v1');
+        score(add('1', 'About the job', '2026-10-20T00:00:00.000Z'), 'match-v2');
+        score(add('2', null, '2026-10-20T00:00:00.000Z'), 'triage-v2');
 
-        expect(testDb.repos.jobs.scoringQueue('match-v1', RESCORE, 10)).toEqual({ jobs: [], total: 0 });
+        expect(testDb.repos.jobs.scoringQueue('match-v2', RESCORE, 10)).toEqual({ jobs: [], total: 0 });
       });
     });
   });

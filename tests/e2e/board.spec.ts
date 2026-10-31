@@ -260,7 +260,7 @@ test.describe('board', () => {
         description: 'About the role\n\nOwn the Playwright suite.',
         searchName: 'QA family',
         score: 86,
-        rubricVersion: 'match-v1',
+        rubricVersion: 'match-v2',
       },
     ]);
 
@@ -271,7 +271,7 @@ test.describe('board', () => {
     await page.getByRole('link', { name: `Found SDET ${tag}`, exact: true }).click();
     const details = page.getByRole('region', { name: 'Details' });
     await expect(details.getByRole('definition').filter({ hasText: 'Remote' })).toBeVisible();
-    await expect(details).toContainText('match-v1: scored on the full description');
+    await expect(details).toContainText('match-v2: scored on the full description');
     await expect(page.getByRole('region', { name: 'Sightings' })).toContainText('Found by the search “QA family”');
     await expect(page.locator('.description')).toHaveText('About the role\n\nOwn the Playwright suite.');
     const { sourceJobId } = JobDetailSchema.parse(await (await request.get(`/api/jobs/${String(job?.id)}`)).json());

@@ -123,7 +123,7 @@ describe('jobs from other sources over the API', () => {
       expect(backlog.total).toBe(21);
 
       const stored = await testApp.post(`/api/runs/${String(runId)}/scores`, {
-        rubricVersion: 'triage-v1',
+        rubricVersion: 'triage-v2',
         scores: [{ jobId: first?.id, score: 90, label: 'strong', reason: 'Senior SDET with Playwright, remote US.' }],
       });
 

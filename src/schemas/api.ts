@@ -218,7 +218,7 @@ export const ScoringQueueItemSchema = z.strictObject({
   salary: z.string().nullable(),
   postedAt: IsoTimestamp.nullable(),
   description: z.string().nullable(),
-  /** match-v1 when there is a description, triage-v1 when there isn't. */
+  /** match-v2 when there is a description, triage-v2 when there isn't. */
   rubric: z.enum(RUBRICS),
   /** The score it has from another rubric, or null when it has none yet. */
   currentRubric: z.string().nullable(),

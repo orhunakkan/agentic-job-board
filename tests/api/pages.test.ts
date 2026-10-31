@@ -30,7 +30,7 @@ describe('the HTML pages', () => {
       ['Optum', 45, 'weak'],
     ] as const;
     await testApp.post(`/api/runs/${String(runId)}/scores`, {
-      rubricVersion: 'triage-v1',
+      rubricVersion: 'triage-v2',
       scores: scores.map(([company, score, label]) => ({
         jobId: jobAt(jobs, company).id,
         score,
@@ -280,8 +280,8 @@ describe('the HTML pages', () => {
       expect(detail).toContain('Created as New');
       expect(detail).toContain('Alert: Test Automation Engineer');
       expect(detail).toContain('<dt>Rubric</dt>');
-      expect(detail).toContain('triage-v1: scored on the title, company and location only');
-      expect(detail).toContain('triage-v1');
+      expect(detail).toContain('triage-v2: scored on the title, company and location only');
+      expect(detail).toContain('triage-v2');
       expect(detail).toContain('<dd>4473592349</dd>');
       expect(detail).toContain('href="/?tab=new"');
     });
