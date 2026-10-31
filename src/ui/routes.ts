@@ -1,6 +1,7 @@
 import { readSetup, type AppContext } from '../api/context.ts';
 import type { JobRecord } from '../db/repositories/jobs.ts';
-import { defaultSortForTab, statusesForTab, TABS, tabForStatus, type Tab } from '../domain/board-tabs.ts';
+import type { ProfileState } from '../db/repositories/profile.ts';
+import { defaultSortForTab, statusesForTab, TABS, tabForStatus } from '../domain/board-tabs.ts';
 import { ORIGINS, originOf, sourcesForOrigin, type Origin } from '../domain/job-source.ts';
 import { viewReady, type ProfileStatus } from '../domain/setup.ts';
 import { html as htmlReply, parseInput, queryObject, redirect, type TextReply } from '../http/respond.ts';
@@ -16,6 +17,7 @@ import {
   ProfileFormSchema,
   profileFormValues,
   profileFormValuesFromOld,
+  type ProfileFormValues,
 } from '../schemas/profile-form.ts';
 import {
   BoardActionFormSchema,
@@ -91,16 +93,13 @@ export function pageRoutes(context: AppContext): Route[] {
         };
         const sort = query.sort ?? defaultSortForTab(query.tab);
         const everyJob = { statuses: null, minScore: null, text: null, unscoredOnly: false };
-        const counts = Object.fromEntries(
-          TABS.map((tab) => [tab, repos.jobs.count({ ...everyJob, sources, statuses: statusesForTab(tab) })]),
-        ) as Record<Tab, number>;
+        const counts = countEach(TABS, (tab) =>
+          repos.jobs.count({ ...everyJob, sources, statuses: statusesForTab(tab) }),
+        );
         // The LinkedIn | Other sources switch counts each view's New jobs only (DEC-054).
-        const originCounts = Object.fromEntries(
-          ORIGINS.map((origin) => [
-            origin,
-            repos.jobs.count({ ...everyJob, sources: sourcesForOrigin(origin), statuses: statusesForTab('new') }),
-          ]),
-        ) as Record<Origin, number>;
+        const originCounts = countEach(ORIGINS, (origin) =>
+          repos.jobs.count({ ...everyJob, sources: sourcesForOrigin(origin), statuses: statusesForTab('new') }),
+        );
 
         // A page past the end (the last job on it was just moved away, or an old bookmark) shows the last page.
         const total = repos.jobs.count(filter);
@@ -230,13 +229,8 @@ export function pageRoutes(context: AppContext): Route[] {
       path: '/profile/edit',
       handler: (request) => {
         const state = repos.profile.state();
-        const view =
-          state.status === 'saved'
-            ? { values: profileFormValues(state.profile), reason: 'edit' as const }
-            : state.status === 'outdated'
-              ? { values: profileFormValuesFromOld(state.old), reason: 'outdated' as const }
-              : { values: EMPTY_PROFILE_FORM, reason: 'new' as const };
-        return page(request, 'Edit profile', 'profile', profileFormPage({ ...view, errors: {} }));
+        const view = { values: startingValues(state), errors: {}, reason: FORM_REASONS[state.status] };
+        return page(request, 'Edit profile', 'profile', profileFormPage(view));
       },
     },
     {
@@ -278,6 +272,22 @@ const FORM_REASONS: Readonly<Record<ProfileStatus, ProfileFormView['reason']>> =
   outdated: 'outdated',
   saved: 'edit',
 };
+
+/** What the profile form starts with: the saved profile, what still fits of an outdated one, or nothing. */
+function startingValues(state: ProfileState): ProfileFormValues {
+  switch (state.status) {
+    case 'saved':
+      return profileFormValues(state.profile);
+    case 'outdated':
+      return profileFormValuesFromOld(state.old);
+    case 'missing':
+      return EMPTY_PROFILE_FORM;
+  }
+}
+
+function countEach<K extends string>(keys: readonly K[], count: (key: K) => number): Record<K, number> {
+  return Object.fromEntries(keys.map((key) => [key, count(key)])) as Record<K, number>;
+}
 
 /** LinkedIn is the board's default view, so its URLs carry no origin (DEC-036). */
 function originQuery(origin: Origin): string {
